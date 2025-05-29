@@ -21,6 +21,22 @@ app_license = "mit"
 # 	}
 # ]
 
+
+scheduler_events = {
+    # “daily” fires at midnight server time
+    "daily": [
+        "pitstop_email_digest.pitstop_email_digest.doctype.pitstop_email_digest."
+        "pitstop_email_digest.auto_send_daily"
+    ],
+
+    # “weekly” fires at midnight every MONDAY
+    "weekly": [
+        "pitstop_email_digest.pitstop_email_digest.doctype.pitstop_email_digest."
+        "pitstop_email_digest.auto_send_weekly"
+    ],
+}
+
+
 # Includes in <head>
 # ------------------
 
@@ -165,6 +181,7 @@ app_license = "mit"
 # 		"pitstop_email_digest.tasks.monthly"
 # 	],
 # }
+
 
 # Testing
 # -------
