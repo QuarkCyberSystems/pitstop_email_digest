@@ -30,8 +30,11 @@
   "no_ro_branch",
   "revenue_branch",
   "new_appointments",
+  "parts_purchase_month",
   "column_break_operation",
-  "repair_order"
+  "repair_order",
+  "utilization_branch",
+  "effective_labour_branch"
  ],
  "fields": [
   {
@@ -187,11 +190,29 @@
    "fieldname": "repair_order",
    "fieldtype": "Check",
    "label": "Open Repair Orders"
+  },
+  {
+   "default": "0",
+   "fieldname": "parts_purchase_month",
+   "fieldtype": "Check",
+   "label": "Parts Purchase This month"
+  },
+  {
+   "default": "0",
+   "fieldname": "utilization_branch",
+   "fieldtype": "Check",
+   "label": "Utilization % by Branch"
+  },
+  {
+   "default": "0",
+   "fieldname": "effective_labour_branch",
+   "fieldtype": "Check",
+   "label": "Effective Labour Rate by Branch"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-28 16:14:56.421594",
+ "modified": "2025-05-29 10:15:30.177266",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Pitstop Email Digest",

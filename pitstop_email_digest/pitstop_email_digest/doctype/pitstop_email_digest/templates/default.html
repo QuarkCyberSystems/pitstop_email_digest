@@ -209,6 +209,28 @@
     {% endfor %}
 </table>
 {% endif %}
+
+
+<!--Current Records-->
+{% if insights_table %}
+<table style="width:100%; border-collapse:collapse; margin:30px 0;">
+    {% for row in insights_table %}
+        {% set header = (loop.index0 == 0) %}
+        <tr>
+            {% for col in row %}
+            <td style="
+                    border:1px solid #d1d8dd;
+                    padding:6px 8px;
+                    {% if header %}font-weight:bold;background:#f8f8f8;{% endif %}">
+                {{ col }}
+            </td>
+            {% endfor %}
+        </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+
     
 <!-- Purchase Order Items Overdue -->    
 {% if purchase_orders_items_overdue_list %}
