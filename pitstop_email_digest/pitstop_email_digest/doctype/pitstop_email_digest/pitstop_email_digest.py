@@ -62,10 +62,10 @@ class PitstopEmailDigest(CoreDigest):
         ctx.title = _("Pitstop Daily Matrix")
 
         # ----------------- KPI cards ---------------------- #
-        ctx.cards = [
-            self._annual_card("Income",  _("Annual Income")),
-            self._annual_card("Expense", _("Annual Expense")),
-        ]
+        #ctx.cards = [
+        #    self._annual_card("Income",  _("Annual Income")),
+        #   self._annual_card("Expense", _("Annual Expense")),
+        #]
 
         # ----------------- tables ------------------------- #
         #ctx.kpi_table       = self._get_workshop_kpi_table()
