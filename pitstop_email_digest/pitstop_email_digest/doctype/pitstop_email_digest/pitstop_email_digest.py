@@ -225,7 +225,7 @@ class PitstopEmailDigest(CoreDigest):
         return rows
 
     # ------------------------------------------------------ #
-    #     4. Branch-wise Revenue matrix
+    #     4. Branch-wise revenue matrix  (+ totals row)
     # ------------------------------------------------------ #
     def _get_branch_revenue(self):
         d        = _today()
@@ -236,11 +236,12 @@ class PitstopEmailDigest(CoreDigest):
             return frappe.db.sql("""
                 SELECT COALESCE(SUM(net_total),0)
                   FROM `tabSales Invoice`
-                 WHERE docstatus=1
-                   AND branch=%s
+                 WHERE docstatus = 1
+                   AND branch     = %s
                    AND posting_date BETWEEN %s AND %s
             """, (branch, start, end))[0][0] or 0
 
+        # ── collect all branches first
         branches = frappe.get_all(
             "Sales Invoice",
             filters={"docstatus": 1, "posting_date": [">=", fy_start]},
@@ -250,12 +251,22 @@ class PitstopEmailDigest(CoreDigest):
         branches.sort()
 
         od = OrderedDict()
+        total_daily = total_mtd = total_ytd = 0
+
         for br in branches:
-            od[br] = {
-                "daily": _rev(br, d,       d),
-                "mtd":   _rev(br, m_start, d),
-                "ytd":   _rev(br, fy_start, d),
-            }
+            daily = _rev(br, d,        d)
+            mtd   = _rev(br, m_start,  d)
+            ytd   = _rev(br, fy_start, d)
+
+            od[br] = {"daily": daily, "mtd": mtd, "ytd": ytd}
+
+            total_daily += daily
+            total_mtd   += mtd
+            total_ytd   += ytd
+
+        # add a “Total” row
+        od["TOTAL"] = {"daily": total_daily, "mtd": total_mtd, "ytd": total_ytd}
+
         return od
 
     # ------------------------------------------------------ #
