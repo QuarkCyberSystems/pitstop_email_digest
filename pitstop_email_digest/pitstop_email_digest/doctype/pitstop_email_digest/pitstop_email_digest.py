@@ -287,6 +287,12 @@ class PitstopEmailDigest(CoreDigest):
         PitstopEmailDigest._auto_send("Weekly")
 
 
+auto_send_daily  = PitstopEmailDigest.auto_send_daily
+auto_send_weekly = PitstopEmailDigest.auto_send_weekly
+
+
 @frappe.whitelist()
 def get_digest_msg(name):
     return frappe.get_doc("Pitstop Email Digest", name).get_msg_html()
+
+
