@@ -4,7 +4,6 @@
 import frappe
 from frappe import _
 from collections import OrderedDict
-from datetime import timedelta
 
 from erpnext.accounts.utils import get_balance_on
 from erpnext.setup.doctype.email_digest.email_digest import EmailDigest as CoreDigest
@@ -16,7 +15,7 @@ from erpnext.stock.doctype.item.item import convert_item_uom_for
 
 
 # ──────────────────────────────────────────────────────────────
-# Default fallbacks if “Projects Settings” is absent / incomplete
+# Fallbacks if “Projects Settings” is absent / incomplete
 # ──────────────────────────────────────────────────────────────
 PROJECTS_DEFAULTS = {
     "insurance_excess_item":  "INS-EXS",
@@ -29,17 +28,14 @@ PROJECTS_DEFAULTS = {
 
 
 def get_projects_settings():
-    """
-    Return a frappe._dict with all keys from PROJECTS_DEFAULTS.
-    Falls back to defaults where the singleton or a field is missing.
-    """
+    """Return dict with all keys from PROJECTS_DEFAULTS, falling back as needed."""
     try:
         doc = frappe.get_cached_doc("Projects Settings", None)
-    except Exception:  # DocType or table missing
+    except Exception:
         doc = frappe._dict()
 
-    out = {k: (doc.get(k) or PROJECTS_DEFAULTS[k]) for k in PROJECTS_DEFAULTS}
-    return frappe._dict(out)
+    merged = {k: (doc.get(k) or PROJECTS_DEFAULTS[k]) for k in PROJECTS_DEFAULTS}
+    return frappe._dict(merged)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -65,7 +61,7 @@ class PitstopEmailDigest(CoreDigest):
     """Pitstop-specific digest with eight-metric KPI matrix"""
 
     # ---------------------------------------------------
-    # Which “today”?
+    # “Today” = as_of_date if set
     # ---------------------------------------------------
     def _as_of_date(self):
         return getdate(self.as_of_date) if getattr(self, "as_of_date", None) else _server_today()
@@ -92,7 +88,7 @@ class PitstopEmailDigest(CoreDigest):
         )
 
     # ---------------------------------------------------
-    # Simple RO + Revenue cards
+    # Mini RO + Revenue table
     # ---------------------------------------------------
     def _get_workshop_kpi_table(self):
         d        = self._as_of_date()
@@ -135,7 +131,7 @@ class PitstopEmailDigest(CoreDigest):
         ]
 
     # ---------------------------------------------------
-    # Build KPI bucket for any span (8 metrics)
+    # KPI bucket for any span  (Paint+Cons+Sublet → Parts)
     # ---------------------------------------------------
     def _build_kpi(self, start_date, end_date):
         ps = get_projects_settings()
@@ -150,7 +146,7 @@ class PitstopEmailDigest(CoreDigest):
             },
         )
 
-        # 2) Fetch invoice lines (skip Insurance Excess item)
+        # 2) Invoice lines
         rows = frappe.db.sql(
             """
             SELECT
@@ -158,33 +154,42 @@ class PitstopEmailDigest(CoreDigest):
                 i.item_group, i.is_stock_item, i.base_net_amount AS net_amount
             FROM `tabSales Invoice Item` i
             JOIN `tabSales Invoice` inv ON inv.name = i.parent AND inv.docstatus = 1
-            JOIN `tabProject` p         ON p.name  = i.project
-            WHERE p.ready_to_close = 1
+            JOIN `tabProject`      p    ON p.name  = i.project
+            WHERE p.ready_to_close           = 1
               AND p.final_invoice_date BETWEEN %s AND %s
-              AND i.item_code != %s
+              AND i.item_code             != %s
             """,
             (start_date, end_date, ps.insurance_excess_item),
             as_dict=True,
         )
 
-        # 3) Item-group buckets
+        # 3) Item-group trees
         mats   = get_item_group_subtree(ps.materials_item_group)   if ps.materials_item_group   else []
         lubes  = get_item_group_subtree(ps.lubricants_item_group)  if ps.lubricants_item_group  else []
         cons   = get_item_group_subtree(ps.consumables_item_group) if ps.consumables_item_group else []
         paints = get_item_group_subtree(ps.paint_item_group)       if ps.paint_item_group       else []
+        subs   = get_item_group_subtree(ps.sublet_item_group)      if ps.sublet_item_group      else []
 
         revenue = labour_amt = parts_amt = sold_time = 0
 
         for r in rows:
             revenue += r.net_amount
 
-            if r.is_stock_item or r.item_group in mats:
-                if r.item_group not in lubes + cons + paints:
-                    parts_amt += r.net_amount
+            # --------------- Parts bucket -----------------------------
+            if (
+                r.uom != "Hour" or r.stock_uom != "Hour"
+                or r.item_group in mats
+                or r.item_group in (lubes + cons + paints + subs)   # ← Sublet added
+            ):
+                parts_amt += r.net_amount
+
+            # --------------- Labour bucket ----------------------------
             else:
                 if r.uom == "Hour" or r.stock_uom == "Hour":
                     labour_amt += r.net_amount
+                # Non-hour “package” sales stay outside both labour & parts.
 
+            # --------------- Sold hours -------------------------------
             hrs = convert_item_uom_for(
                 r.qty, r.item_code, r.uom, "Hour",
                 conversion_factor=(r.conversion_factor if r.stock_uom == "Hour" else None),
@@ -239,33 +244,31 @@ class PitstopEmailDigest(CoreDigest):
         ]
 
     # ---------------------------------------------------
-    # Branch-wise revenue (Daily / MTD / YTD) – same logic
+    # Branch-wise revenue + totals
     # ---------------------------------------------------
     def _get_branch_revenue(self):
         d        = self._as_of_date()
         fy_start = _fiscal_year_start(d)
         m_start  = getdate(f"{d.year}-{d.month:02d}-01")
 
-        ps = get_projects_settings()          # pulls defaults if singleton absent
+        ps = get_projects_settings()
 
-        # ---------- SQL helper -----------------------------------------
-        def _revenue_for(branch, start, end):
+        def _rev(branch, start, end):
             return frappe.db.sql(
                 """
                 SELECT COALESCE(SUM(i.base_net_amount),0)
-                  FROM `tabSales Invoice`       inv
+                  FROM `tabSales Invoice` inv
                   JOIN `tabSales Invoice Item` i ON i.parent = inv.name
-                  JOIN `tabProject`            p ON p.name   = i.project
-                 WHERE inv.docstatus       = 1
-                   AND p.ready_to_close    = 1
-                   AND p.branch            = %s
+                  JOIN `tabProject` p            ON p.name   = i.project
+                 WHERE inv.docstatus = 1
+                   AND p.ready_to_close = 1
+                   AND p.branch = %s
                    AND p.final_invoice_date BETWEEN %s AND %s
-                   AND i.item_code        != %s
+                   AND i.item_code != %s
                 """,
                 (branch, start, end, ps.insurance_excess_item),
             )[0][0] or 0
 
-        # ---------- gather distinct branches exactly like KPI ----------
         branches = frappe.get_all(
             "Project",
             filters={
@@ -273,18 +276,17 @@ class PitstopEmailDigest(CoreDigest):
                 "status": ("not in", ("Draft", "Cancelled")),
                 "final_invoice_date": [">=", fy_start],
             },
-            pluck="branch",
             distinct=True,
+            pluck="branch",
         )
-        branches = sorted([b for b in branches if b])  # drop None / empty
+        branches = sorted([b for b in branches if b])
 
-        # ---------- build OrderedDict with totals ----------------------
         od, td, tm, ty = OrderedDict(), 0, 0, 0
 
         for br in branches:
-            dv = _revenue_for(br, d,        d)
-            mv = _revenue_for(br, m_start,  d)
-            yv = _revenue_for(br, fy_start, d)
+            dv = _rev(br, d,        d)
+            mv = _rev(br, m_start,  d)
+            yv = _rev(br, fy_start, d)
 
             od[br] = {"daily": dv, "mtd": mv, "ytd": yv}
             td += dv; tm += mv; ty += yv
@@ -313,7 +315,7 @@ class PitstopEmailDigest(CoreDigest):
         PitstopEmailDigest._auto_send("Weekly")
 
 
-# Aliases so hooks.py can keep using “…auto_send_daily”
+# Aliases for hooks.py
 auto_send_daily  = PitstopEmailDigest.auto_send_daily
 auto_send_weekly = PitstopEmailDigest.auto_send_weekly
 
