@@ -5,22 +5,15 @@ import frappe
 from frappe import _
 from datetime import timedelta
 from collections import OrderedDict
-
 from erpnext.accounts.utils import get_balance_on
 from erpnext.setup.doctype.email_digest.email_digest import EmailDigest as CoreDigest
-
-from frappe.utils import (
-    getdate,
-    today,
-    now_datetime,
-    fmt_money,
-    get_link_to_report,
-)
+from frappe.utils import getdate, today, get_link_to_report
 
 # ──────────────────────────────────────────────────────────────
-# Helper – dates
+# Helpers – dates
 # ──────────────────────────────────────────────────────────────
-def _today():
+def _system_today():
+    """Server date (YYYY-MM-DD) → datetime.date"""
     return getdate(today())
 
 
@@ -30,49 +23,41 @@ def _fiscal_year_start(d):
         {"year_start_date": ("<=", d), "year_end_date": (">=", d)},
         "year_start_date",
     )
-    # fall back to 1 Jan of the current year
     return fy_start or getdate(f"{d.year}-01-01")
 
 
 # ──────────────────────────────────────────────────────────────
-# Main class – extends ERPNext EmailDigest
+# Main class
 # ──────────────────────────────────────────────────────────────
 class PitstopEmailDigest(CoreDigest):
     """
-    Adds Pitstop-specific cards and KPI tables to the standard
-    ERPNext Email Digest.
+    Custom digest that supports an optional **as_of_date** field
+    on the DocType. If filled, all KPIs are calculated up to that
+    date; otherwise the current server date is used.
     """
 
     # ------------------------------------------------------ #
-    # Public API for “View now” button
+    # Helpers
     # ------------------------------------------------------ #
+    def _as_of_date(self):
+        """Return the effective 'today' date for this instance."""
+        return getdate(self.as_of_date) if getattr(self, "as_of_date", None) else _system_today()
 
     # ------------------------------------------------------ #
     # HTML builder
     # ------------------------------------------------------ #
     def get_msg_html(self):
         ctx = frappe._dict()
-        ctx.update(self.__dict__)          # inherit parent attrs
+        ctx.update(self.__dict__)
 
-        # -------------------------------------------------- #
-        # titles / colours from parent
-        # -------------------------------------------------- #
         self.set_title(ctx)
         self.set_style(ctx)
         ctx.title = _("Pitstop Daily Matrix")
 
-        # ----------------- KPI cards ---------------------- #
-        #ctx.cards = [
-        #    self._annual_card("Income",  _("Annual Income")),
-        #   self._annual_card("Expense", _("Annual Expense")),
-        #]
-
-        # ----------------- tables ------------------------- #
-        #ctx.kpi_table       = self._get_workshop_kpi_table()
+        ctx.kpi_table       = self._get_workshop_kpi_table()
         ctx.insights_table  = self._get_expanded_kpi_table()
         ctx.branch_revenue  = self._get_branch_revenue()
 
-        # ----------------- render ------------------------- #
         return frappe.render_template(
             "pitstop_email_digest/doctype/pitstop_email_digest/templates/default.html",
             ctx,
@@ -80,73 +65,55 @@ class PitstopEmailDigest(CoreDigest):
         )
 
     # ------------------------------------------------------ #
-    #     1. Annual Income / Expense cards
-    # ------------------------------------------------------ #
-    def _annual_card(self, root_type: str, label: str):
-        value = self._root_balance(root_type)
-        link  = get_link_to_report("Profit and Loss Statement", label=label)
-        return frappe._dict(label=link, value=frappe.format_value(value, "Currency"))
-
-    def _root_balance(self, root_type: str):
-        d        = _today()
-        fy_start = _fiscal_year_start(d)
-
-        accounts = frappe.get_all(
-            "Account",
-            filters={"root_type": root_type, "is_group": 0, "company": self.company},
-            pluck="name",
-        )
-
-        bal = 0
-        for acc in accounts:
-            bal += get_balance_on(acc, date=d) - get_balance_on(acc, date=fy_start - timedelta(days=1))
-        return bal
-
-    # ------------------------------------------------------ #
-    #     2. Original KPI table (ROs + Revenue only)
+    # 1. Simple KPI (ROs + Revenue)
     # ------------------------------------------------------ #
     def _get_workshop_kpi_table(self):
-        d        = _today()
+        d        = self._as_of_date()
         fy_start = _fiscal_year_start(d)
         m_start  = getdate(f"{d.year}-{d.month:02d}-01")
 
         def _vals(start, end):
-            ro  = frappe.db.count("Sales Invoice", {"docstatus": 1, "posting_date": ["between", (start, end)]})
-            rev = frappe.db.sql("""
-                    SELECT COALESCE(SUM(net_total),0)
-                      FROM `tabSales Invoice`
-                     WHERE docstatus=1
-                       AND posting_date BETWEEN %s AND %s
-                """, (start, end))[0][0] or 0
+            ro = frappe.db.count(
+                "Sales Invoice",
+                {"docstatus": 1, "posting_date": ["between", (start, end)]},
+            )
+            rev = frappe.db.sql(
+                """SELECT COALESCE(SUM(net_total),0)
+                     FROM `tabSales Invoice`
+                    WHERE docstatus=1
+                      AND posting_date BETWEEN %s AND %s""",
+                (start, end),
+            )[0][0] or 0
             return ro, rev
 
         y_ro, y_rev = _vals(fy_start, d)
         m_ro, m_rev = _vals(m_start, d)
         d_ro, d_rev = _vals(d, d)
 
-        fmt = frappe.format_value
+        money2 = lambda v: f"{v:,.2f}"
+
         return [
-            ["Desc",           "Daily",                 "MTD",                "YTD"],
-            ["No. of ROs",     d_ro,                    m_ro,                 y_ro],
-            ["Revenue Booked", fmt(d_rev, "Currency"),  fmt(m_rev, "Currency"), fmt(y_rev, "Currency")],
+            ["Desc", "Daily", "MTD", "YTD"],
+            ["No. of ROs",     d_ro,          m_ro,          y_ro],
+            ["Revenue Booked", money2(d_rev), money2(m_rev), money2(y_rev)],
         ]
 
     # ------------------------------------------------------ #
-    #     3. **NEW** expanded KPI table (labour, parts, etc.)
+    # 2. Expanded KPI matrix (two-decimal)
     # ------------------------------------------------------ #
     def _get_expanded_kpi_table(self):
-        d        = _today()
+        d        = self._as_of_date()
         fy_start = _fiscal_year_start(d)
         m_start  = getdate(f"{d.year}-{d.month:02d}-01")
 
-        # ---------- helper --------------------------------------------------
-        def get_values(start_date, end_date):
-            ro_count = frappe.db.count("Sales Invoice", {
-                "docstatus": 1,
-                "posting_date": ["between", (start_date, end_date)],
-            })
+        def get_vals(start_date, end_date):
+            ro_count = frappe.db.count(
+                "Sales Invoice",
+                {"docstatus": 1, "posting_date": ["between", (start_date, end_date)]},
+            )
 
-            labour = frappe.db.sql("""
+            labour = frappe.db.sql(
+                """
                 SELECT COALESCE(SUM(qty),0)  AS hrs,
                        COALESCE(SUM(amount),0) AS amt
                   FROM `tabSales Invoice Item`
@@ -156,9 +123,13 @@ class PitstopEmailDigest(CoreDigest):
                         WHERE docstatus = 1
                           AND posting_date BETWEEN %s AND %s
                  )
-            """, (start_date, end_date), as_dict=True)[0]
+                """,
+                (start_date, end_date),
+                as_dict=True,
+            )[0]
 
-            parts_amt = frappe.db.sql("""
+            parts_amt = frappe.db.sql(
+                """
                 SELECT COALESCE(SUM(amount),0)
                   FROM `tabSales Invoice Item`
                  WHERE item_group IN (
@@ -170,17 +141,21 @@ class PitstopEmailDigest(CoreDigest):
                         WHERE docstatus = 1
                           AND posting_date BETWEEN %s AND %s
                  )
-            """, (start_date, end_date))[0][0] or 0
+                """,
+                (start_date, end_date),
+            )[0][0] or 0
 
-            revenue = frappe.db.sql("""
+            revenue = frappe.db.sql(
+                """
                 SELECT COALESCE(SUM(net_total),0)
                   FROM `tabSales Invoice`
                  WHERE docstatus = 1
                    AND posting_date BETWEEN %s AND %s
-            """, (start_date, end_date))[0][0] or 0
+                """,
+                (start_date, end_date),
+            )[0][0] or 0
 
-            hrs = labour.hrs or 0
-            amt = labour.amt or 0
+            hrs, amt = labour.hrs or 0, labour.amt or 0
             ratio = round(parts_amt / amt, 2) if amt else 0
 
             return {
@@ -189,20 +164,18 @@ class PitstopEmailDigest(CoreDigest):
                 "labour_amount":   amt,
                 "parts_amount":    parts_amt,
                 "revenue":         revenue,
-                "labour_rate":     round(amt / hrs, 2) if hrs else 0,
-                "hours_per_ro":    round(hrs / ro_count, 2) if ro_count else 0,
+                "labour_rate":     (amt / hrs) if hrs else 0,
+                "hours_per_ro":    (hrs / ro_count) if ro_count else 0,
                 "parts_to_labour": f"1 : {ratio}",
             }
 
-        # ---------- three periods -----------------------------------------
-        daily = get_values(d,        d)
-        mtd   = get_values(m_start,  d)
-        ytd   = get_values(fy_start, d)
+        daily = get_vals(d,        d)
+        mtd   = get_vals(m_start,  d)
+        ytd   = get_vals(fy_start, d)
 
-        def fmt_if_money(v):
-            return frappe.format_value(v, "Currency") if isinstance(v, (int, float)) and abs(v) >= 1 else v
+        fmt2 = lambda v: f"{v:,.2f}" if isinstance(v, (int, float)) else v
 
-        rows = [["Metric", "Daily", "MTD", "YTD"]]          # <-- NEW column order
+        rows = [["Metric", "Daily", "MTD", "YTD"]]
         metrics = [
             ("No. of Repair Orders",  "ro_count"),
             ("Labour Hours",          "labour_hours"),
@@ -215,66 +188,61 @@ class PitstopEmailDigest(CoreDigest):
         ]
 
         for label, key in metrics:
-            rows.append([
-                label,
-                fmt_if_money(daily.get(key)),
-                fmt_if_money(mtd.get(key)),
-                fmt_if_money(ytd.get(key)),
-            ])
+            rows.append([label, fmt2(daily[key]), fmt2(mtd[key]), fmt2(ytd[key])])
 
         return rows
 
     # ------------------------------------------------------ #
-    #     4. Branch-wise revenue matrix  (+ totals row)
+    # 3. Branch-wise revenue (totals row)
     # ------------------------------------------------------ #
     def _get_branch_revenue(self):
-        d        = _today()
+        d        = self._as_of_date()
         fy_start = _fiscal_year_start(d)
         m_start  = getdate(f"{d.year}-{d.month:02d}-01")
 
         def _rev(branch, start, end):
-            return frappe.db.sql("""
+            return frappe.db.sql(
+                """
                 SELECT COALESCE(SUM(net_total),0)
                   FROM `tabSales Invoice`
                  WHERE docstatus = 1
-                   AND branch     = %s
+                   AND branch = %s
                    AND posting_date BETWEEN %s AND %s
-            """, (branch, start, end))[0][0] or 0
+                """,
+                (branch, start, end),
+            )[0][0] or 0
 
-        # ── collect all branches first
         branches = frappe.get_all(
             "Sales Invoice",
             filters={"docstatus": 1, "posting_date": [">=", fy_start]},
-            pluck="branch",
             distinct=True,
+            pluck="branch",
         )
         branches.sort()
 
         od = OrderedDict()
-        total_daily = total_mtd = total_ytd = 0
+        td = tm = ty = 0
 
         for br in branches:
-            daily = _rev(br, d,        d)
-            mtd   = _rev(br, m_start,  d)
-            ytd   = _rev(br, fy_start, d)
+            dv = _rev(br, d,        d)
+            mv = _rev(br, m_start,  d)
+            yv = _rev(br, fy_start, d)
 
-            od[br] = {"daily": daily, "mtd": mtd, "ytd": ytd}
+            od[br] = {"daily": dv, "mtd": mv, "ytd": yv}
+            td += dv; tm += mv; ty += yv
 
-            total_daily += daily
-            total_mtd   += mtd
-            total_ytd   += ytd
-
-        # add a “Total” row
-        od["TOTAL"] = {"daily": total_daily, "mtd": total_mtd, "ytd": total_ytd}
-
+        od["TOTAL"] = {"daily": td, "mtd": tm, "ytd": ty}
         return od
 
     # ------------------------------------------------------ #
-    #     5. Scheduler hooks
+    # 4. Scheduler helpers
     # ------------------------------------------------------ #
+    @staticmethod
     def _auto_send(freq):
         for d in frappe.get_all(
-            "Pitstop Email Digest", filters={"enabled": 1, "frequency": freq}, pluck="name"
+            "Pitstop Email Digest",
+            filters={"enabled": 1, "frequency": freq},
+            pluck="name",
         ):
             frappe.get_doc("Pitstop Email Digest", d).send()
 
@@ -287,12 +255,16 @@ class PitstopEmailDigest(CoreDigest):
         PitstopEmailDigest._auto_send("Weekly")
 
 
+# ──────────────────────────────────────────────────────────────
+# Aliases for scheduler dotted paths
+# ──────────────────────────────────────────────────────────────
 auto_send_daily  = PitstopEmailDigest.auto_send_daily
 auto_send_weekly = PitstopEmailDigest.auto_send_weekly
 
 
+# ──────────────────────────────────────────────────────────────
+# Desk preview helper
+# ──────────────────────────────────────────────────────────────
 @frappe.whitelist()
 def get_digest_msg(name):
     return frappe.get_doc("Pitstop Email Digest", name).get_msg_html()
-
-

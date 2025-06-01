@@ -12,6 +12,7 @@
   "company",
   "frequency",
   "next_send",
+  "as_of_date",
   "column_break1",
   "recipient_list",
   "addremove_recipients",
@@ -208,11 +209,16 @@
    "fieldname": "effective_labour_branch",
    "fieldtype": "Check",
    "label": "Effective Labour Rate by Branch"
+  },
+  {
+   "fieldname": "as_of_date",
+   "fieldtype": "Date",
+   "label": "As of Date"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-29 10:15:30.177266",
+ "modified": "2025-06-01 11:35:56.598044",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Pitstop Email Digest",
