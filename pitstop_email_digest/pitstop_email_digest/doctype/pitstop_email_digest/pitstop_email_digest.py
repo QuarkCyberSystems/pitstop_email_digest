@@ -1,21 +1,25 @@
-# Copyright (c) 2025, QCS
-# License: GPL-v3
+# Copyright © 2025, QCS
+# License: GPL-3.0
 
 import frappe
 from frappe import _
 from collections import OrderedDict
-
+from datetime import timedelta
+from frappe.utils import getdate, today, flt
 from erpnext.accounts.utils import get_balance_on
 from erpnext.setup.doctype.email_digest.email_digest import EmailDigest as CoreDigest
-
-# utils / helpers
-from frappe.utils import getdate, today, get_link_to_report, flt
 from erpnext.setup.doctype.item_group.item_group import get_item_group_subtree
 from erpnext.stock.doctype.item.item import convert_item_uom_for
 
+# ──────────────────────────────────────────────────────────────
+# Currency helper – always '1,234.00' (string, no AED suffix)
+# Template still appends “ AED”.
+# ──────────────────────────────────────────────────────────────
+def round_dirham(val) -> str:
+    return f"{round(flt(val or 0)):,.0f}.00"
 
 # ──────────────────────────────────────────────────────────────
-# Fallbacks if “Projects Settings” is absent / incomplete
+# Fallbacks for Projects Settings
 # ──────────────────────────────────────────────────────────────
 PROJECTS_DEFAULTS = {
     "insurance_excess_item":  "INS-EXS",
@@ -26,17 +30,12 @@ PROJECTS_DEFAULTS = {
     "sublet_item_group":      "Sublet Jobs",
 }
 
-
 def get_projects_settings():
-    """Return dict with all keys from PROJECTS_DEFAULTS, falling back as needed."""
     try:
         doc = frappe.get_cached_doc("Projects Settings", None)
     except Exception:
         doc = frappe._dict()
-
-    merged = {k: (doc.get(k) or PROJECTS_DEFAULTS[k]) for k in PROJECTS_DEFAULTS}
-    return frappe._dict(merged)
-
+    return frappe._dict({k: doc.get(k) or PROJECTS_DEFAULTS[k] for k in PROJECTS_DEFAULTS})
 
 # ──────────────────────────────────────────────────────────────
 # Date helpers
@@ -44,8 +43,7 @@ def get_projects_settings():
 def _server_today():
     return getdate(today())
 
-
-def _fiscal_year_start(d):
+def _fy_start(d):
     fy = frappe.db.get_value(
         "Fiscal Year",
         {"year_start_date": ("<=", d), "year_end_date": (">=", d)},
@@ -53,56 +51,44 @@ def _fiscal_year_start(d):
     )
     return fy or getdate(f"{d.year}-01-01")
 
-
 # ──────────────────────────────────────────────────────────────
-# Main Digest Class
+# Main Digest class
 # ──────────────────────────────────────────────────────────────
 class PitstopEmailDigest(CoreDigest):
-    """Pitstop-specific digest with eight-metric KPI matrix"""
 
-    # ---------------------------------------------------
-    # “Today” = as_of_date if set
-    # ---------------------------------------------------
+    # -----------------------------------------------------------
     def _as_of_date(self):
         return getdate(self.as_of_date) if getattr(self, "as_of_date", None) else _server_today()
 
-    # ---------------------------------------------------
-    # Render full HTML
-    # ---------------------------------------------------
+    # -----------------------------------------------------------
     def get_msg_html(self):
         ctx = frappe._dict()
         ctx.update(self.__dict__)
-
         self.set_title(ctx)
         self.set_style(ctx)
         ctx.title = _("Pitstop Daily Matrix")
 
-        #ctx.kpi_table       = self._get_workshop_kpi_table()
-        ctx.insights_table  = self._get_expanded_kpi_table()
-        ctx.branch_revenue  = self._get_branch_revenue()
+        ctx.kpi_table      = self._mini_kpi_table()
+        ctx.insights_table = self._expanded_kpi_table()
+        ctx.branch_revenue = self._branch_revenue()  # values already rounded
 
         return frappe.render_template(
             "pitstop_email_digest/doctype/pitstop_email_digest/templates/default.html",
-            ctx,
-            is_path=True,
+            ctx, is_path=True
         )
 
-    # ---------------------------------------------------
-    # Mini RO + Revenue table
-    # ---------------------------------------------------
-    def _get_workshop_kpi_table(self):
-        d        = self._as_of_date()
-        m_start  = getdate(f"{d.year}-{d.month:02d}-01")
-        fy_start = _fiscal_year_start(d)
+    # =================  MINI KPI (RO + Revenue)  ======================
+    def _mini_kpi_table(self):
+        d   = self._as_of_date()
+        m0  = getdate(f"{d.year}-{d.month:02d}-01")
+        y0  = _fy_start(d)
 
         def _vals(start, end):
             ro = frappe.db.count(
                 "Project",
-                {
-                    "ready_to_close": 1,
-                    "status": ("not in", ("Draft", "Cancelled")),
-                    "final_invoice_date": ["between", (start, end)],
-                },
+                {"ready_to_close": 1,
+                 "status": ("not in", ("Draft", "Cancelled")),
+                 "final_invoice_date": ["between", (start, end)]},
             )
             rev = frappe.db.sql(
                 """
@@ -113,30 +99,98 @@ class PitstopEmailDigest(CoreDigest):
                  WHERE inv.docstatus = 1
                    AND p.ready_to_close = 1
                    AND p.final_invoice_date BETWEEN %s AND %s
-                """,
-                (start, end),
+                """, (start, end)
             )[0][0] or 0
-            return ro, rev
+            return ro, round_dirham(rev)
 
         d_ro, d_rev = _vals(d, d)
-        m_ro, m_rev = _vals(m_start, d)
-        y_ro, y_rev = _vals(fy_start, d)
-
-        money = lambda v: f"{flt(v):,.2f}"
+        m_ro, m_rev = _vals(m0, d)
+        y_ro, y_rev = _vals(y0, d)
 
         return [
-            ["Desc", "Daily", "MTD", "YTD"],
-            ["No. of ROs",     d_ro,  m_ro,  y_ro],
-            ["Revenue",        money(d_rev), money(m_rev), money(y_rev)],
+            ["Metric",     "Daily", "MTD",  "YTD"],
+            ["No. of ROs", d_ro,    m_ro,   y_ro],
+            ["Revenue",    d_rev,   m_rev,  y_rev],
         ]
 
-    # ---------------------------------------------------
-    # KPI bucket for any span  (Paint+Cons+Sublet → Parts)
-    # ---------------------------------------------------
+    # =================  EXPANDED KPI TABLE  ===========================
+    def _expanded_kpi_table(self):
+        d   = self._as_of_date()
+        m0  = getdate(f"{d.year}-{d.month:02d}-01")
+        y0  = _fy_start(d)
+
+        daily = self._build_kpi(d,  d)
+        mtd   = self._build_kpi(m0, d)
+        ytd   = self._build_kpi(y0, d)
+
+        int_fmt = lambda v: f"{int(v):,}"
+        ratio   = lambda row: f"1 : {flt(row.parts_to_labour):,.2f}"
+
+        return [
+            ["Metric",               "Daily",                         "MTD",                          "YTD"],
+            ["No. of ROs",           int_fmt(daily.ro_count),         int_fmt(mtd.ro_count),          int_fmt(ytd.ro_count)],
+            ["Labour Hours",         round_dirham(daily.labour_hours), round_dirham(mtd.labour_hours), round_dirham(ytd.labour_hours)],
+            ["Revenue",              round_dirham(daily.revenue),     round_dirham(mtd.revenue),      round_dirham(ytd.revenue)],
+            ["Labour Amount",        round_dirham(daily.labour_amount),round_dirham(mtd.labour_amount),round_dirham(ytd.labour_amount)],
+            ["Parts Amount",         round_dirham(daily.parts_amount), round_dirham(mtd.parts_amount), round_dirham(ytd.parts_amount)],
+            ["Effective Labour Rate",round_dirham(daily.labour_rate),  round_dirham(mtd.labour_rate),  round_dirham(ytd.labour_rate)],
+            ["Hours per RO",         round_dirham(daily.hours_per_ro), round_dirham(mtd.hours_per_ro), round_dirham(ytd.hours_per_ro)],
+            ["Parts : Labour Ratio", ratio(daily),                    ratio(mtd),                     ratio(ytd)],
+        ]
+
+    # ------------------------------------------------------------------
+    # Branch-wise revenue (rounded strings)
+    # ------------------------------------------------------------------
+    def _branch_revenue(self):
+        d  = self._as_of_date()
+        y0 = _fy_start(d)
+        m0 = getdate(f"{d.year}-{d.month:02d}-01")
+        ps = get_projects_settings()
+
+        def _rev(branch, start, end):
+            return frappe.db.sql(
+                """
+                SELECT COALESCE(SUM(i.base_net_amount),0)
+                  FROM `tabSales Invoice` inv
+                  JOIN `tabSales Invoice Item` i ON i.parent = inv.name
+                  JOIN `tabProject` p            ON p.name   = i.project
+                 WHERE inv.docstatus = 1
+                   AND p.ready_to_close = 1
+                   AND p.branch = %s
+                   AND p.final_invoice_date BETWEEN %s AND %s
+                   AND i.item_code != %s
+                """, (branch, start, end, ps.insurance_excess_item)
+            )[0][0] or 0
+
+        branches = frappe.get_all(
+            "Project",
+            filters={
+                "ready_to_close": 1,
+                "status": ("not in", ("Draft", "Cancelled")),
+                "final_invoice_date": [">=", y0],
+            },
+            distinct=True,
+            pluck="branch",
+        )
+        branches = sorted([b for b in branches if b])
+
+        od, td, tm, ty = OrderedDict(), 0, 0, 0
+        for br in branches:
+            dv = _rev(br, d, d)
+            mv = _rev(br, m0, d)
+            yv = _rev(br, y0, d)
+            od[br] = {"daily": round_dirham(dv), "mtd": round_dirham(mv), "ytd": round_dirham(yv)}
+            td += dv; tm += mv; ty += yv
+
+        od["TOTAL"] = {"daily": round_dirham(td), "mtd": round_dirham(tm), "ytd": round_dirham(ty)}
+        return od
+
+    # ------------------------------------------------------------------
+    # Heavy KPI builder (unchanged)
+    # ------------------------------------------------------------------
     def _build_kpi(self, start_date, end_date):
         ps = get_projects_settings()
 
-        # 1) Closed-RO count
         ro_count = frappe.db.count(
             "Project",
             {
@@ -146,7 +200,6 @@ class PitstopEmailDigest(CoreDigest):
             },
         )
 
-        # 2) Invoice lines
         rows = frappe.db.sql(
             """
             SELECT
@@ -154,42 +207,35 @@ class PitstopEmailDigest(CoreDigest):
                 i.item_group, i.is_stock_item, i.base_net_amount AS net_amount
             FROM `tabSales Invoice Item` i
             JOIN `tabSales Invoice` inv ON inv.name = i.parent AND inv.docstatus = 1
-            JOIN `tabProject`      p    ON p.name  = i.project
-            WHERE p.ready_to_close           = 1
+            JOIN `tabProject`       p   ON p.name  = i.project
+            WHERE p.ready_to_close            = 1
               AND p.final_invoice_date BETWEEN %s AND %s
-              AND i.item_code             != %s
+              AND i.item_code                != %s
             """,
             (start_date, end_date, ps.insurance_excess_item),
             as_dict=True,
         )
 
-        # 3) Item-group trees
-        mats   = get_item_group_subtree(ps.materials_item_group)   if ps.materials_item_group   else []
-        lubes  = get_item_group_subtree(ps.lubricants_item_group)  if ps.lubricants_item_group  else []
-        cons   = get_item_group_subtree(ps.consumables_item_group) if ps.consumables_item_group else []
-        paints = get_item_group_subtree(ps.paint_item_group)       if ps.paint_item_group       else []
-        subs   = get_item_group_subtree(ps.sublet_item_group)      if ps.sublet_item_group      else []
+        mats   = get_item_group_subtree(ps.materials_item_group)   or []
+        lubes  = get_item_group_subtree(ps.lubricants_item_group)  or []
+        cons   = get_item_group_subtree(ps.consumables_item_group) or []
+        paints = get_item_group_subtree(ps.paint_item_group)       or []
+        subs   = get_item_group_subtree(ps.sublet_item_group)      or []
 
         revenue = labour_amt = parts_amt = sold_time = 0
 
         for r in rows:
             revenue += r.net_amount
 
-            # --------------- Parts bucket -----------------------------
+            # Parts bucket
             if (
                 r.uom != "Hour" or r.stock_uom != "Hour"
-                or r.item_group in mats
-                or r.item_group in (lubes + cons + paints + subs)   # ← Sublet added
+                or r.item_group in mats + lubes + cons + paints + subs
             ):
                 parts_amt += r.net_amount
-
-            # --------------- Labour bucket ----------------------------
             else:
-                if r.uom == "Hour" or r.stock_uom == "Hour":
-                    labour_amt += r.net_amount
-                # Non-hour “package” sales stay outside both labour & parts.
+                labour_amt += r.net_amount
 
-            # --------------- Sold hours -------------------------------
             hrs = convert_item_uom_for(
                 r.qty, r.item_code, r.uom, "Hour",
                 conversion_factor=(r.conversion_factor if r.stock_uom == "Hour" else None),
@@ -213,90 +259,9 @@ class PitstopEmailDigest(CoreDigest):
             parts_to_labour = parts_ratio,
         )
 
-    # ---------------------------------------------------
-    # Extended KPI table (Daily / MTD / YTD)
-    # ---------------------------------------------------
-    def _get_expanded_kpi_table(self):
-        d   = self._as_of_date()
-        m0  = getdate(f"{d.year}-{d.month:02d}-01")
-        y0  = _fiscal_year_start(d)
-
-        daily = self._build_kpi(d,  d)
-        mtd   = self._build_kpi(m0, d)
-        ytd   = self._build_kpi(y0, d)
-
-        f2 = lambda v: f"{flt(v):,.2f}"
-        i0 = lambda v: f"{int(v):,}"
-
-        def ratio(row):
-            return f"1 : {f2(row.parts_to_labour)}"
-
-        return [
-            ["Metric",              "Daily",                  "MTD",                   "YTD"],
-            ["No. of Repair Orders", i0(daily.ro_count),       i0(mtd.ro_count),        i0(ytd.ro_count)],
-            ["Labour Hours",         f2(daily.labour_hours),   f2(mtd.labour_hours),    f2(ytd.labour_hours)],
-            ["Revenue",              f2(daily.revenue),        f2(mtd.revenue),         f2(ytd.revenue)],
-            ["Labour Amount",        f2(daily.labour_amount),  f2(mtd.labour_amount),   f2(ytd.labour_amount)],
-            ["Parts Amount",         f2(daily.parts_amount),   f2(mtd.parts_amount),    f2(ytd.parts_amount)],
-            ["Effective Labour Rate",f2(daily.labour_rate),    f2(mtd.labour_rate),     f2(ytd.labour_rate)],
-            ["Hours per RO",         f2(daily.hours_per_ro),   f2(mtd.hours_per_ro),    f2(ytd.hours_per_ro)],
-            ["Parts : Labour Ratio", ratio(daily),             ratio(mtd),              ratio(ytd)],
-        ]
-
-    # ---------------------------------------------------
-    # Branch-wise revenue + totals
-    # ---------------------------------------------------
-    def _get_branch_revenue(self):
-        d        = self._as_of_date()
-        fy_start = _fiscal_year_start(d)
-        m_start  = getdate(f"{d.year}-{d.month:02d}-01")
-
-        ps = get_projects_settings()
-
-        def _rev(branch, start, end):
-            return frappe.db.sql(
-                """
-                SELECT COALESCE(SUM(i.base_net_amount),0)
-                  FROM `tabSales Invoice` inv
-                  JOIN `tabSales Invoice Item` i ON i.parent = inv.name
-                  JOIN `tabProject` p            ON p.name   = i.project
-                 WHERE inv.docstatus = 1
-                   AND p.ready_to_close = 1
-                   AND p.branch = %s
-                   AND p.final_invoice_date BETWEEN %s AND %s
-                   AND i.item_code != %s
-                """,
-                (branch, start, end, ps.insurance_excess_item),
-            )[0][0] or 0
-
-        branches = frappe.get_all(
-            "Project",
-            filters={
-                "ready_to_close": 1,
-                "status": ("not in", ("Draft", "Cancelled")),
-                "final_invoice_date": [">=", fy_start],
-            },
-            distinct=True,
-            pluck="branch",
-        )
-        branches = sorted([b for b in branches if b])
-
-        od, td, tm, ty = OrderedDict(), 0, 0, 0
-
-        for br in branches:
-            dv = _rev(br, d,        d)
-            mv = _rev(br, m_start,  d)
-            yv = _rev(br, fy_start, d)
-
-            od[br] = {"daily": dv, "mtd": mv, "ytd": yv}
-            td += dv; tm += mv; ty += yv
-
-        od["TOTAL"] = {"daily": td, "mtd": tm, "ytd": ty}
-        return od
-
-    # ---------------------------------------------------
+    # ------------------------------------------------------------------
     # Scheduler helpers
-    # ---------------------------------------------------
+    # ------------------------------------------------------------------
     @staticmethod
     def _auto_send(freq):
         for name in frappe.get_all(
@@ -314,13 +279,10 @@ class PitstopEmailDigest(CoreDigest):
     def auto_send_weekly():
         PitstopEmailDigest._auto_send("Weekly")
 
-
-# Aliases for hooks.py
+# Hooks aliases
 auto_send_daily  = PitstopEmailDigest.auto_send_daily
 auto_send_weekly = PitstopEmailDigest.auto_send_weekly
 
-
-# Desk preview API
 @frappe.whitelist()
 def get_digest_msg(name):
     return frappe.get_doc("Pitstop Email Digest", name).get_msg_html()
