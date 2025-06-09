@@ -22,16 +22,20 @@ app_license = "mit"
 # ]
 
 
-scheduler_events = {
-    # “daily” fires at midnight server time
-    "daily": [
-        "pitstop_email_digest.pitstop_email_digest.doctype.pitstop_email_digest.pitstop_email_digest.auto_send_daily"
-    ],
 
-    # “weekly” fires at midnight every MONDAY
-    "weekly": [
-        "pitstop_email_digest.pitstop_email_digest.doctype.pitstop_email_digest.pitstop_email_digest.auto_send_weekly"
-    ],
+
+scheduler_events = {
+    "cron": {
+        # every day 23:55 server time
+        "55 23 * * *":
+            "pitstop_email_digest.pitstop_email_digest.doctype."
+            "pitstop_email_digest.pitstop_email_digest.auto_send_daily",
+
+        # every Sunday 23:55  (i.e. 5 minutes before Monday)
+        "55 23 * * 0":
+            "pitstop_email_digest.pitstop_email_digest.doctype."
+            "pitstop_email_digest.pitstop_email_digest.auto_send_weekly",
+    }
 }
 
 
