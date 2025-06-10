@@ -29,7 +29,7 @@
 <h4 style="font-weight: normal; color: {{ text_muted }}; margin-top: 7px; font-size: 16px;">
     <p>
         {% if frequency == "Daily" %}
-            {{ frappe.format_date(frappe.utils.add_days(future_from_date, 1)) }}
+            {{ frappe.format_date(future_from_date) }}
         {% else %}
             {{ frappe.format_date(future_from_date) }} - {{ frappe.format_date(future_to_date) }}
         {% endif %}
