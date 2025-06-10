@@ -68,7 +68,7 @@ class PitstopEmailDigest(CoreDigest):
         self.set_style(ctx)
         ctx.title = _("Pitstop Daily Matrix")
 
-        ctx.kpi_table      = self._mini_kpi_table()
+        #ctx.kpi_table      = self._mini_kpi_table()
         ctx.insights_table = self._expanded_kpi_table()
         ctx.branch_revenue = self._branch_revenue()  # values already rounded
 
