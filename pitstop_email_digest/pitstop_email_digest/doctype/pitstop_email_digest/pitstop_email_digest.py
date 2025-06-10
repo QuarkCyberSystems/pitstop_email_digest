@@ -70,7 +70,9 @@ class PitstopEmailDigest(CoreDigest):
         )
 
     # ------------------------------------------------------------------
-    #  KPI bucket for any span
+    # KPI bucket for any span
+    #   • includes *all* submitted Sales Invoices
+    #   • RO count = distinct non-null projects in those invoices
     # ------------------------------------------------------------------
     def _build_kpi(self, start_date, end_date):
         ps = get_projects_settings()
@@ -84,16 +86,17 @@ class PitstopEmailDigest(CoreDigest):
                 i.base_net_amount AS net_amount,
                 i.project
             FROM `tabSales Invoice Item` i
-            JOIN `tabSales Invoice` inv ON inv.name = i.parent AND inv.docstatus = 1
-            JOIN `tabProject`       p   ON p.name  = i.project
-            WHERE p.ready_to_close            = 1
-              AND p.final_invoice_date BETWEEN %s AND %s
-              AND i.item_code                != %s
+            JOIN `tabSales Invoice` inv ON inv.name = i.parent
+                                        AND inv.docstatus = 1
+            LEFT JOIN `tabProject` p    ON p.name  = i.project    -- keep even if NULL
+            WHERE inv.posting_date BETWEEN %s AND %s              -- date filter on Invoice
+              AND i.item_code != %s                               -- skip insurance-excess
             """,
             (start_date, end_date, ps.insurance_excess_item),
             as_dict=True,
         )
 
+        # ----- group trees -------------------------------------------
         mats   = get_item_group_subtree(ps.materials_item_group)   or []
         lubes  = get_item_group_subtree(ps.lubricants_item_group)  or []
         cons   = get_item_group_subtree(ps.consumables_item_group) or []
@@ -105,7 +108,8 @@ class PitstopEmailDigest(CoreDigest):
 
         for r in rows:
             revenue += r.net_amount
-            ro_projects.add(r.project)
+            if r.project:
+                ro_projects.add(r.project)
 
             if r.uom == "Hour" or r.stock_uom == "Hour":
                 labour_amt += r.net_amount
@@ -145,6 +149,7 @@ class PitstopEmailDigest(CoreDigest):
             hours_per_ro    = hours_per_ro,
             parts_to_labour = parts_ratio,
         )
+
 
     # ------------------------------------------------------------------
     # Extended KPI table (Daily / MTD / YTD) – includes Consumables row
