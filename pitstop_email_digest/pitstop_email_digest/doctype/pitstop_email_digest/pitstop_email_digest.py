@@ -17,7 +17,7 @@ def round_dirham(val) -> str:
 
 PROJECTS_DEFAULTS = {
     "insurance_excess_item":  "INS-EXS",
-    "materials_item_group":   "Material Categories",
+    "materials_item_group":   "Parts",
     "lubricants_item_group":  "Lubricants",
     "consumables_item_group": "Consumables",
     "paint_item_group":       "Paint",
@@ -116,16 +116,19 @@ class PitstopEmailDigest(CoreDigest):
 
             # ---------------- Parts bucket ---------------------------
             elif (
-                r.is_stock_item
-                or r.item_group in mats
-                or r.item_group in lubes
+                #r.is_stock_item
+                r.item_group in mats
                 or r.item_group in paints
-                or r.item_group in subs
+                #or r.item_group in subs
             ):
                 parts_amt += r.net_amount
 
             # ---------------- Consumables & Others -------------------
-            else:
+            elif (
+                r.item_group in cons
+                or r.item_group in lubes 
+                or r.item_group in subs
+            ):
                 cons_amt += r.net_amount
 
             # Hour conversion
