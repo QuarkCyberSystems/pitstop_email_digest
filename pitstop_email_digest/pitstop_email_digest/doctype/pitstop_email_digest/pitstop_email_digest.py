@@ -13,7 +13,6 @@ from erpnext.stock.doctype.item.item import convert_item_uom_for
 # Helpers
 # ──────────────────────────────────────────────────────────────
 def round_dirham(val) -> str:
-    """Return '1,234.00' (two trailing zeros, no AED suffix)."""
     return f"{round(flt(val or 0)):,.0f}.00"
 
 PROJECTS_DEFAULTS = {
@@ -48,22 +47,16 @@ def _fy_start(d):
 # ──────────────────────────────────────────────────────────────
 class PitstopEmailDigest(CoreDigest):
 
-    # -----------------------------------------------------------
     def _as_of_date(self):
         return getdate(self.as_of_date) if getattr(self, "as_of_date", None) else _server_today()
 
-    # -----------------------------------------------------------
     def get_msg_html(self):
         ctx = frappe._dict()
         ctx.update(self.__dict__)
         self.set_title(ctx)
         self.set_style(ctx)
         ctx.title = _("Pitstop Daily Matrix")
-
         ctx.insights_table = self._expanded_kpi_table()
-        # ctx.kpi_table      = self._mini_kpi_table()
-        # ctx.branch_revenue = self._branch_revenue()
-
         return frappe.render_template(
             "pitstop_email_digest/doctype/pitstop_email_digest/templates/default.html",
             ctx, is_path=True
@@ -71,8 +64,6 @@ class PitstopEmailDigest(CoreDigest):
 
     # ------------------------------------------------------------------
     # KPI bucket for any span
-    #   • includes *all* submitted Sales Invoices
-    #   • RO count = distinct non-null projects in those invoices
     # ------------------------------------------------------------------
     def _build_kpi(self, start_date, end_date):
         ps = get_projects_settings()
@@ -86,22 +77,26 @@ class PitstopEmailDigest(CoreDigest):
                 i.base_net_amount AS net_amount,
                 i.project
             FROM `tabSales Invoice Item` i
-            JOIN `tabSales Invoice` inv ON inv.name = i.parent
-                                        AND inv.docstatus = 1
-            LEFT JOIN `tabProject` p    ON p.name  = i.project    -- keep even if NULL
-            WHERE inv.posting_date BETWEEN %s AND %s              -- date filter on Invoice
-              AND i.item_code != %s                               -- skip insurance-excess
+            JOIN `tabSales Invoice` inv ON inv.name = i.parent AND inv.docstatus = 1
+            LEFT JOIN `tabProject`      p ON p.name  = i.project
+            WHERE inv.posting_date BETWEEN %s AND %s
+              AND i.item_code != %s
             """,
             (start_date, end_date, ps.insurance_excess_item),
             as_dict=True,
         )
 
-        # ----- group trees -------------------------------------------
+        # Stock / parts trees
         mats   = get_item_group_subtree(ps.materials_item_group)   or []
         lubes  = get_item_group_subtree(ps.lubricants_item_group)  or []
         cons   = get_item_group_subtree(ps.consumables_item_group) or []
         paints = get_item_group_subtree(ps.paint_item_group)       or []
         subs   = get_item_group_subtree(ps.sublet_item_group)      or []
+
+        # Labour extra groups
+        lumpsum_group   = get_item_group_subtree("Lumpsum Labour") or ["Lumpsum Labour"]
+        autocare_group  = get_item_group_subtree("AutoCare Services") or ["AutoCare Services"]
+        labour_groups   = set(lumpsum_group + autocare_group)
 
         revenue = labour_amt = parts_amt = cons_amt = sold_time = 0
         ro_projects = set()
@@ -111,20 +106,29 @@ class PitstopEmailDigest(CoreDigest):
             if r.project:
                 ro_projects.add(r.project)
 
-            if r.uom == "Hour" or r.stock_uom == "Hour":
+            # ---------------- Labour bucket --------------------------
+            if (
+                r.uom == "Hour"
+                or r.stock_uom == "Hour"
+                or r.item_group in labour_groups
+            ):
                 labour_amt += r.net_amount
-            else:
-                if (
-                    r.is_stock_item
-                    or r.item_group in mats
-                    or r.item_group in lubes
-                    or r.item_group in paints
-                    or r.item_group in subs
-                ):
-                    parts_amt += r.net_amount
-                else:
-                    cons_amt += r.net_amount
 
+            # ---------------- Parts bucket ---------------------------
+            elif (
+                r.is_stock_item
+                or r.item_group in mats
+                or r.item_group in lubes
+                or r.item_group in paints
+                or r.item_group in subs
+            ):
+                parts_amt += r.net_amount
+
+            # ---------------- Consumables & Others -------------------
+            else:
+                cons_amt += r.net_amount
+
+            # Hour conversion
             hrs = convert_item_uom_for(
                 r.qty, r.item_code, r.uom, "Hour",
                 conversion_factor=(r.conversion_factor if r.stock_uom == "Hour" else None),
@@ -150,9 +154,8 @@ class PitstopEmailDigest(CoreDigest):
             parts_to_labour = parts_ratio,
         )
 
-
     # ------------------------------------------------------------------
-    # Extended KPI table (Daily / MTD / YTD) – includes Consumables row
+    # Extended KPI table (includes Consumables row)
     # ------------------------------------------------------------------
     def _expanded_kpi_table(self):
         today = self._as_of_date()
@@ -163,9 +166,9 @@ class PitstopEmailDigest(CoreDigest):
         mtd   = self._build_kpi(m0,     today)
         ytd   = self._build_kpi(y0,     today)
 
-        f2   = lambda v: f"{flt(v):,.2f}"
-        i0   = lambda v: f"{int(v):,}"
-        pct  = lambda row: f"1 : {f2(row.parts_to_labour)}"
+        f2  = lambda v: f"{flt(v):,.2f}"
+        i0  = lambda v: f"{int(v):,}"
+        ratio = lambda row: f"1 : {f2(row.parts_to_labour)}"
 
         return [
             ["Details",               "Daily",                          "MTD",                           "YTD"],
@@ -177,7 +180,7 @@ class PitstopEmailDigest(CoreDigest):
             ["Consumables & Others", round_dirham(daily.cons_amount),   round_dirham(mtd.cons_amount),   round_dirham(ytd.cons_amount)],
             ["Effective Labour Rate",round_dirham(daily.labour_rate),   round_dirham(mtd.labour_rate),   round_dirham(ytd.labour_rate)],
             ["Hours per RO",         round_dirham(daily.hours_per_ro),  round_dirham(mtd.hours_per_ro),  round_dirham(ytd.hours_per_ro)],
-            ["Parts : Labour Ratio", pct(daily),                        pct(mtd),                        pct(ytd)],
+            ["Parts : Labour Ratio", ratio(daily),                      ratio(mtd),                      ratio(ytd)],
         ]
 
     # ------------------------------------------------------------------
@@ -201,7 +204,7 @@ class PitstopEmailDigest(CoreDigest):
         PitstopEmailDigest._auto_send("Weekly")
 
 
-# Hooks aliases
+# Scheduler aliases
 auto_send_daily  = PitstopEmailDigest.auto_send_daily
 auto_send_weekly = PitstopEmailDigest.auto_send_weekly
 
