@@ -14,7 +14,7 @@ def packing_data_engine(email_digest):
 	if REPORT_SUMMARY_DICT.get(email_digest.report_reference):
 		if email_digest.frequency == "Daily":
 			summary_data = REPORT_SUMMARY_DICT.get(email_digest.report_reference)(
-				start_date = today(),  # Use the as_of_date if set, otherwise use today
+				start_date = today(),
 				end_date = today(),
 				company=frappe.get_cached_value("Global Defaults", None, "default_company"),
 			)
@@ -22,7 +22,7 @@ def packing_data_engine(email_digest):
 			title = _("Daily "+email_digest.report_reference+" Summary")	
 		elif email_digest.frequency == "Monthly":
 			summary_data = REPORT_SUMMARY_DICT.get(email_digest.report_reference)(
-				start_date = frappe.utils.get_first_day(today()),  # Use the as_of_date if set, otherwise use today
+				start_date = frappe.utils.get_first_day(today()),
 				end_date = today(),
 				company=frappe.get_cached_value("Global Defaults", None, "default_company"),
 			)
