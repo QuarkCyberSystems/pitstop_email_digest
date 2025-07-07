@@ -29,9 +29,16 @@ cur_frm.cscript.refresh = function(doc, dt, dn) {
 
 	if (!cur_frm.is_new()) {
 		cur_frm.add_custom_button(__('Send Now'), function() {
-			return cur_frm.call('send', null, (r) => {
-				frappe.show_alert(__('Message Sent'));
-			});
+			if (!cur_frm.doc.enable_custom_method) {
+				return cur_frm.call('send', null, (r) => {
+					frappe.show_alert(__('Message Sent'));
+				});
+			}
+			else {
+				return cur_frm.call('custom_method_send', null, (r) => {
+					frappe.show_alert(__('Message Sent'));
+				});
+			}
 		});
 	}
 };

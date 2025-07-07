@@ -16,6 +16,9 @@
   "column_break1",
   "recipient_list",
   "addremove_recipients",
+  "enable_custom_method",
+  "method",
+  "report_reference",
   "accounts",
   "accounts_module",
   "income_year_to_date",
@@ -214,11 +217,33 @@
    "fieldname": "as_of_date",
    "fieldtype": "Date",
    "label": "As of Date"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.enabled",
+   "fieldname": "enable_custom_method",
+   "fieldtype": "Check",
+   "label": "Enable Custom Method"
+  },
+  {
+   "depends_on": "eval:doc.enable_custom_method",
+   "fieldname": "method",
+   "fieldtype": "Data",
+   "label": "Method",
+   "mandatory_depends_on": "eval:doc.enable_custom_method"
+  },
+  {
+   "depends_on": "eval:doc.enable_custom_method",
+   "fieldname": "report_reference",
+   "fieldtype": "Link",
+   "label": "Report Reference",
+   "mandatory_depends_on": "eval:doc.enable_custom_method",
+   "options": "Report"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-06-01 11:35:56.598044",
+ "modified": "2025-07-07 13:59:58.613725",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Pitstop Email Digest",
