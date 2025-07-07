@@ -1,0 +1,31 @@
+{%if title %}
+    <h1 style="{{ h1 }}">{{ title }}</h1>
+{% endif %}
+{% if date %}
+    <h2 style="{{ h2 }}">{{ date }}</h2>
+{% endif %}
+<table style="width:100%; border-collapse:collapse; margin:30px 0;">
+  <tbody>
+    {% if summary_data %}
+        <!-- Loop starts -->
+        {% for item in summary_data %}
+            {% if item.datatype == "Section Break" %}
+                <tr>
+                    <td style="border:1px solid #d1d8dd; padding:6px;font-weight: bold; background-color: #f0f0f0;text-align: center;" colspan="3">{{ item.label }}</td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td style="border:1px solid #d1d8dd; padding:6px;">{{ item.label }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;">{{ flt(item.value,0) }}</td>
+                </tr>
+            {% endif %}
+        {% endfor %}
+        <!-- Loop ends -->
+    {% endif %}
+    {% if not summary_data %}
+        <tr>
+            <td colspan="3" style="text-align: center; color: red;">No data available</td>
+        </tr>
+    {% endif %}
+  </tbody>
+</table>

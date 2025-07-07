@@ -4,7 +4,7 @@
 import frappe
 from frappe import _
 from collections import OrderedDict
-from frappe.utils import getdate, today, flt
+from frappe.utils import getdate, today, flt, add_days
 from erpnext.setup.doctype.email_digest.email_digest import EmailDigest as CoreDigest
 from erpnext.setup.doctype.item_group.item_group import get_item_group_subtree
 from erpnext.stock.doctype.item.item import convert_item_uom_for
@@ -50,17 +50,25 @@ class PitstopEmailDigest(CoreDigest):
     def _as_of_date(self):
         return getdate(self.as_of_date) if getattr(self, "as_of_date", None) else _server_today()
 
-    def get_msg_html(self):
-        ctx = frappe._dict()
-        ctx.update(self.__dict__)
-        self.set_title(ctx)
-        self.set_style(ctx)
-        ctx.title = _("Pitstop Daily Matrix")
-        ctx.insights_table = self._expanded_kpi_table()
-        return frappe.render_template(
-            "pitstop_email_digest/doctype/pitstop_email_digest/templates/default.html",
-            ctx, is_path=True
-        )
+    def get_msg_html(self, custom_method=None):
+        if not custom_method:
+            ctx = frappe._dict()
+            ctx.update(self.__dict__)
+            self.set_title(ctx)
+            self.set_style(ctx)
+            ctx.title = _("Pitstop Daily Matrix")
+            ctx.insights_table = self._expanded_kpi_table()
+            return frappe.render_template(
+                "pitstop_email_digest/doctype/pitstop_email_digest/templates/default.html",
+                ctx, is_path=True
+            )
+        else:
+            # Custom method is defined, so we call it
+            try:
+                return frappe.get_attr(custom_method)(self, show_html=True)
+            except Exception as e:
+                frappe.log_error(frappe.get_traceback(), _("Error in custom method HTML for Pitstop Email Digest"))
+                return f"<p>Error executing custom method: {str(e)}</p>"
 
     # ------------------------------------------------------------------
     # KPI bucket for any span
@@ -185,22 +193,51 @@ class PitstopEmailDigest(CoreDigest):
             ["Hours per RO",         round_dirham(daily.hours_per_ro),  round_dirham(mtd.hours_per_ro),  round_dirham(ytd.hours_per_ro)],
             ["Parts : Labour Ratio", ratio(daily),                      ratio(mtd),                      ratio(ytd)],
         ]
+    
+    @frappe.whitelist()
+    def custom_method_send(self):
+        """
+        Custom method to send the email digest.
+        This method can be overridden in the custom method field of the Pitstop Email Digest.
+        """
+        if self.method:
+            try:
+                frappe.get_attr(self.method)(self, show_html=False)
+            except Exception as e:
+                frappe.log_error(frappe.get_traceback(), _("Error in custom method for Pitstop Email Digest"))
 
     # ------------------------------------------------------------------
     # Scheduler helpers
     # ------------------------------------------------------------------
     @staticmethod
     def _auto_send(freq):
-        for name in frappe.get_all(
+        for each_dict in frappe.get_all(
             "Pitstop Email Digest",
             filters={"enabled": 1, "frequency": freq},
-            pluck="name",
+            fields=["name", "enable_custom_method"]
         ):
-            frappe.get_doc("Pitstop Email Digest", name).send()
+            email_digest_record = frappe.get_doc("Pitstop Email Digest", each_dict.get("name"))
+            if not email_digest_record.enable_custom_method:
+                email_digest_record.send()
+            else:
+                if email_digest_record.method:
+                    try:
+                        frappe.get_attr(email_digest_record.method)(email_digest_record, show_html=False)
+                    except Exception as e:
+                        frappe.log_error(frappe.get_traceback(), _("Error in custom method for Pitstop Email Digest"))
 
     @staticmethod
     def auto_send_daily():
         PitstopEmailDigest._auto_send("Daily")
+        # Check if today is the last day of the month
+        # If so, send the monthly digest
+        today_date = today()
+        tomorrow = getdate(add_days(today_date, 1))
+
+        # if tomorrow is the 1st, today is the last day of the month
+        if tomorrow.day == 1:
+            # Call your actual monthly method
+            PitstopEmailDigest._auto_send("Monthly")
 
     @staticmethod
     def auto_send_weekly():
@@ -213,4 +250,8 @@ auto_send_weekly = PitstopEmailDigest.auto_send_weekly
 
 @frappe.whitelist()
 def get_digest_msg(name):
-    return frappe.get_doc("Pitstop Email Digest", name).get_msg_html()
+    email_digest_record = frappe.get_doc("Pitstop Email Digest", name)
+    if email_digest_record.enable_custom_method:
+        return frappe.get_doc("Pitstop Email Digest", name).get_msg_html(email_digest_record.method)
+    else:
+        return frappe.get_doc("Pitstop Email Digest", name).get_msg_html()
