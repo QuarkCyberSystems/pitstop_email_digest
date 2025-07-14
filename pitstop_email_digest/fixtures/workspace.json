@@ -1,0 +1,46 @@
+[
+ {
+  "charts": [],
+  "content": "[{\"id\":\"-6z7EtCQZu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">BRAC Vehicle Mobility</span>\",\"col\":12}},{\"id\":\"SACozMaC-F\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Vehicle Movement\",\"col\":12}},{\"id\":\"nYbDfBX5Ul\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h3\\\">Workshop Division(This Fiscal Year)</span>\",\"col\":12}},{\"id\":\"58y-9YW1Q1\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Vehicle Movement Test\",\"col\":12}}]",
+  "creation": "2025-07-11 16:19:03.265620",
+  "custom_blocks": [
+   {
+    "creation": "2025-07-11 16:19:03.265620",
+    "custom_block_name": "Vehicle Movement Daily Monthly",
+    "label": "Vehicle Movement",
+    "parent": "BRAC",
+    "parentfield": "custom_blocks",
+    "parenttype": "Workspace"
+   },
+   {
+    "creation": "2025-07-11 16:19:03.265620",
+    "custom_block_name": "Vehicle Movement Workshop Division Fiscal Year",
+    "label": "Vehicle Movement Test",
+    "parent": "BRAC",
+    "parentfield": "custom_blocks",
+    "parenttype": "Workspace"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Workspace",
+  "for_user": "",
+  "hide_custom": 0,
+  "icon": "change",
+  "indicator_color": "green",
+  "is_hidden": 0,
+  "label": "BRAC",
+  "links": [],
+  "modified": "2025-07-13 21:17:36.418346",
+  "module": null,
+  "name": "BRAC",
+  "number_cards": [],
+  "parent_page": "",
+  "public": 1,
+  "quick_lists": [],
+  "restrict_to_domain": null,
+  "roles": [],
+  "sequence_id": 2.0,
+  "shortcuts": [],
+  "title": "BRAC"
+ }
+]
