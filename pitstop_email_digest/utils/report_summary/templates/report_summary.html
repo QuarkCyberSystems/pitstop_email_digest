@@ -16,7 +16,7 @@
             {% else %}
                 <tr>
                     <td style="border:1px solid #d1d8dd; padding:6px;">{{ item.label }}</td>
-                    <td style="border:1px solid #d1d8dd; padding:6px;">{{ flt(item.value,0) }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;">{{ frappe.format_value(flt(item.value,0), "Currency") }}</td>
                 </tr>
             {% endif %}
         {% endfor %}
