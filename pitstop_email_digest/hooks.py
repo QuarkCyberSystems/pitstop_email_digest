@@ -38,6 +38,30 @@ scheduler_events = {
     }
 }
 
+fixtures = [
+    {
+        "dt": "Custom HTML Block",
+        "filters": [            
+            [       
+                "name", "in", [
+                    "Vehicle Movement Workshop Division Fiscal Year",
+                    "Vehicle Movement Daily Monthly"
+                ]
+            ]
+        ]
+    },
+    {
+        "dt": "Workspace",
+        "filters": [            
+            [       
+                "name", "in", [
+                    "BRAC"
+                ]
+            ]
+        ]
+    }
+]
+
 
 # Includes in <head>
 # ------------------
