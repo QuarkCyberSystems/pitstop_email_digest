@@ -1,11 +1,23 @@
 
 import frappe
 from frappe.utils import today
-from frappe.query_builder.functions import Count, Sum, IfNull, Round, Now, Floor, Max
-from frappe.query_builder.functions import IfNull
+from frappe.query_builder.functions import Count, Sum, IfNull, Floor, Max
 from frappe import _, qb, query_builder
 import json
 from erpnext.accounts.utils import get_fiscal_year
+from pypika.terms import Term
+from pypika.enums import SqlTypes
+
+class Literal(Term):
+	def __init__(self, value):
+		super().__init__()
+		self.value = value
+		self.type = SqlTypes.VARCHAR
+
+	def get_sql(self, **kwargs):
+		if isinstance(self.value, str):
+			return f"'{self.value}'"
+		return str(self.value)
 
 @frappe.whitelist()
 def get_vehicle_movement(customer_list=None):
@@ -100,7 +112,7 @@ def get_vehicle_movement(customer_list=None):
 	return final_dict
 
 @frappe.whitelist()
-def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill_to_customer_check=None, customer_list=None):
+def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill_to_customer_check=None, customer_list=None, timespan_list=None):
 
 	Project = qb.DocType("Project")
 	VSR = qb.DocType("Vehicle Service Receipt")
@@ -108,83 +120,101 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 
 	datediff = query_builder.CustomFunction("DATEDIFF", ["cur_date", "due_date"])
 
-	today_date = today()
+	final_list = []
 
-	from_date = get_fiscal_year(today_date)[1]
-	to_date = get_fiscal_year(today_date)[2]
+	for each_timespan in timespan_list:
 
-	# Step 1: Subquery to get max(posting_date) for each project in VSR
-	LatestVSRSub = (
-		frappe.qb.from_(VSR)
-		.select(VSR.project, Max(VSR.posting_date).as_("max_posting_date"))
-		.where(VSR.docstatus == 1)
-		.groupby(VSR.project)
-	).as_("latest_vsr_sub")
+		today_date = today()
 
-	# Step 2: Join this with VSR to get the full latest VSR record
-	LatestVSR = (
-		frappe.qb.from_(VSR)
-		.join(LatestVSRSub)
-		.on((VSR.project == LatestVSRSub.project) & (VSR.posting_date == LatestVSRSub.max_posting_date))
-		.select(
-			VSR.name,
-			VSR.project,
-			VSR.posting_date,
-			VSR.docstatus
-		)
-	).as_("latest_vsr")
+		if each_timespan == "YTD":
+			from_date = get_fiscal_year(today_date)[1]
+		elif each_timespan == "MTD":
+			from_date = frappe.utils.data.get_first_day(today_date)
+		
+		to_date = today()
 
-	query = (
-		frappe.qb
-		.from_(Project)
-		.left_join(LatestVSR)
-		.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
-		.left_join(VGP)
-		.on((VGP.project == Project.name) & (VGP.docstatus == 1))
-		.where((LatestVSR.docstatus == 1))  # Additional filters below
-		.groupby(Project.project_status)
-		.select(
-			Count(Project.name).as_("total_ro"),
-			Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
-			Floor(
-				IfNull(
-					Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name),
+		# Step 1: Subquery to get max(posting_date) for each project in VSR
+		LatestVSRSub = (
+			frappe.qb.from_(VSR)
+			.select(VSR.project, Max(VSR.posting_date).as_("max_posting_date"))
+			.where(VSR.docstatus == 1)
+			.groupby(VSR.project)
+		).as_("latest_vsr_sub")
+
+		# Step 2: Join this with VSR to get the full latest VSR record
+		LatestVSR = (
+			frappe.qb.from_(VSR)
+			.join(LatestVSRSub)
+			.on((VSR.project == LatestVSRSub.project) & (VSR.posting_date == LatestVSRSub.max_posting_date))
+			.select(
+				VSR.name,
+				VSR.project,
+				VSR.posting_date,
+				VSR.docstatus
+			)
+		).as_("latest_vsr")
+
+		query = (
+			frappe.qb
+			.from_(Project)
+			.left_join(LatestVSR)
+			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
+			.left_join(VGP)
+			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
+			.where((LatestVSR.docstatus == 1))  # Additional filters below
+			.groupby(Project.project_status)
+			.select(
+				Count(Project.name).as_("total_ro"),
+				Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
+				Floor(
+					IfNull(
+						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name),
+						0
+					),
 					0
-				),
-				0
-			).as_("average"),
-			Project.project_status,
-			Project.vehicle_workshop_division
+				).as_("average"),
+				Project.project_status,
+				Project.vehicle_workshop_division,
+				Literal(each_timespan).as_("timespan")
+			)
 		)
-	)
 
-	# Add dynamic filters if applicable
-	if workshop_division:
-		query = query.where(Project.vehicle_workshop_division == workshop_division)
+		# Add dynamic filters if applicable
+		if workshop_division:
+			query = query.where(Project.vehicle_workshop_division == workshop_division)
 
-	if bill_to_customer_check:
-		if bill_to_customer_check == "Same":
-			query = query.where(Project.customer == Project.bill_to)
-		else:
-			query = query.where(Project.customer != Project.bill_to)
+		if bill_to_customer_check:
+			if bill_to_customer_check == "Same":
+				query = query.where(Project.customer == Project.bill_to)
+			else:
+				query = query.where(Project.customer != Project.bill_to)
+		
+		if customer_list:
+			query = query.where(Project.customer.isin(customer_list))
+		
+		query = query.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
+
+		workshop_division_project_status_data_mechanical = query.run(as_dict=True)
+
+		final_list.extend(workshop_division_project_status_data_mechanical)
 	
-	if customer_list:
-		query = query.where(Project.customer.isin(customer_list))
-	
-	query = query.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
-
-	workshop_division_project_status_data_mechanical = query.run(as_dict=True)
-
-	return 	workshop_division_project_status_data_mechanical
+	return final_list
 
 
 @frappe.whitelist()
-def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_division=None, bill_to_customer_check=None, customer_list=None, division_dict=None):
+def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_division=None, bill_to_customer_check=None, customer_list=None, division_dict=None, timespan=None):
 	"""
 	Fetch RO project status based on workshop division and customer.
 	"""
 	if division_dict:
 		division_dict = json.loads(division_dict)
+	
+	if timespan == "YTD":
+		timespan = ["YTD"]
+	elif timespan == "MTD":
+		timespan = ["MTD"]
+	elif timespan == "MTD and YTD":
+		timespan = ["MTD", "YTD"]
 
 	final_category_result = {"mechanical_category": None, "brac_category": None, "body_shop_cash_category": None, "body_shop_insurance_category": None}
 	for each_division in division_dict:
@@ -192,21 +222,21 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_divisio
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			customer_list = each_division.get("customer_list")
-			final_category_result["mechanical_category"] = fetch_ro_project_status_based_workshop_division(workshop_division, bill_to_customer_check, customer_list)
+			final_category_result["mechanical_category"] = fetch_ro_project_status_based_workshop_division(workshop_division, bill_to_customer_check, customer_list, timespan)
 		elif each_division.get("category") == "BRAC":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			customer_list = each_division.get("customer_list")
-			final_category_result["brac_category"] = fetch_ro_project_status_based_workshop_division(workshop_division, bill_to_customer_check, customer_list)
+			final_category_result["brac_category"] = fetch_ro_project_status_based_workshop_division(workshop_division, bill_to_customer_check, customer_list, timespan)
 		elif each_division.get("category") == "Body Shop - Cash":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			customer_list = each_division.get("customer_list")
-			final_category_result["body_shop_cash_category"] = fetch_ro_project_status_based_workshop_division(workshop_division, bill_to_customer_check, customer_list)
+			final_category_result["body_shop_cash_category"] = fetch_ro_project_status_based_workshop_division(workshop_division, bill_to_customer_check, customer_list, timespan)
 		elif each_division.get("category") == "Body Shop - Insurance":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			customer_list = each_division.get("customer_list")
-			final_category_result["body_shop_insurance_category"] = fetch_ro_project_status_based_workshop_division(workshop_division, bill_to_customer_check, customer_list)
+			final_category_result["body_shop_insurance_category"] = fetch_ro_project_status_based_workshop_division(workshop_division, bill_to_customer_check, customer_list, timespan)
 
 	return final_category_result

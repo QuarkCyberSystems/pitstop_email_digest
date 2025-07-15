@@ -44,7 +44,7 @@ fixtures = [
         "filters": [            
             [       
                 "name", "in", [
-                    "Vehicle Movement Workshop Division Fiscal Year",
+                    "Vehicle Movement Workshop Division BRAC",
                     "Vehicle Movement Daily Monthly"
                 ]
             ]
