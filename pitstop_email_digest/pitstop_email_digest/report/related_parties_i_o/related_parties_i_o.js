@@ -35,7 +35,7 @@ frappe.query_reports["Related Parties I_O"] = {
 			fieldname: "billing_type",
 			label: __("Billing Type"),
 			fieldtype: "Select",
-			options: ["", "Customer", "Insurance"],
+			options: ["", "Customer", "Insurance", "No Bill To"],
 			reqd: 0
 		}
 	]
