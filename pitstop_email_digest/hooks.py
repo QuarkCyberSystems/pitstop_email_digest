@@ -45,7 +45,7 @@ fixtures = [
             [       
                 "name", "in", [
                     "Vehicle Movement Workshop Division BRAC",
-                    "Vehicle Movement Daily Monthly"
+                    "Vehicle Movement Daily Monthly Yearly"
                 ]
             ]
         ]

@@ -24,18 +24,38 @@ def get_vehicle_movement(customer_list=None):
 	"""
 	Fetch vehicle movement data based on the specified frequency.
 	"""
-	frequency = ["Daily", "Monthly"]
-	final_dict = {"Daily":[], "Monthly":[]}
+	frequency = ["Daily", "Monthly", "Yearly"]
+	final_dict = {"Daily":[], "Monthly":[], "Yearly":[]}
 	if customer_list:
 		customer_list = json.loads(customer_list)
+	
+	today_date = frappe.utils.getdate(frappe.utils.nowdate())
+
+	fy = frappe.db.get_value(
+		"Fiscal Year",
+		{
+			"year_start_date": ["<=", today_date],
+			"year_end_date":   [">=", today_date]
+		},
+		["year_start_date"],
+		as_dict=True
+	) or {}
+
+	fiscal_start = fy.get("year_start_date") or frappe.utils.getdate(f"{today_date.year}-01-01")
 
 	for each_frequency in frequency:
 		posting_date_filter_list = []
 
 		if each_frequency == "Daily":
-			posting_date_filter_list = [today(), today()]
+			from_date = today()
+			posting_date_filter_list = [from_date, from_date]
 		elif each_frequency == "Monthly":
-			posting_date_filter_list = [frappe.utils.get_first_day(today()), today()]
+			from_date = frappe.utils.get_first_day(today())
+			posting_date_filter_list = [from_date, today()] 
+		elif each_frequency == "Yearly":
+			from_date = fiscal_start
+			posting_date_filter_list = [from_date, today()]
+		to_date = today()
 
 		number_of_vehicle_in = frappe.db.get_list('Vehicle Service Receipt', 
 			fields=['count(name) as total_number_cars_in'],
@@ -103,7 +123,8 @@ def get_vehicle_movement(customer_list=None):
 				(TVGP.docstatus == 1) &
 				(LatestVSR.docstatus == 1) &
 				(TP.customer.isin(customer_list)) &
-				(TVGP.posting_date.isin(posting_date_filter_list))
+				(TVGP.posting_date>=from_date) & 
+				(TVGP.posting_date<=to_date)
 			)
 		).run(as_dict=True)
 
