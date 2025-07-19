@@ -88,9 +88,8 @@ class PitstopEmailDigest(CoreDigest):
             JOIN `tabSales Invoice` inv ON inv.name = i.parent AND inv.docstatus = 1
             LEFT JOIN `tabProject`      p ON p.name  = i.project
             WHERE inv.posting_date BETWEEN %s AND %s
-              AND i.item_code != %s
             """,
-            (start_date, end_date, ps.insurance_excess_item),
+            (start_date, end_date),
             as_dict=True,
         )
 
