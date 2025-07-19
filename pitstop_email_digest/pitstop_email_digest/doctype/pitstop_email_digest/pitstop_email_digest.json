@@ -102,6 +102,7 @@
    "label": "Add/Remove Recipients"
   },
   {
+   "depends_on": "eval:!doc.enable_custom_method;",
    "fieldname": "accounts",
    "fieldtype": "Section Break",
    "label": "Accounts"
@@ -159,6 +160,7 @@
    "label": "Purchase Orders to Bill"
   },
   {
+   "depends_on": "eval:!doc.enable_custom_method;",
    "fieldname": "operation",
    "fieldtype": "Section Break",
    "label": "Operations"
@@ -243,7 +245,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-07 13:59:58.613725",
+ "modified": "2025-07-19 16:57:32.247052",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Pitstop Email Digest",
