@@ -54,12 +54,13 @@ def send_report_summary(email_digest, show_html=False):
 			original_user = frappe.session.user
 
 			if recipients:
+				email_subject = email_digest.frequency+" "+email_digest.report_reference+" Summary"
 				for user_id in recipients:
 					frappe.set_user(user_id)
 					frappe.set_user_lang(user_id)
 					frappe.sendmail(
 						recipients=user_id,
-						subject=_("Daily Workshop Turnover Summary"),
+						subject=_(email_subject),
 						message=frappe.render_template(
 							"utils/report_summary/templates/report_summary.html",
 							summary_data, is_path=True
