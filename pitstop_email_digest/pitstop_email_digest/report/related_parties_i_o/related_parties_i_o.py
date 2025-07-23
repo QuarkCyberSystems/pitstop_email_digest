@@ -149,8 +149,6 @@ def get_data(filters=None):
 	customer_list = ["C00883", "C00276", "C01053"]
 	if customer_list:
 		query = query.where(Project.customer.isin(customer_list))
-	
-	print(query.get_sql())
 
 	workshop_division_project_status_data_mechanical = query.run(as_dict=True)
 
