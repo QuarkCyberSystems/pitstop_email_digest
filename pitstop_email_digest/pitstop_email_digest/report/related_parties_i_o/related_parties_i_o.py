@@ -44,8 +44,8 @@ def get_columns(filters=None):
 			"width": 200,
 		},
 		{
-			"label": _("Bill To"),
-			"fieldname": "bill_to_name",
+			"label": _("Insurance Company"),
+			"fieldname": "insurance_company_name",
 			"fieldtype": "Data",
 			"options":"Customer",
 			"width": 200,
@@ -122,7 +122,7 @@ def get_data(filters=None):
 			Project.vehicle_workshop_division,
 			Project.project_date,
 			Project.customer_name,
-			Project.bill_to_name,
+			Project.insurance_company_name,
 			VGP.posting_date.as_("gate_pass_posting_date"),
 			LatestVSR.posting_date.as_("vehicle_receive_date"),
 		)
@@ -142,11 +142,9 @@ def get_data(filters=None):
 	
 	if filters and filters.get("billing_type"):
 		if filters.get("billing_type") == "Customer":
-			query = query.where(Project.customer == Project.bill_to)
+			query = query.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
 		elif filters.get("billing_type") == "Insurance":
-			query = query.where(((Project.bill_to!="") & (Project.bill_to.isnotnull())) & (Project.customer != Project.bill_to))
-		elif filters.get("billing_type") == "No Bill To":
-			query = query.where((Project.bill_to == "") | (Project.bill_to.isnull()))
+			query = query.where((Project.insurance_company != "") & (Project.insurance_company.isnotnull()))
 	
 	customer_list = ["C00883", "C00276", "C01053"]
 	if customer_list:

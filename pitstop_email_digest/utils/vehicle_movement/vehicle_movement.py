@@ -206,9 +206,9 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 
 		if bill_to_customer_check:
 			if bill_to_customer_check == "Same":
-				query = query.where(Project.customer == Project.bill_to)
+				query = query.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
 			else:
-				query = query.where(((Project.bill_to!="") & (Project.bill_to.isnotnull())) & (Project.customer != Project.bill_to))
+				query = query.where(((Project.insurance_company!="") & (Project.insurance_company.isnotnull())))
 		
 		if customer_list:
 			query = query.where(Project.customer.isin(customer_list))
