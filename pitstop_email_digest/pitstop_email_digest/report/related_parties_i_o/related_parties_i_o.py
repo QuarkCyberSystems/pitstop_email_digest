@@ -63,15 +63,33 @@ def get_columns(filters=None):
 			"width": 200,
 		},
 		{
+			"label": _("Vehicle Chassis Number"),
+			"fieldname": "vehicle_chassis_no",
+			"fieldtype": "Data",
+			"width": 200,
+		},
+		{
+			"label": _("Vehicle Licesnce Plate Number"),
+			"fieldname": "vehicle_license_plate",
+			"fieldtype": "Data",
+			"width": 200,
+		},
+		{
+			"label": _("Vehicle Model"),
+			"fieldname": "vehicle_model",
+			"fieldtype": "Data",
+			"width": 200,
+		},
+		{
 			"label": _("Gate Pass Posting Date"),
 			"fieldname": "gate_pass_posting_date",
 			"fieldtype": "Date",
 			"width": 200,
 		},
 		{
-			"label": _("Timespend"),
+			"label": _("Timespend (Days)"),
 			"fieldname": "timespend",
-			"fieldtype": "Float",
+			"fieldtype": "Int",
 			"width": 200,
 		}
 	]
@@ -125,6 +143,9 @@ def get_data(filters=None):
 			Project.insurance_company_name,
 			VGP.posting_date.as_("gate_pass_posting_date"),
 			LatestVSR.posting_date.as_("vehicle_receive_date"),
+			Project.vehicle_chassis_no.as_("vehicle_chassis_no"),
+			Project.vehicle_license_plate.as_("vehicle_license_plate"),
+			Project.applies_to_item.as_("vehicle_model")
 		)
 	)
 

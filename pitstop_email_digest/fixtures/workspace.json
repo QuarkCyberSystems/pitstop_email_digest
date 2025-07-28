@@ -30,7 +30,7 @@
   "is_hidden": 0,
   "label": "BRAC",
   "links": [],
-  "modified": "2025-07-17 11:58:21.138919",
+  "modified": "2025-07-28 18:41:21.390749",
   "module": null,
   "name": "BRAC",
   "number_cards": [],
@@ -38,7 +38,15 @@
   "public": 1,
   "quick_lists": [],
   "restrict_to_domain": null,
-  "roles": [],
+  "roles": [
+   {
+    "creation": "2025-07-11 16:19:03.265620",
+    "parent": "BRAC",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "BRAC User"
+   }
+  ],
   "sequence_id": 2.0,
   "shortcuts": [],
   "title": "BRAC"

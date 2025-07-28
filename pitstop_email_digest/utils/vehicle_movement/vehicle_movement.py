@@ -194,6 +194,13 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 					),
 					0
 				).as_("average"),
+				Floor(
+					IfNull(
+						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)),
+						0
+					),
+					0
+				).as_("total_time_take"),
 				Project.project_status,
 				Project.vehicle_workshop_division,
 				Literal(each_timespan).as_("timespan")
