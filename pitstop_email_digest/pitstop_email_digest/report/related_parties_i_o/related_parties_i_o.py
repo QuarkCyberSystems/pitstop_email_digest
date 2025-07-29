@@ -19,8 +19,7 @@ def get_columns(filters=None):
 		{
 			"label": _("Reapair Order"),
 			"fieldname": "repair_order",
-			"fieldtype": "Link",
-			"options": "Project",
+			"fieldtype": "Data",
 			"width": 200,
 		},
 		{
@@ -32,8 +31,7 @@ def get_columns(filters=None):
 		{
 			"label": _("Workshop Division"),
 			"fieldname": "vehicle_workshop_division",
-			"fieldtype": "Link",
-			"options":"Vehicle Workshop Division",
+			"fieldtype": "Data",
 			"width": 200,
 		},
 		{
