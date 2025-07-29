@@ -19,7 +19,7 @@ cur_frm.cscript.refresh = function(doc, dt, dn) {
 			callback: function(r) {
 				var d = new frappe.ui.Dialog({
 					title: __('Email Digest: ') + dn,
-					width: 800
+					size: 'extra-large',
 				});
 				$(d.body).html(r.message);
 				d.show();
