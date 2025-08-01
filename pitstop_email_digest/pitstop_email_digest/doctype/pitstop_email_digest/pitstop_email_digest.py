@@ -36,6 +36,9 @@ def get_projects_settings():
 def _server_today():
     return getdate(today())
 
+def _server_yesterday():
+    return getdate(add_days(today(), -1))
+
 def _fy_start(d):
     fy = frappe.db.get_value(
         "Fiscal Year",
@@ -50,7 +53,7 @@ def _fy_start(d):
 class PitstopEmailDigest(CoreDigest):
 
     def _as_of_date(self):
-        return getdate(self.as_of_date) if getattr(self, "as_of_date", None) else _server_today()
+        return getdate(self.as_of_date) if getattr(self, "as_of_date", None) else _server_yesterday()
 
     def get_msg_html(self, custom_method=None):
         if not custom_method:
@@ -283,10 +286,9 @@ class PitstopEmailDigest(CoreDigest):
         # Check if today is the last day of the month
         # If so, send the monthly digest
         today_date = today()
-        tomorrow = getdate(add_days(today_date, 1))
 
-        # if tomorrow is the 1st, today is the last day of the month
-        if tomorrow.day == 1:
+        # if today_date is the 1st, yesterday is the last day of the month
+        if today_date.day == 1:
             # Call your actual monthly method
             PitstopEmailDigest._auto_send("Monthly")
 

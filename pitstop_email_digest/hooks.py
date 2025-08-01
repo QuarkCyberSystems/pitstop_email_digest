@@ -26,13 +26,13 @@ app_license = "mit"
 
 scheduler_events = {
     "cron": {
-        # every day 23:55 server time
-        "55 23 * * *":
+        # every day 00:05 server time
+        "05 00 * * *":
             "pitstop_email_digest.pitstop_email_digest.doctype."
             "pitstop_email_digest.pitstop_email_digest.auto_send_daily",
 
-        # every Sunday 23:55  (i.e. 5 minutes before Monday)
-        "55 23 * * 0":
+        # every Sunday 00:55  (i.e. 5 minutes after Monday)
+        "05 00 * * *":
             "pitstop_email_digest.pitstop_email_digest.doctype."
             "pitstop_email_digest.pitstop_email_digest.auto_send_weekly",
     }
@@ -47,16 +47,6 @@ fixtures = [
                     "Vehicle Movement Workshop Division BRAC",
                     "Vehicle Movement Daily Monthly Yearly",
                     "Vehicle Movement a Day BRAC"
-                ]
-            ]
-        ]
-    },
-    {
-        "dt": "Workspace",
-        "filters": [            
-            [       
-                "name", "in", [
-                    "BRAC"
                 ]
             ]
         ]

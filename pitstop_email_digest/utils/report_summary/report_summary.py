@@ -1,12 +1,16 @@
 import frappe
-from frappe.utils import today, get_month
+from frappe.utils import today, get_month, add_days, getdate
 from frappe import _
 from .report_summary_helper import get_workshop_turnover_summary_details, get_workshop_productivity_summary_details
 
 REPORT_SUMMARY_DICT = {
 	"Workshop Turnover": get_workshop_turnover_summary_details,
 	"Workshop Productivity": get_workshop_productivity_summary_details,
-} 
+}
+
+def get_send_date(email_digest):
+	"""Get the date to be used in the email subject"""
+	return email_digest.as_of_date or getdate(add_days(today(), -1))
 
 def packing_data_engine(email_digest):
 	"""Prepare the data for the email digest"""
@@ -14,19 +18,19 @@ def packing_data_engine(email_digest):
 	if REPORT_SUMMARY_DICT.get(email_digest.report_reference):
 		if email_digest.frequency == "Daily":
 			summary_data = REPORT_SUMMARY_DICT.get(email_digest.report_reference)(
-				start_date = today(),
-				end_date = today(),
+				start_date = get_send_date(email_digest),
+				end_date = get_send_date(email_digest),
 				company=frappe.get_cached_value("Global Defaults", None, "default_company"),
 			)
-			date_property = "Date "+today()
+			date_property = "Date "+str(get_send_date(email_digest))
 			title = _("Daily "+email_digest.report_reference+" Summary")	
 		elif email_digest.frequency == "Monthly":
 			summary_data = REPORT_SUMMARY_DICT.get(email_digest.report_reference)(
-				start_date = frappe.utils.get_first_day(today()),
-				end_date = today(),
+				start_date = frappe.utils.get_first_day(get_send_date(email_digest)),
+				end_date = get_send_date(email_digest),
 				company=frappe.get_cached_value("Global Defaults", None, "default_company"),
 			)
-			date_property = "Month "+get_month(today())+"(from "+str(frappe.utils.get_first_day(today()))+" to "+str(today())+")"
+			date_property = "Month "+str(get_month(get_send_date(email_digest))+"(from "+str(frappe.utils.get_first_day(get_send_date(email_digest))))+" to "+str(get_send_date(email_digest))+")"
 			title = _("Monthly "+email_digest.report_reference+" Summary")
 
 	return summary_data, date_property, title
