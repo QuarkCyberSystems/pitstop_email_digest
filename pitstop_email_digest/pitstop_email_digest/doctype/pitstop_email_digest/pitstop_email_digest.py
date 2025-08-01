@@ -283,9 +283,9 @@ class PitstopEmailDigest(CoreDigest):
     @staticmethod
     def auto_send_daily():
         PitstopEmailDigest._auto_send("Daily")
-        # Check if today is the last day of the month
+        # Check if today is the first day of the month
         # If so, send the monthly digest
-        today_date = today()
+        today_date = getdate(today())
 
         # if today_date is the 1st, yesterday is the last day of the month
         if today_date.day == 1:
