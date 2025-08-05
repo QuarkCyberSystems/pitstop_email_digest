@@ -63,6 +63,8 @@ class PitstopEmailDigest(CoreDigest):
             self.set_style(ctx)
             ctx.title = _("Pitstop Daily Matrix")
             ctx.insights_table = self._expanded_kpi_table()
+            ctx.revenue_table = self._revenue_table()
+
             return frappe.render_template(
                 "pitstop_email_digest/doctype/pitstop_email_digest/templates/default.html",
                 ctx, is_path=True
@@ -181,17 +183,17 @@ class PitstopEmailDigest(CoreDigest):
         last_day_last_month = getdate(add_days(first_day_this_month, -1))
         first_day_last_month = get_first_day(last_day_last_month, as_str=False)
 
-        current_month_year = today.strftime("%B-%Y")
+        current_month_year = today.strftime("%b-%Y")
         current_year = today.strftime("%Y")
-        current_month = today.strftime("%B")
-        last_month_year = first_day_last_month.strftime("%B-%Y")
+        current_month = today.strftime("%b")
+        last_month_year = first_day_last_month.strftime("%b-%Y")
 
         last_year_date = getdate(add_years(today, -1))
         last_year = last_year_date.strftime("%Y")
         current_month_number = f"{today.month:02d}"
 
         first_day_last_year = getdate(f"{str(last_year)}-{'01'}-01")
-        first_month_last_year = first_day_last_year.strftime("%B")
+        first_month_last_year = first_day_last_year.strftime("%b")
 
         daily = self._build_kpi(today,  today)
         mtd   = self._build_kpi(m0,     today)
@@ -215,6 +217,37 @@ class PitstopEmailDigest(CoreDigest):
             ["Effective Labour Rate",        round_dirham(daily.labour_rate),                                                      round_dirham(mtd.labour_rate),                                                     round_dirham(ytd.labour_rate),                                                     round_dirham(last_month.labour_rate),                                                                              round_dirham(self.get_back_date_data("Effective labour rate", last_year, current_month_number)),       round_dirham(self.get_back_date_data("Effective labour rate", last_year, current_month_number, ["01", current_month_number]))],
             ["Hours per RO",                 round_dirham(daily.hours_per_ro),                                                     round_dirham(mtd.hours_per_ro),                                                    round_dirham(ytd.hours_per_ro),                                                    round_dirham(last_month.hours_per_ro),                                                                             round_dirham(self.get_back_date_data("Hours per RO", last_year, current_month_number)),                round_dirham(self.get_back_date_data("Hours per RO", last_year, current_month_number, ["01", current_month_number]))],
             ["Parts : Labour Ratio",         ratio(daily),                                                                         ratio(mtd),                                                                        ratio(ytd),                                                                        ratio(last_month),                                                                                                 self.get_back_date_data("Parts to Labour ratio", last_year, current_month_number),                      "-"],
+        ]
+    
+    def _revenue_table(self):
+        today = self._as_of_date()
+        m0    = getdate(f"{today.year}-{today.month:02d}-01")
+        y0    = _fy_start(today)
+
+        first_day_this_month = get_first_day(today, as_str=False)
+        last_day_last_month = getdate(add_days(first_day_this_month, -1))
+        first_day_last_month = get_first_day(last_day_last_month, as_str=False)
+
+        current_month_year = today.strftime("%b-%Y")
+        current_year = today.strftime("%Y")
+        current_month = today.strftime("%b")
+        last_month_year = first_day_last_month.strftime("%b-%Y")
+
+        last_year_date = getdate(add_years(today, -1))
+        last_year = last_year_date.strftime("%Y")
+        current_month_number = f"{today.month:02d}"
+
+        first_day_last_year = getdate(f"{str(last_year)}-{'01'}-01")
+        first_month_last_year = first_day_last_year.strftime("%b")
+
+        daily = self._build_kpi(today,  today)
+        mtd   = self._build_kpi(m0,     today)
+        ytd   = self._build_kpi(y0,     today)
+        last_month = self._build_kpi(first_day_last_month,     last_day_last_month)
+
+        return [
+            ["Details",  "Daily<br/>("+str(format_date(today, "dd-mm-yyyy")+")"),  "MTD<br/>("+str(current_month_year)+")", "YTD<br/>("+str(current_year)+")", "Target<br/>("+str(current_month_year)+")",                               "Target<br/>("+str(first_month_last_year)+"-"+str(current_month)+"-"+str(current_year)+")",                                                              "Last Month<br/>("+str(last_month_year)+")",  str(current_month)+"<br/>("+str(last_year)+")",                                     str(first_month_last_year)+"-"+str(current_month)+"<br/>("+str(last_year)+")"],
+            ["Revenue",   round_dirham(daily.revenue),                              round_dirham(mtd.revenue),              round_dirham(ytd.revenue),         round_dirham(self.get_target_revenue(current_year, current_month_number)),round_dirham(self.get_target_revenue(current_year, current_month_number, ["01", current_month_number])),  round_dirham(last_month.revenue),             round_dirham(self.get_back_date_data("Revenue", last_year, current_month_number)),  round_dirham(self.get_back_date_data("Revenue", last_year, current_month_number, ["01", current_month_number]))]
         ]
     
     @frappe.whitelist()
@@ -258,6 +291,25 @@ class PitstopEmailDigest(CoreDigest):
                         rqd_range_month_number = str(range_month_number).zfill(2)
                         the_sum_of_value += flt(each_ly_data_dict.get(rqd_range_month_number)) or 0
                         break
+            return the_sum_of_value
+    
+    def get_target_revenue(self, year, month_number, month_range=None):
+        budget_data = frappe.db.get_all("Monthly Revenue Target", filters={"fiscal_year":year}, fields=["*"])
+        if not month_range:
+            for each_ly_data_dict in budget_data:
+                return each_ly_data_dict.get(month_number) or 0
+            else:
+                return 0
+        else:
+            the_sum_of_value = 0.0
+            month_start = int(month_range[0])  # or from your list: int(my_list[0])
+            month_end = int(month_range[1])
+
+            for range_month_number in range(month_start, month_end + 1):
+                for each_ly_data_dict in budget_data:
+                    rqd_range_month_number = str(range_month_number).zfill(2)
+                    the_sum_of_value += flt(each_ly_data_dict.get(rqd_range_month_number)) or 0
+                    break
             return the_sum_of_value
 
     # ------------------------------------------------------------------
