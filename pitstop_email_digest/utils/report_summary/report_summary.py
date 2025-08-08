@@ -71,6 +71,7 @@ def send_report_summary(email_digest, show_html=False):
 						),
 						reference_doctype=email_digest.doctype,
 						reference_name=email_digest.name,
+						unsubscribe_message = _("Unsubscribe from this Email Digest")
 					)
 			frappe.set_user(original_user)
 			frappe.set_user_lang(original_user)

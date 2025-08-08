@@ -331,6 +331,22 @@ class PitstopEmailDigest(CoreDigest):
                         frappe.get_attr(email_digest_record.method)(email_digest_record, show_html=False)
                     except Exception as e:
                         frappe.log_error(frappe.get_traceback(), _("Error in custom method for Pitstop Email Digest"))
+    
+    @staticmethod
+    def cron_auto_send_daily():
+        frappe.enqueue(
+            "pitstop_email_digest.pitstop_email_digest.doctype.pitstop_email_digest.pitstop_email_digest.auto_send_daily",
+            queue="long",
+            timeout=1800  # 30 minutes
+        )
+    
+    @staticmethod
+    def cron_auto_send_weekly():
+        frappe.enqueue(
+            "pitstop_email_digest.pitstop_email_digest.doctype.pitstop_email_digest.pitstop_email_digest.auto_send_weekly",
+            queue="long",
+            timeout=1800  # 30 minutes
+        )
 
     @staticmethod
     def auto_send_daily():
@@ -350,6 +366,8 @@ class PitstopEmailDigest(CoreDigest):
 
 
 # Scheduler aliases
+cron_auto_send_daily  = PitstopEmailDigest.cron_auto_send_daily
+cron_auto_send_weekly = PitstopEmailDigest.cron_auto_send_weekly
 auto_send_daily  = PitstopEmailDigest.auto_send_daily
 auto_send_weekly = PitstopEmailDigest.auto_send_weekly
 
