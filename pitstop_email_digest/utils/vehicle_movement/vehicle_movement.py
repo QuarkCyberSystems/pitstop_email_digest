@@ -249,7 +249,7 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_divisio
 	elif timespan == "Custom Date":
 		timespan = ["Custom Date"]
 
-	final_category_result = {"mechanical_category": None, "brac_category": None, "body_shop_cash_category": None, "body_shop_insurance_category": None}
+	final_category_result = {"brac_mechanical": None, "brac_bodyshop": None, "mechanical_category": None, "brac_category": None, "body_shop_cash_category": None, "body_shop_insurance_category": None}
 	for each_division in division_dict:
 		if each_division.get("category") == "Mechanical":
 			workshop_division = each_division.get("workshop_division")
@@ -263,6 +263,20 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_divisio
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			customer_list = each_division.get("customer_list")
 			final_category_result["brac_category"] = fetch_ro_project_status_based_workshop_division(
+				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
+				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date)
+		elif each_division.get("category") == "BRAC MECHANICAL":
+			workshop_division = each_division.get("workshop_division")
+			bill_to_customer_check = each_division.get("bill_to_customer_check")
+			customer_list = each_division.get("customer_list")
+			final_category_result["brac_mechanical"] = fetch_ro_project_status_based_workshop_division(
+				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
+				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date)
+		elif each_division.get("category") == "BRAC BODYSHOP":
+			workshop_division = each_division.get("workshop_division")
+			bill_to_customer_check = each_division.get("bill_to_customer_check")
+			customer_list = each_division.get("customer_list")
+			final_category_result["brac_bodyshop"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date)
 		elif each_division.get("category") == "Body Shop - Cash":
