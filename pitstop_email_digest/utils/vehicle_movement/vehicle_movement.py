@@ -20,14 +20,15 @@ class Literal(Term):
 		return str(self.value)
 
 @frappe.whitelist()
-def get_vehicle_movement(customer_list=None):
+def get_vehicle_movement(workspace=None):
 	"""
 	Fetch vehicle movement data based on the specified frequency.
 	"""
 	frequency = ["Daily", "Monthly", "Yearly"]
 	final_dict = {"Daily":[], "Monthly":[], "Yearly":[]}
-	if customer_list:
-		customer_list = json.loads(customer_list)
+	customer_list = []
+	if workspace:
+		customer_list = get_customers_list(workspace)
 	
 	today_date = frappe.utils.getdate(frappe.utils.nowdate())
 
