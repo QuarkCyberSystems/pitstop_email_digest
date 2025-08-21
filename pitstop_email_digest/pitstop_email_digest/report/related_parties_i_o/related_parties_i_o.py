@@ -5,6 +5,7 @@ import frappe
 from frappe.utils import today, floor
 from frappe.query_builder.functions import IfNull, Max
 from frappe import _, qb, query_builder
+from ....utils.vehicle_movement.vehicle_movement import get_customers_list
 
 
 def execute(filters=None):
@@ -165,7 +166,13 @@ def get_data(filters=None):
 		elif filters.get("billing_type") == "Insurance":
 			query = query.where((Project.insurance_company != "") & (Project.insurance_company.isnotnull()))
 	
-	customer_list = ["C00883", "C00276", "C01053"]
+	if filters and filters.get("branch"):
+		query = query.where((Project.branch == filters.get("branch")))
+
+	customer_list = []
+	if filters.get("workspace"):
+		customer_list = get_customers_list(filters.get("workspace"))
+
 	if customer_list:
 		query = query.where(Project.customer.isin(customer_list))
 

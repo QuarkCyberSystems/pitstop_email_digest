@@ -236,7 +236,10 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 
 
 @frappe.whitelist()
-def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_division=None, bill_to_customer_check=None, customer_list=None, division_dict=None, timespan=None, selected_date=None, branch=None):
+def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_division=None, bill_to_customer_check=None, 
+																customer_list=None, division_dict=None, 
+																timespan=None, selected_date=None, 
+																branch=None, workspace=None):
 	"""
 	Fetch RO project status based on workshop division and customer.
 	"""
@@ -252,52 +255,76 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_divisio
 	elif timespan == "Custom Date":
 		timespan = ["Custom Date"]
 
-	final_category_result = {"brac_mechanical": None, "brac_bodyshop": None, "mechanical_category": None, "brac_category": None, "body_shop_cash_category": None, "body_shop_insurance_category": None}
+	final_category_result = {
+		"brac_mechanical": None, 
+		"brac_bodyshop": None, 
+		"mechanical_category": None, 
+		"brac_category": None, 
+		"body_shop_cash_category": None, 
+		"body_shop_insurance_category": None,
+		"selected_filters" : {
+			"branch": branch
+		}
+	}
+
+	customer_list = get_customers_list(workspace)
+
 	for each_division in division_dict:
 		if each_division.get("category") == "Mechanical":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			customer_list = each_division.get("customer_list")
 			final_category_result["mechanical_category"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, branch=branch)
 		elif each_division.get("category") == "BRAC":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			customer_list = each_division.get("customer_list")
 			final_category_result["brac_category"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, branch=branch)
 		elif each_division.get("category") == "BRAC MECHANICAL":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			customer_list = each_division.get("customer_list")
 			final_category_result["brac_mechanical"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, branch=branch)
 		elif each_division.get("category") == "BRAC BODYSHOP":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			customer_list = each_division.get("customer_list")
 			final_category_result["brac_bodyshop"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, branch=branch)
 		elif each_division.get("category") == "Body Shop - Cash":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			customer_list = each_division.get("customer_list")
 			final_category_result["body_shop_cash_category"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, branch=branch)
 		elif each_division.get("category") == "Body Shop - Insurance":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			customer_list = each_division.get("customer_list")
 			final_category_result["body_shop_insurance_category"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, branch=branch)
 
 	return final_category_result
+
+@frappe.whitelist()
+def get_customers_list(workspace):
+	customer_list = []
+	customer_group =  frappe.db.get_value(
+		"Workspace Customer Group Details", 
+		filters={
+			"parent":"Related Parties Settings", 
+			"workspace":workspace
+		},
+		fieldname=["customer_group"]
+	)
+
+	if customer_group:
+		customer_list = frappe.get_list("Customer", filters={"customer_group":customer_group}, pluck="name")
+	
+	return customer_list
 
 @frappe.whitelist()
 def fetch_branch():

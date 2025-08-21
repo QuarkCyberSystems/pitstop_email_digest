@@ -32,11 +32,26 @@ frappe.query_reports["Related Parties I_O"] = {
 			reqd: 0
 		},
 		{
+			fieldname: "branch",
+			label: __("Branch"),
+			fieldtype: "Link",
+			options: "Branch",
+			reqd: 0
+		},
+		{
 			fieldname: "billing_type",
 			label: __("Billing Type"),
 			fieldtype: "Select",
 			options: ["", "Customer", "Insurance"],
 			reqd: 0
-		}
+		},
+		{
+			fieldname: "workspace",
+			label: __("Workspace"),
+			fieldtype: "Data",
+			reqd: 0,
+			hidden: 1,
+			read_only: 1
+		},
 	]
 };
