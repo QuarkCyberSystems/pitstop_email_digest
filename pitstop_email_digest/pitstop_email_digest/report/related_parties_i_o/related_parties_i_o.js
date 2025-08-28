@@ -32,6 +32,13 @@ frappe.query_reports["Related Parties I_O"] = {
 			reqd: 0
 		},
 		{
+			fieldname: "current_task_type",
+			label: __("Current Task Type"),
+			fieldtype: "Link",
+			options: "Task Type",
+			reqd: 0
+		},
+		{
 			fieldname: "branch",
 			label: __("Branch"),
 			fieldtype: "Link",
@@ -52,6 +59,6 @@ frappe.query_reports["Related Parties I_O"] = {
 			reqd: 0,
 			hidden: 1,
 			read_only: 1
-		},
+		}
 	]
 };

@@ -206,6 +206,7 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 					0
 				).as_("total_time_take"),
 				Project.project_status,
+				Project.project_status.as_("original_project_status"),
 				Project.vehicle_workshop_division,
 				Literal(each_timespan).as_("timespan")
 			)
@@ -256,7 +257,7 @@ def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan):
 			.left_join(VGP)
 			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
 			.where((LatestVSR.docstatus == 1) & (Project.project_status.isin(["In Progress", "Assigned"])))  # Additional filters below
-			.groupby(Project.current_task_type)
+			.groupby(Project.current_task_type, Project.project_status)
 			.select(
 				Count(Project.name).as_("total_ro"),
 				Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
@@ -282,7 +283,8 @@ def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan):
 					" (", 
 					Project.current_task_type, 
 					")"
-				).as_("project_status")
+				).as_("project_status"),
+				Project.project_status.as_("original_project_status")
 			)
 		)
 	return query_wo_ass_inp

@@ -30,6 +30,13 @@ def get_columns(filters=None):
 			"width": 200,
 		},
 		{
+			"label": _("Current Task Type"),
+			"fieldname": "current_task_type",
+			"fieldtype": "Link",
+			"options": "Task Type",
+			"width": 200,
+		},
+		{
 			"label": _("Workshop Division"),
 			"fieldname": "vehicle_workshop_division",
 			"fieldtype": "Data",
@@ -136,6 +143,7 @@ def get_data(filters=None):
 			Project.name.as_("repair_order"),
 			datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date).as_("timespend"),
 			Project.project_status,
+			Project.current_task_type,
 			Project.vehicle_workshop_division,
 			Project.project_date,
 			Project.customer_name,
@@ -159,6 +167,9 @@ def get_data(filters=None):
 	
 	if filters and filters.get("project_status"):
 		query = query.where(Project.project_status == filters.get("project_status"))
+	
+	if filters and filters.get("current_task_type"):
+		query = query.where(Project.current_task_type == filters.get("current_task_type"))
 	
 	if filters and filters.get("billing_type"):
 		if filters.get("billing_type") == "Customer":
