@@ -1,7 +1,7 @@
 
 import frappe
 from frappe.utils import today
-from frappe.query_builder.functions import Count, Sum, IfNull, Floor, Max
+from frappe.query_builder.functions import Count, Sum, IfNull, Floor, Max, Concat
 from frappe import _, qb, query_builder
 import json
 from erpnext.accounts.utils import get_fiscal_year
@@ -179,14 +179,14 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 			)
 		).as_("latest_vsr")
 
-		query = (
+		query_wo_ass_inp = (
 			frappe.qb
 			.from_(Project)
 			.left_join(LatestVSR)
 			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
 			.left_join(VGP)
 			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
-			.where((LatestVSR.docstatus == 1))  # Additional filters below
+			.where((LatestVSR.docstatus == 1) & (Project.project_status.notin(["In Progress", "Assigned"])))  # Additional filters below
 			.groupby(Project.project_status)
 			.select(
 				Count(Project.name).as_("total_ro"),
@@ -211,29 +211,81 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 			)
 		)
 
+		query_with_ass_inp = query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan)
+
 		# Add dynamic filters if applicable
 		if workshop_division:
-			query = query.where(Project.vehicle_workshop_division == workshop_division)
+			query_wo_ass_inp = query_wo_ass_inp.where(Project.vehicle_workshop_division == workshop_division)
+			query_with_ass_inp = query_with_ass_inp.where(Project.vehicle_workshop_division == workshop_division)
 		
 		if branch:
-			query = query.where(Project.branch == branch)
+			query_wo_ass_inp = query_wo_ass_inp.where(Project.branch == branch)
+			query_with_ass_inp = query_with_ass_inp.where(Project.branch == branch)
 
 		if bill_to_customer_check:
 			if bill_to_customer_check == "Same":
-				query = query.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
+				query_wo_ass_inp = query_wo_ass_inp.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
+				query_with_ass_inp = query_with_ass_inp.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
 			else:
-				query = query.where(((Project.insurance_company!="") & (Project.insurance_company.isnotnull())))
+				query_wo_ass_inp = query_wo_ass_inp.where(((Project.insurance_company!="") & (Project.insurance_company.isnotnull())))
+				query_with_ass_inp = query_with_ass_inp.where(((Project.insurance_company!="") & (Project.insurance_company.isnotnull())))
 		
 		if customer_list:
-			query = query.where(Project.customer.isin(customer_list))
+			query_wo_ass_inp = query_wo_ass_inp.where(Project.customer.isin(customer_list))
+			query_with_ass_inp = query_with_ass_inp.where(Project.customer.isin(customer_list))
 		
-		query = query.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
+		query_wo_ass_inp = query_wo_ass_inp.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
+		query_with_ass_inp = query_with_ass_inp.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
 
-		workshop_division_project_status_data_mechanical = query.run(as_dict=True)
+		query_with_ass_inp_result = query_with_ass_inp.run(as_dict=True)
+		
+		workshop_division_project_status_data_mechanical = query_wo_ass_inp.run(as_dict=True)
 
 		final_list.extend(workshop_division_project_status_data_mechanical)
+		final_list.extend(query_with_ass_inp_result)
 	
 	return final_list
+
+def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan):
+
+	query_wo_ass_inp = (
+			frappe.qb
+			.from_(Project)
+			.left_join(LatestVSR)
+			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
+			.left_join(VGP)
+			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
+			.where((LatestVSR.docstatus == 1) & (Project.project_status.isin(["In Progress", "Assigned"])))  # Additional filters below
+			.groupby(Project.current_task_type)
+			.select(
+				Count(Project.name).as_("total_ro"),
+				Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
+				Floor(
+					IfNull(
+						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name),
+						0
+					),
+					0
+				).as_("average"),
+				Floor(
+					IfNull(
+						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)),
+						0
+					),
+					0
+				).as_("total_time_take"),
+				Project.current_task_type,
+				Project.vehicle_workshop_division,
+				Literal(each_timespan).as_("timespan"),
+				Concat(
+					Project.project_status, 
+					" (", 
+					Project.current_task_type, 
+					")"
+				).as_("project_status")
+			)
+		)
+	return query_wo_ass_inp
 
 
 @frappe.whitelist()
