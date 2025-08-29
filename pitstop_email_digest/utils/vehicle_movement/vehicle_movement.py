@@ -58,7 +58,7 @@ def get_vehicle_movement(workspace=None):
 			posting_date_filter_list = [from_date, today()]
 		to_date = today()
 
-		number_of_vehicle_in = frappe.db.get_list('Vehicle Service Receipt', 
+		number_of_vehicle_in = frappe.db.get_all('Vehicle Service Receipt', 
 			fields=['count(name) as total_number_cars_in'],
 			filters= {
 				'posting_date': ["between", posting_date_filter_list],
@@ -67,7 +67,7 @@ def get_vehicle_movement(workspace=None):
 			}
 		)
 
-		number_of_vehicle_out = frappe.db.get_list('Vehicle Gate Pass', 
+		number_of_vehicle_out = frappe.db.get_all('Vehicle Gate Pass', 
 			fields=['count(name) as total_number_cars_out'],
 			filters= {
 				'posting_date': ["between", posting_date_filter_list],
@@ -142,6 +142,12 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 
 	datediff = query_builder.CustomFunction("DATEDIFF", ["cur_date", "due_date"])
 
+	task_type_job_status = frappe.db.get_all(
+		"Job Status Details", 
+		filters={"parent":"Related Parties Settings"}, 
+		fields=["job_status"],pluck="job_status"
+	)
+
 	final_list = []
 
 	for each_timespan in timespan_list:
@@ -186,14 +192,14 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
 			.left_join(VGP)
 			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
-			.where((LatestVSR.docstatus == 1) & (Project.project_status.notin(["In Progress", "Assigned"])))  # Additional filters below
+			.where((LatestVSR.docstatus == 1) & (Project.project_status.notin(task_type_job_status)))  # Additional filters below
 			.groupby(Project.project_status)
 			.select(
-				Count(Project.name).as_("total_ro"),
+				Count(Project.name).distinct().as_("total_ro"),
 				Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
 				Floor(
 					IfNull(
-						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name),
+						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name).distinct(),
 						0
 					),
 					0
@@ -212,7 +218,7 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 			)
 		)
 
-		query_with_ass_inp = query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan)
+		query_with_ass_inp = query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, task_type_job_status)
 
 		# Add dynamic filters if applicable
 		if workshop_division:
@@ -247,7 +253,7 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 	
 	return final_list
 
-def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan):
+def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, task_type_job_status):
 
 	query_wo_ass_inp = (
 			frappe.qb
@@ -256,14 +262,14 @@ def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan):
 			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
 			.left_join(VGP)
 			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
-			.where((LatestVSR.docstatus == 1) & (Project.project_status.isin(["In Progress", "Assigned"])))  # Additional filters below
+			.where((LatestVSR.docstatus == 1) & (Project.project_status.isin(task_type_job_status)))  # Additional filters below
 			.groupby(Project.current_task_type, Project.project_status)
 			.select(
-				Count(Project.name).as_("total_ro"),
+				Count(Project.name).distinct().as_("total_ro"),
 				Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
 				Floor(
 					IfNull(
-						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name),
+						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name).distinct(),
 						0
 					),
 					0

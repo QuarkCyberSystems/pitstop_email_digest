@@ -16,13 +16,8 @@ def execute(filters=None):
 	return columns, data, None, None, total_summary
 
 def get_columns(filters=None):
-	return [
-		{
-			"label": _("Reapair Order"),
-			"fieldname": "repair_order",
-			"fieldtype": "Data",
-			"width": 200,
-		},
+
+	columns = [
 		{
 			"label": _("Job Status"),
 			"fieldname": "project_status",
@@ -99,6 +94,33 @@ def get_columns(filters=None):
 			"width": 200,
 		}
 	]
+
+	ro_dict = check_link_roles()
+	columns.insert(0, ro_dict)
+	return columns	
+
+def check_link_roles():
+	link_roles = frappe.db.get_all("Role Details", filters={"parent":"Related Parties Settings"}, fields=["roles"], pluck="roles")
+	current_user = frappe.session.user
+	for each_role in link_roles:
+		if each_role in frappe.get_roles(current_user):
+			ro_column_dict = {
+				"label": _("Reapair Order"),
+				"fieldname": "repair_order",
+				"fieldtype": "Link",
+				"options": "Project",
+				"width": 200,
+			}
+			break
+	else:
+		ro_column_dict = {
+			"label": _("Reapair Order"),
+			"fieldname": "repair_order",
+			"fieldtype": "Data",
+			"width": 200,
+		}
+	return ro_column_dict
+
 
 def get_data(filters=None):
 	"""

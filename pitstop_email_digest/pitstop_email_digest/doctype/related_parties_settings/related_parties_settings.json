@@ -5,7 +5,11 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "customer_group_workspace"
+  "customer_group_workspace",
+  "section_break_bjof",
+  "task_type_job_status",
+  "column_break_lkkd",
+  "link_access_roles"
  ],
  "fields": [
   {
@@ -13,13 +17,33 @@
    "fieldtype": "Table",
    "label": "Customer Group Workspace",
    "options": "Workspace Customer Group Details"
+  },
+  {
+   "fieldname": "task_type_job_status",
+   "fieldtype": "Table MultiSelect",
+   "label": "Task Type Job Status",
+   "options": "Job Status Details"
+  },
+  {
+   "fieldname": "link_access_roles",
+   "fieldtype": "Table MultiSelect",
+   "label": "Link Access Roles",
+   "options": "Role Details"
+  },
+  {
+   "fieldname": "column_break_lkkd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_bjof",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-08-21 12:35:21.589244",
+ "modified": "2025-08-29 20:53:07.002576",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Related Parties Settings",
