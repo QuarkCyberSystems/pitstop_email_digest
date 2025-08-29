@@ -123,11 +123,16 @@ def get_vehicle_movement(workspace=None):
 			.where(
 				(TVGP.docstatus == 1) &
 				(LatestVSR.docstatus == 1) &
-				(TP.customer.isin(customer_list)) &
 				(TVGP.posting_date>=from_date) & 
 				(TVGP.posting_date<=to_date)
 			)
-		).run(as_dict=True)
+		)
+
+		if customer_list:
+			average_time_delivery = average_time_delivery.where((TP.customer.isin(customer_list)))
+		else:
+			average_time_delivery = average_time_delivery.where(TP.customer == None)
+		average_time_delivery = average_time_delivery.run(as_dict=True)
 
 		final_dict[each_frequency] = {"number_of_vehicle_in":number_of_vehicle_in, "number_of_vehicle_out":number_of_vehicle_out, "average_time_delivery":average_time_delivery}
 
@@ -192,7 +197,7 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
 			.left_join(VGP)
 			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
-			.where((LatestVSR.docstatus == 1) & (Project.project_status.notin(task_type_job_status)))  # Additional filters below
+			.where((LatestVSR.docstatus == 1))  # Additional filters below
 			.groupby(Project.project_status)
 			.select(
 				Count(Project.name).distinct().as_("total_ro"),
@@ -218,38 +223,52 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 			)
 		)
 
-		query_with_ass_inp = query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, task_type_job_status)
+		if task_type_job_status:
+			query_wo_ass_inp = query_wo_ass_inp.where((Project.project_status.notin(task_type_job_status)))
+			query_with_ass_inp = query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, task_type_job_status)
 
 		# Add dynamic filters if applicable
 		if workshop_division:
 			query_wo_ass_inp = query_wo_ass_inp.where(Project.vehicle_workshop_division == workshop_division)
-			query_with_ass_inp = query_with_ass_inp.where(Project.vehicle_workshop_division == workshop_division)
+			if task_type_job_status:
+				query_with_ass_inp = query_with_ass_inp.where(Project.vehicle_workshop_division == workshop_division)
 		
 		if branch:
 			query_wo_ass_inp = query_wo_ass_inp.where(Project.branch == branch)
-			query_with_ass_inp = query_with_ass_inp.where(Project.branch == branch)
+			if task_type_job_status:
+				query_with_ass_inp = query_with_ass_inp.where(Project.branch == branch)
 
 		if bill_to_customer_check:
 			if bill_to_customer_check == "Same":
 				query_wo_ass_inp = query_wo_ass_inp.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
-				query_with_ass_inp = query_with_ass_inp.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
+				if task_type_job_status:
+					query_with_ass_inp = query_with_ass_inp.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
 			else:
 				query_wo_ass_inp = query_wo_ass_inp.where(((Project.insurance_company!="") & (Project.insurance_company.isnotnull())))
-				query_with_ass_inp = query_with_ass_inp.where(((Project.insurance_company!="") & (Project.insurance_company.isnotnull())))
+				if task_type_job_status:
+					query_with_ass_inp = query_with_ass_inp.where(((Project.insurance_company!="") & (Project.insurance_company.isnotnull())))
 		
 		if customer_list:
 			query_wo_ass_inp = query_wo_ass_inp.where(Project.customer.isin(customer_list))
-			query_with_ass_inp = query_with_ass_inp.where(Project.customer.isin(customer_list))
+			if task_type_job_status:
+				query_with_ass_inp = query_with_ass_inp.where(Project.customer.isin(customer_list))
+		else:
+			query_wo_ass_inp = query_wo_ass_inp.where(Project.customer == None)
+			if task_type_job_status:
+				query_with_ass_inp = query_with_ass_inp.where(Project.customer == None)
 		
 		query_wo_ass_inp = query_wo_ass_inp.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
-		query_with_ass_inp = query_with_ass_inp.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
+		if task_type_job_status:
+			query_with_ass_inp = query_with_ass_inp.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
 
-		query_with_ass_inp_result = query_with_ass_inp.run(as_dict=True)
+		if task_type_job_status:
+			query_with_ass_inp_result = query_with_ass_inp.run(as_dict=True)
 		
 		workshop_division_project_status_data_mechanical = query_wo_ass_inp.run(as_dict=True)
 
 		final_list.extend(workshop_division_project_status_data_mechanical)
-		final_list.extend(query_with_ass_inp_result)
+		if task_type_job_status:
+			final_list.extend(query_with_ass_inp_result)
 	
 	return final_list
 
@@ -262,7 +281,7 @@ def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, 
 			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
 			.left_join(VGP)
 			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
-			.where((LatestVSR.docstatus == 1) & (Project.project_status.isin(task_type_job_status)))  # Additional filters below
+			.where((LatestVSR.docstatus == 1) & Project.project_status.isin(task_type_job_status))  # Additional filters below
 			.groupby(Project.current_task_type, Project.project_status)
 			.select(
 				Count(Project.name).distinct().as_("total_ro"),
