@@ -87,6 +87,9 @@ fixtures = [
 
 # include js in doctype views
 # doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+    "Payment Entry" : "public/js/payment_entry.js"
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -176,6 +179,10 @@ fixtures = [
 # 	"ToDo": "custom_app.overrides.CustomToDo"
 # }
 
+override_doctype_class = {
+	"Payment Entry": "pitstop_email_digest.utils.payment_entry.CustomPaymentEntry"
+}
+
 # Document Events
 # ---------------
 # Hook on document methods and events
@@ -186,6 +193,12 @@ fixtures = [
 # 		"on_cancel": "method",
 # 		"on_trash": "method"
 # 	}
+# }
+
+# doc_events = {
+#     "Payment Entry": {
+#         "before_insert":"pitstop_email_digest.utils.payment_entry.update_reference_no"
+#     }
 # }
 
 # Scheduled Tasks

@@ -1,0 +1,43 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-09-22 16:07:38.132480",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "auto_reference_number_details"
+ ],
+ "fields": [
+  {
+   "fieldname": "auto_reference_number_details",
+   "fieldtype": "Table",
+   "label": "Auto Reference Number Details",
+   "options": "Reference Number Details"
+  }
+ ],
+ "grid_page_length": 500,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-09-22 18:08:51.954844",
+ "modified_by": "Administrator",
+ "module": "Pitstop Email Digest",
+ "name": "Payment Entry Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
