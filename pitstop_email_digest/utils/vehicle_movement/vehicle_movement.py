@@ -7,6 +7,7 @@ import json
 from erpnext.accounts.utils import get_fiscal_year
 from pypika.terms import Term
 from pypika.enums import SqlTypes
+from pypika.terms import Function
 
 class Literal(Term):
 	def __init__(self, value):
@@ -18,6 +19,11 @@ class Literal(Term):
 		if isinstance(self.value, str):
 			return f"'{self.value}'"
 		return str(self.value)
+	
+# Define CEIL function
+class Ceil(Function):
+    def __init__(self, term, *args):
+        super().__init__("CEIL", term, *args)
 
 @frappe.whitelist()
 def get_vehicle_movement(workspace=None):
@@ -113,11 +119,11 @@ def get_vehicle_movement(workspace=None):
 			.select(
 				Count(TVGP.name).as_("tvsr_name_count"),
 				Sum(datediff(TVGP.posting_date, LatestVSR.posting_date)).as_("timespend"),
-				Floor(
+				Ceil(
 					IfNull(
 						Sum(datediff(TVGP.posting_date, LatestVSR.posting_date)) / Count(TVGP.name),
 						0
-					), 0
+					)
 				).as_("average")
 			)
 			.where(
@@ -202,19 +208,17 @@ def fetch_ro_project_status_based_workshop_division(workshop_division=None, bill
 			.select(
 				Count(Project.name).distinct().as_("total_ro"),
 				Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
-				Floor(
+				Ceil(
 					IfNull(
 						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name).distinct(),
 						0
-					),
-					0
+					)
 				).as_("average"),
-				Floor(
+				Ceil(
 					IfNull(
 						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)),
 						0
-					),
-					0
+					)
 				).as_("total_time_take"),
 				Project.project_status,
 				Project.project_status.as_("original_project_status"),
@@ -286,19 +290,17 @@ def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, 
 			.select(
 				Count(Project.name).distinct().as_("total_ro"),
 				Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
-				Floor(
+				Ceil(
 					IfNull(
 						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name).distinct(),
 						0
-					),
-					0
+					)
 				).as_("average"),
-				Floor(
+				Ceil(
 					IfNull(
 						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)),
 						0
-					),
-					0
+					)
 				).as_("total_time_take"),
 				Project.current_task_type,
 				Project.vehicle_workshop_division,

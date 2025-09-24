@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.utils import today, floor
+from frappe.utils import today, ceil
 from frappe.query_builder.functions import IfNull, Max
 from frappe import _, qb, query_builder
 from ....utils.vehicle_movement.vehicle_movement import get_customers_list
@@ -223,7 +223,7 @@ def calculate_overall_totals(data):
 	total_ro = sum(1 for item in data if item.get("repair_order") is not None)
 
 	average = total_timespend/total_ro
-	return floor(average)
+	return ceil(average)
 
 def get_totals_summary(totals):
 	if not totals:
