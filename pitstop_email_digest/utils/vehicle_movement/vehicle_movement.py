@@ -1,6 +1,6 @@
 
 import frappe
-from frappe.utils import today
+from frappe.utils import today, nowtime
 from frappe.query_builder.functions import Count, Sum, IfNull, Floor, Max, Concat
 from frappe import _, qb, query_builder
 import json
@@ -8,6 +8,7 @@ from erpnext.accounts.utils import get_fiscal_year
 from pypika.terms import Term
 from pypika.enums import SqlTypes
 from pypika.terms import Function
+from ..download_excel_sheet_from_html.download_excel_sheet import html_table_to_excel
 
 class Literal(Term):
 	def __init__(self, value):
@@ -411,3 +412,8 @@ def get_customers_list(workspace):
 @frappe.whitelist()
 def fetch_branch():
 	return frappe.get_all("Branch", pluck="name")
+
+@frappe.whitelist()
+def download_excel_sheet(html_table):
+	file_name = "excel_sheet_"+nowtime()+".xlsx"
+	html_table_to_excel(html_table, file_name)
