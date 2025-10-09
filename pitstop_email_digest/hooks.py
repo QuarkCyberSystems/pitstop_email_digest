@@ -46,7 +46,8 @@ fixtures = [
                 "name", "in", [
                     "Vehicle Movement Workshop Division BRAC",
                     "Vehicle Movement Daily Monthly Yearly",
-                    "Vehicle Movement a Day BRAC"
+                    "Vehicle Movement a Day BRAC",
+                    "Invoice WIP MAP"
                 ]
             ]
         ]
@@ -56,7 +57,18 @@ fixtures = [
         "filters": [            
             [       
                 "name", "in", [
-                    "BRAC"
+                    "BRAC",
+                    "Invoice WIP MAP"
+                ]
+            ]
+        ]
+    },
+    {
+        "dt":"Custom Field",
+        "filters": [
+            [
+                "name", "in", [
+                    "Company-branch_monthly_revenue_target",
                 ]
             ]
         ]
