@@ -57,7 +57,18 @@ fixtures = [
         "filters": [            
             [       
                 "name", "in", [
-                    "BRAC"
+                    "BRAC",
+                    "Invoice WIP MAP"
+                ]
+            ]
+        ]
+    },
+    {
+        "dt":"Custom Field",
+        "filters": [
+            [
+                "name", "in", [
+                    "Company-branch_monthly_revenue_target",
                 ]
             ]
         ]

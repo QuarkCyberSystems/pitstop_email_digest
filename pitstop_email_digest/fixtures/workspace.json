@@ -38,7 +38,7 @@
   "is_hidden": 0,
   "label": "BRAC",
   "links": [],
-  "modified": "2025-07-30 18:52:24.939788",
+  "modified": "2025-10-09 16:31:24.317125",
   "module": null,
   "name": "BRAC",
   "number_cards": [],
@@ -58,5 +58,49 @@
   "sequence_id": 2.0,
   "shortcuts": [],
   "title": "BRAC"
+ },
+ {
+  "charts": [],
+  "content": "[{\"id\":\"ArSa5psnSx\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Invoice WIP MAP View</span>\",\"col\":12}},{\"id\":\"AcfNGrToAB\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Invoice WIP MAP\",\"col\":12}}]",
+  "creation": "2025-10-09 16:31:19.530940",
+  "custom_blocks": [
+   {
+    "creation": "2025-10-09 16:31:19.530940",
+    "custom_block_name": "Invoice WIP MAP",
+    "label": "Invoice WIP MAP",
+    "parent": "Invoice WIP MAP",
+    "parentfield": "custom_blocks",
+    "parenttype": "Workspace"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Workspace",
+  "for_user": "",
+  "hide_custom": 0,
+  "icon": "arrow-up-right",
+  "indicator_color": "",
+  "is_hidden": 0,
+  "label": "Invoice WIP MAP",
+  "links": [],
+  "modified": "2025-10-09 16:32:56.616200",
+  "module": null,
+  "name": "Invoice WIP MAP",
+  "number_cards": [],
+  "parent_page": "",
+  "public": 1,
+  "quick_lists": [],
+  "restrict_to_domain": null,
+  "roles": [
+   {
+    "creation": "2025-10-09 16:31:19.530940",
+    "parent": "Invoice WIP MAP",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Invoice WIP MAP View"
+   }
+  ],
+  "sequence_id": 3.0,
+  "shortcuts": [],
+  "title": "Invoice WIP MAP"
  }
 ]
