@@ -4,7 +4,7 @@ from frappe.utils import getdate
 
 def fetch_revenue_others_group_based_on_ro_wip(from_date, to_date, cost_center, customer_group_list, vehicle_group_list):
     if customer_group_list:
-        customer_group_condition = " AND IFNULL(tp.bill_to_customer_group, tp.customer_group) NOT IN ({})".format(
+        customer_group_condition = " AND tp.customer_group NOT IN ({})".format(
             ", ".join("'{}'".format(cg) for cg in customer_group_list)
         )
     else:
@@ -53,7 +53,7 @@ def fetch_revenue_others_group_based_on_ro_wip(from_date, to_date, cost_center, 
 def fetch_revenue_vehicle_group_based_on_ro_wip(from_date, to_date, cost_center, vehicle_variant, customer_group_list=None):
     
     if customer_group_list:
-        customer_group_condition = " AND IFNULL(tp.bill_to_customer_group, tp.customer_group) NOT IN ({})".format(
+        customer_group_condition = " AND tp.customer_group NOT IN ({})".format(
             ", ".join("'{}'".format(cg) for cg in customer_group_list)
         )
     else:
@@ -107,7 +107,7 @@ def fetch_revenue_customer_group_based_on_ro_wip(from_date, to_date, cost_center
         JOIN 
             `tabCustomer Group` cg
         ON 
-            cg.name = IFNULL(tp.bill_to_customer_group, tp.customer_group)
+            cg.name = tp.customer_group
         JOIN 
             `tabCustomer Group` gp
         ON 
@@ -146,7 +146,7 @@ def fetch_revenue_customer_group_based_on_costcenter(from_date, to_date, cost_ce
         JOIN 
             `tabCustomer Group` cg
         ON 
-            cg.name = IFNULL(tp.bill_to_customer_group, tp.customer_group)
+            cg.name = tp.customer_group
         JOIN 
             `tabCustomer Group` gp
         ON 
@@ -236,8 +236,7 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date):
                 "customer_group_cost_center_details":[]
             }
         )
-        print(fiscal_start)
-        print(today_date)
+
         if each_cost_center == "AutoWorks - PASLLC":
             for each_customer_group in autoworks_customer_group_list:
                 customer_group_details = fetch_revenue_customer_group_based_on_ro_wip(fiscal_start, today_date, each_cost_center, each_customer_group)
