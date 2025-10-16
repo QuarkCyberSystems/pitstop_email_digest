@@ -194,7 +194,7 @@ def fetch_revenue_branchwise(from_date, to_date, cost_center):
 
 
 @frappe.whitelist()
-def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date):
+def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespan):
     autoworks_customer_group_list = ["Budget Mobility"]
     autocare_customer_group_list = []
     autoworks_vehicle_group_list = ["TESLA"]
@@ -203,17 +203,20 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date):
 
     today_date = frappe.utils.getdate(frappe.utils.nowdate())
     
-    fiscal_year = frappe.db.get_value(
-        "Fiscal Year",
-        {
-            "year_start_date": ["<=", today_date],
-            "year_end_date":   [">=", today_date]
-        },
-        ["year_start_date"],
-        as_dict=True
-    ) or {}
-    
-    fiscal_start = fiscal_year.get("year_start_date") or frappe.utils.getdate(f"{today_date.year}-01-01")
+    fiscal_start = None
+    if wip_timespan == "Year to Date (YTD)":
+        fiscal_year = frappe.db.get_value(
+            "Fiscal Year",
+            {
+                "year_start_date": ["<=", today_date],
+                "year_end_date":   [">=", today_date]
+            },
+            ["year_start_date"],
+            as_dict=True
+        ) or {}
+        fiscal_start = fiscal_year.get("year_start_date") or frappe.utils.getdate(f"{today_date.year}-01-01")
+    elif wip_timespan == "All Time":
+        fiscal_start = "2000-01-01"
 
     customer_group_cost_center_revenue_list = []
     cost_center_list = frappe.db.get_list("Cost Center", filters={"disabled":0, "is_group":0}, pluck="name")
