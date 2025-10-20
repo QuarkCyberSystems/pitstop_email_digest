@@ -200,7 +200,6 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
     autoworks_vehicle_group_list = ["TESLA"]
     autocare_vehicle_group_list = ["BMW", "GEELY"]
     whole_vehicle_group_list = ["TESLA", "BMW", "GEELY"]
-
     today_date = frappe.utils.getdate(frappe.utils.nowdate())
     
     fiscal_start = None
