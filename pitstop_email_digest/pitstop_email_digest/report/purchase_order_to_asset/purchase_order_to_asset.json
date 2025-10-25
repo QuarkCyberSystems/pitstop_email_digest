@@ -1,0 +1,69 @@
+{
+ "add_total_row": 0,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2025-10-25 21:18:30.097480",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2025-10-25 21:18:30.097480",
+ "modified_by": "Administrator",
+ "module": "Pitstop Email Digest",
+ "name": "Purchase Order To Asset",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "Purchase Order",
+ "report_name": "Purchase Order To Asset",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "Purchase User"
+  },
+  {
+   "role": "Accounts User"
+  },
+  {
+   "role": "Purchase Manager"
+  },
+  {
+   "role": "Stock User"
+  },
+  {
+   "role": "Stock User"
+  },
+  {
+   "role": "Purchase Officer"
+  },
+  {
+   "role": "CEO"
+  },
+  {
+   "role": "Autocare GM"
+  },
+  {
+   "role": "Management"
+  },
+  {
+   "role": "Finance Manager"
+  },
+  {
+   "role": "Executive Assistant"
+  },
+  {
+   "role": "Strategy Officer"
+  },
+  {
+   "role": "Accounting Clerk"
+  },
+  {
+   "role": "Stock User with Purchase Order Write"
+  },
+  {
+   "role": "Bodyshop Manager"
+  }
+ ],
+ "timeout": 0
+}
