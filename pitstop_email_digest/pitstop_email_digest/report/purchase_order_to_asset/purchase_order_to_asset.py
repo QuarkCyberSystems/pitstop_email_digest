@@ -1,11 +1,14 @@
 # Copyright (c) 2025, QCS and contributors
 # For license information, please see license.txt
 
+import frappe
+
 
 def execute(filters=None):
 	columns, data = [], []
 	columns = get_columns(filters)
 	data = get_data(filters)
+	data = post_process(data)
 	return columns, data
 
 def get_columns(filters):
@@ -22,6 +25,18 @@ def get_columns(filters):
 			"label": "Item",
 			"fieldtype": "Link",
 			"options": "Item",
+			"width": 220
+		},
+		{
+			"fieldname": "qty",
+			"label": "Item Qty",
+			"fieldtype": "Float",
+			"width": 220
+		},
+		{
+			"fieldname": "po_rate",
+			"label": "PO Rate",
+			"fieldtype": "Currency",
 			"width": 220
 		},
 		{
@@ -43,6 +58,24 @@ def get_columns(filters):
 			"label": "Asset",
 			"fieldtype": "Link",
 			"options": "Asset",
+			"width": 120
+		},
+		{
+			"fieldname": "asset_workflow_state",
+			"label": "Asset Workflow State",
+			"fieldtype": "Data",
+			"width": 120
+		},
+		{
+			"fieldname": "asset_status",
+			"label": "Asset Status",
+			"fieldtype": "Data",
+			"width": 120
+		},
+		{
+			"fieldname": "gross_purchase_amount",
+			"label": "Gross Purchase Amount",
+			"fieldtype": "Currency",
 			"width": 120
 		},
 		{
@@ -75,9 +108,13 @@ def get_data(filters):
 		SELECT 
 			tpo.name AS purchase_order, 
 			tpoi.item_code,
+			tpoi.qty,
+			tpoi.base_net_rate as po_rate,
 			tpii.parent AS purchase_invoice,
 			tpri.parent AS purchase_receipt,
 			ta.name AS asset,
+			ta.workflow_state as asset_workflow_state,
+			ta.status as asset_status,
 			ta.gross_purchase_amount AS gross_purchase_amount,
 			COALESCE(SUM(jea.credit), 0) AS je_amount,
 			COALESCE(SUM(tsii.base_net_amount), 0) AS sale_amount
@@ -120,3 +157,18 @@ def get_data(filters):
 		GROUP BY 
 			tpo.name, tpoi.item_code, ta.name, tpii.parent, tpri.parent;
 	""".format(condition=condition), as_dict=True)
+
+def post_process(data):
+	last_po = last_item = None
+	for row in data:
+		if row.purchase_order == last_po and row.item_code == last_item:
+			row.purchase_order = None
+			row.item_code = None
+			row.po_rate = None
+			row.purchase_invoice = None
+			row.purchase_receipt = None
+			row.qty = None
+		else:
+			last_po = row.purchase_order
+			last_item = row.item_code
+	return data
