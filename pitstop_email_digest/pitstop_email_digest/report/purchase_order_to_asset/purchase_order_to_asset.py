@@ -176,6 +176,8 @@ def post_process(data):
 			row.purchase_invoice = None
 			row.purchase_receipt = None
 			row.qty = None
+		elif row.purchase_order == last_po:
+			row.purchase_order = None
 		else:
 			last_po = row.purchase_order
 			last_item = row.item_code
