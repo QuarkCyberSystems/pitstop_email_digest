@@ -40,6 +40,12 @@ def get_columns(filters):
 			"width": 220
 		},
 		{
+			"fieldname": "po_amount",
+			"label": "PO Amount",
+			"fieldtype": "Currency",
+			"width": 220
+		},
+		{
 			"fieldname": "purchase_invoice",
 			"label": "Purchase Invoice",
 			"fieldtype": "Link",
@@ -110,6 +116,7 @@ def get_data(filters):
 			tpoi.item_code,
 			tpoi.qty,
 			tpoi.base_net_rate as po_rate,
+			tpoi.base_net_amount as po_amount,
 			tpii.parent AS purchase_invoice,
 			tpri.parent AS purchase_receipt,
 			ta.name AS asset,
@@ -165,6 +172,7 @@ def post_process(data):
 			row.purchase_order = None
 			row.item_code = None
 			row.po_rate = None
+			row.po_amount = None
 			row.purchase_invoice = None
 			row.purchase_receipt = None
 			row.qty = None
