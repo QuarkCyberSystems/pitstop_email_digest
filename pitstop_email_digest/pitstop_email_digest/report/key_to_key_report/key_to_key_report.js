@@ -20,8 +20,8 @@ frappe.query_reports["Key To Key Report"] = {
 		{
 			fieldname: "workshop_division",
 			label: __("Workshop Division"),
-			fieldtype: "Select",
-			options: ["Body Shop", "Mechanical"],
+			fieldtype: "Link",
+			options: "Vehicle Workshop Division",
 			reqd: 1
 		},
 		{
