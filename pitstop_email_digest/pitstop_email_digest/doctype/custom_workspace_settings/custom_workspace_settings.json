@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-12-17 16:24:42.992264",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_zjog",
+  "autoworks_customer_group_list",
+  "autocare_customer_group_list",
+  "column_break_j2at",
+  "autoworks_vehicle_group_list",
+  "autocare_vehicle_group_list",
+  "whole_vehicle_group_list"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_zjog",
+   "fieldtype": "Section Break",
+   "label": "Invoice WIP MAP"
+  },
+  {
+   "fieldname": "autoworks_customer_group_list",
+   "fieldtype": "Table MultiSelect",
+   "label": "Autoworks Customer Group List",
+   "options": "Customer Group Details"
+  },
+  {
+   "fieldname": "autocare_customer_group_list",
+   "fieldtype": "Table MultiSelect",
+   "label": "Autocare Customer Group List",
+   "options": "Customer Group Details"
+  },
+  {
+   "fieldname": "autoworks_vehicle_group_list",
+   "fieldtype": "Table MultiSelect",
+   "label": "Autoworks Vehicle Group List",
+   "options": "Brand Details"
+  },
+  {
+   "fieldname": "whole_vehicle_group_list",
+   "fieldtype": "Table MultiSelect",
+   "label": "Whole Vehicle Group List",
+   "options": "Brand Details"
+  },
+  {
+   "fieldname": "column_break_j2at",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "autocare_vehicle_group_list",
+   "fieldtype": "Table MultiSelect",
+   "label": "Autocare Vehicle Group List",
+   "options": "Brand Details"
+  }
+ ],
+ "grid_page_length": 500,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-12-17 17:00:41.053464",
+ "modified_by": "Administrator",
+ "module": "Pitstop Email Digest",
+ "name": "Custom Workspace Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -8,8 +8,10 @@
   "customer_group_workspace",
   "section_break_bjof",
   "task_type_job_status",
+  "vehicle_movement_workshop_division_brac",
   "column_break_lkkd",
-  "link_access_roles"
+  "link_access_roles",
+  "vehicle_movement_a_day_brac"
  ],
  "fields": [
   {
@@ -36,14 +38,27 @@
   },
   {
    "fieldname": "section_break_bjof",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "BRAC"
+  },
+  {
+   "fieldname": "vehicle_movement_workshop_division_brac",
+   "fieldtype": "Table MultiSelect",
+   "label": "Vehicle Movement Workshop Division BRAC",
+   "options": "Job Status Details"
+  },
+  {
+   "fieldname": "vehicle_movement_a_day_brac",
+   "fieldtype": "Table MultiSelect",
+   "label": "Vehicle Movement a Day BRAC",
+   "options": "Job Status Details"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-08-29 20:53:07.002576",
+ "modified": "2025-12-16 16:24:53.662129",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Related Parties Settings",

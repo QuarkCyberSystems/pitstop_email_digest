@@ -322,7 +322,7 @@ def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, 
 def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_division=None, bill_to_customer_check=None, 
 																customer_list=None, division_dict=None, 
 																timespan=None, selected_date=None, 
-																branch=None, workspace=None):
+																branch=None, workspace=None, custom_order_field=None):
 	"""
 	Fetch RO project status based on workshop division and customer.
 	"""
@@ -347,10 +347,14 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_divisio
 		"body_shop_insurance_category": None,
 		"selected_filters" : {
 			"branch": branch
-		}
+		},
+		"custom_order_field":[]
 	}
 
 	customer_list = get_customers_list(workspace)
+
+	if fetch_custom_order_data(custom_order_field):
+		final_category_result["custom_order_field"] = fetch_custom_order_data(custom_order_field)
 
 	for each_division in division_dict:
 		if each_division.get("category") == "Mechanical":
@@ -389,6 +393,7 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(workshop_divisio
 			final_category_result["body_shop_insurance_category"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, branch=branch)
+	print(final_category_result)
 
 	return final_category_result
 
@@ -417,3 +422,11 @@ def fetch_branch():
 def download_excel_sheet(html_table):
 	file_name = "excel_sheet_"+nowtime()+".xlsx"
 	html_table_to_excel(html_table, file_name)
+
+def fetch_custom_order_data(field_name):
+	job_status_list = frappe.get_all("Job Status Details", filters={
+			"parent":"Related Parties Settings", 
+			"parentfield":field_name
+		}, fields=["job_status"], pluck="job_status")
+	if job_status_list:
+		return job_status_list
