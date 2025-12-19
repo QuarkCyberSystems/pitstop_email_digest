@@ -60,5 +60,12 @@ frappe.query_reports["Related Parties I_O"] = {
 			hidden: 1,
 			read_only: 1
 		}
-	]
+	],
+	onload: function(report) {
+		frappe.breadcrumbs.add({
+			type: "Custom",
+			label: __("BRAC"),
+			route: "/app/brac",
+		});
+	}
 };

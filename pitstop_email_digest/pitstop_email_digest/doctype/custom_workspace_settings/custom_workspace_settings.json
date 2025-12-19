@@ -6,12 +6,13 @@
  "engine": "InnoDB",
  "field_order": [
   "section_break_zjog",
-  "autoworks_customer_group_list",
-  "autocare_customer_group_list",
+  "autoworks_customer_group_list_invoice_wip_map",
+  "autocare_customer_group_list_invoice_wip_map",
+  "project_status_invoice_wip_map",
   "column_break_j2at",
-  "autoworks_vehicle_group_list",
-  "autocare_vehicle_group_list",
-  "whole_vehicle_group_list"
+  "autoworks_vehicle_group_list_invoice_wip_map",
+  "autocare_vehicle_group_list_invoice_wip_map",
+  "whole_vehicle_group_list_invoice_wip_map"
  ],
  "fields": [
   {
@@ -20,45 +21,51 @@
    "label": "Invoice WIP MAP"
   },
   {
-   "fieldname": "autoworks_customer_group_list",
+   "fieldname": "column_break_j2at",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "autoworks_customer_group_list_invoice_wip_map",
    "fieldtype": "Table MultiSelect",
    "label": "Autoworks Customer Group List",
    "options": "Customer Group Details"
   },
   {
-   "fieldname": "autocare_customer_group_list",
+   "fieldname": "autocare_customer_group_list_invoice_wip_map",
    "fieldtype": "Table MultiSelect",
    "label": "Autocare Customer Group List",
    "options": "Customer Group Details"
   },
   {
-   "fieldname": "autoworks_vehicle_group_list",
+   "fieldname": "autoworks_vehicle_group_list_invoice_wip_map",
    "fieldtype": "Table MultiSelect",
    "label": "Autoworks Vehicle Group List",
    "options": "Brand Details"
   },
   {
-   "fieldname": "whole_vehicle_group_list",
+   "fieldname": "autocare_vehicle_group_list_invoice_wip_map",
+   "fieldtype": "Table MultiSelect",
+   "label": "Autocare Vehicle Group List",
+   "options": "Brand Details"
+  },
+  {
+   "fieldname": "whole_vehicle_group_list_invoice_wip_map",
    "fieldtype": "Table MultiSelect",
    "label": "Whole Vehicle Group List",
    "options": "Brand Details"
   },
   {
-   "fieldname": "column_break_j2at",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "autocare_vehicle_group_list",
+   "fieldname": "project_status_invoice_wip_map",
    "fieldtype": "Table MultiSelect",
-   "label": "Autocare Vehicle Group List",
-   "options": "Brand Details"
+   "label": "Project Status ",
+   "options": "Job Status Details"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-12-17 17:00:41.053464",
+ "modified": "2025-12-19 11:17:33.247022",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Custom Workspace Settings",
