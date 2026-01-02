@@ -95,12 +95,15 @@ def get_columns(filters=None):
 		}
 	]
 
-	ro_dict = check_link_roles()
+	ro_dict = check_link_roles(filters)
 	columns.insert(0, ro_dict)
 	return columns	
 
-def check_link_roles():
-	link_roles = frappe.db.get_all("Role Details", filters={"parent":"Related Parties Settings"}, fields=["roles"], pluck="roles")
+def check_link_roles(filters):
+
+	link_roles = frappe.db.get_all("Role Details", 
+				filters={"parent":"Workspace Settings", "parentfield":filters.get("report_link_access_roles_vehicle_mobility_field")}, 
+		fields=["roles"], pluck="roles")
 	current_user = frappe.session.user
 	for each_role in link_roles:
 		if each_role in frappe.get_roles(current_user):

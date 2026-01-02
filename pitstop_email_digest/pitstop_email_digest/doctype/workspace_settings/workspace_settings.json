@@ -12,7 +12,14 @@
   "column_break_j2at",
   "autoworks_vehicle_group_list_invoice_wip_map",
   "autocare_vehicle_group_list_invoice_wip_map",
-  "whole_vehicle_group_list_invoice_wip_map"
+  "whole_vehicle_group_list_invoice_wip_map",
+  "vehicle_mobility_section",
+  "customer_group_vehicle_mobility",
+  "column_break_mdga",
+  "task_type_job_status_brac_vehicle_mobility",
+  "report_link_access_roles_brac_vehicle_mobility",
+  "job_status_workshop_division_brac_vehicle_mobility",
+  "job_status_per_day_brac_vehicle_mobility"
  ],
  "fields": [
   {
@@ -59,16 +66,55 @@
    "fieldtype": "Table MultiSelect",
    "label": "Project Status ",
    "options": "Job Status Details"
+  },
+  {
+   "fieldname": "vehicle_mobility_section",
+   "fieldtype": "Section Break",
+   "label": "Vehicle Mobility"
+  },
+  {
+   "fieldname": "customer_group_vehicle_mobility",
+   "fieldtype": "Table",
+   "label": "Customer Group Vehicle Mobility",
+   "options": "Workspace Customer Group Details"
+  },
+  {
+   "fieldname": "task_type_job_status_brac_vehicle_mobility",
+   "fieldtype": "Table MultiSelect",
+   "label": "Task Type Job Status BRAC",
+   "options": "Job Status Details"
+  },
+  {
+   "fieldname": "report_link_access_roles_brac_vehicle_mobility",
+   "fieldtype": "Table MultiSelect",
+   "label": "Report Link Access Roles BRAC",
+   "options": "Role Details"
+  },
+  {
+   "fieldname": "job_status_workshop_division_brac_vehicle_mobility",
+   "fieldtype": "Table MultiSelect",
+   "label": "Job Status Workshop Division BRAC",
+   "options": "Job Status Details"
+  },
+  {
+   "fieldname": "job_status_per_day_brac_vehicle_mobility",
+   "fieldtype": "Table MultiSelect",
+   "label": "Job Status Per Day BRAC",
+   "options": "Job Status Details"
+  },
+  {
+   "fieldname": "column_break_mdga",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-12-19 11:17:33.247022",
+ "modified": "2026-01-02 12:11:21.369633",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
- "name": "Custom Workspace Settings",
+ "name": "Workspace Settings",
  "owner": "Administrator",
  "permissions": [
   {

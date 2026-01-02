@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class RelatedPartiesSettings(Document):
+class WorkspaceSettings(Document):
 	pass

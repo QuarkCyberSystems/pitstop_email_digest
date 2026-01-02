@@ -254,10 +254,11 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
 				each_result_row["Target"] = get_target_revenue_branchwise(
 					getdate(from_date),getdate(to_date),each_result_row.get('Branch'), each_cost_center)
 				branch_revenue_details_list.append(each_result_row)
-			cost_center_branch_list.append({
-				"cost_center":each_cost_center, 
-				"branch_revenue_details":branch_revenue_details_list
-			})
+		cost_center_branch_list.append({
+			"cost_center":each_cost_center, 
+			"branch_revenue_details":branch_revenue_details_list
+		})
+
 		customer_group_cost_center_revenue_list.append(
 			{
 				"cost_center":each_cost_center, 

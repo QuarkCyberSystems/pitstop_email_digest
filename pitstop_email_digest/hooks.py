@@ -57,7 +57,7 @@ fixtures = [
         "filters": [            
             [       
                 "name", "in", [
-                    "BRAC",
+                    "Vehicle Mobility BRAC",
                     "Invoice WIP MAP"
                 ]
             ]

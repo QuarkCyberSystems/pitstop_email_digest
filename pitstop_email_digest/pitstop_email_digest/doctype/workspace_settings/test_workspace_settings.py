@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestCustomWorkspaceSettings(FrappeTestCase):
+class TestWorkspaceSettings(FrappeTestCase):
 	pass

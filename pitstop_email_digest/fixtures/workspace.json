@@ -8,7 +8,7 @@
     "creation": "2025-07-11 16:19:03.265620",
     "custom_block_name": "Vehicle Movement a Day BRAC",
     "label": "Vehicle Movement a Day BRAC",
-    "parent": "BRAC",
+    "parent": "Vehicle Mobility BRAC",
     "parentfield": "custom_blocks",
     "parenttype": "Workspace"
    },
@@ -16,7 +16,7 @@
     "creation": "2025-07-11 16:19:03.265620",
     "custom_block_name": "Vehicle Movement Daily Monthly Yearly",
     "label": "Vehicle Movement",
-    "parent": "BRAC",
+    "parent": "Vehicle Mobility BRAC",
     "parentfield": "custom_blocks",
     "parenttype": "Workspace"
    },
@@ -24,7 +24,7 @@
     "creation": "2025-07-11 16:19:03.265620",
     "custom_block_name": "Vehicle Movement Workshop Division BRAC",
     "label": "Vehicle Movement Workshop Division YTD",
-    "parent": "BRAC",
+    "parent": "Vehicle Mobility BRAC",
     "parentfield": "custom_blocks",
     "parenttype": "Workspace"
    }
@@ -34,13 +34,13 @@
   "for_user": "",
   "hide_custom": 0,
   "icon": "change",
-  "indicator_color": "green",
+  "indicator_color": "",
   "is_hidden": 0,
-  "label": "BRAC",
+  "label": "Vehicle Mobility BRAC",
   "links": [],
-  "modified": "2025-10-09 16:31:24.317125",
+  "modified": "2026-01-02 22:39:33.641117",
   "module": null,
-  "name": "BRAC",
+  "name": "Vehicle Mobility BRAC",
   "number_cards": [],
   "parent_page": "",
   "public": 1,
@@ -49,7 +49,7 @@
   "roles": [
    {
     "creation": "2025-07-11 16:19:03.265620",
-    "parent": "BRAC",
+    "parent": "Vehicle Mobility BRAC",
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "BRAC User"
@@ -57,7 +57,7 @@
   ],
   "sequence_id": 2.0,
   "shortcuts": [],
-  "title": "BRAC"
+  "title": "Vehicle Mobility BRAC"
  },
  {
   "charts": [],
@@ -82,7 +82,7 @@
   "is_hidden": 0,
   "label": "Invoice WIP MAP",
   "links": [],
-  "modified": "2025-10-09 16:32:56.616200",
+  "modified": "2026-01-02 22:39:33.689286",
   "module": null,
   "name": "Invoice WIP MAP",
   "number_cards": [],
@@ -99,7 +99,7 @@
     "role": "Invoice WIP MAP View"
    }
   ],
-  "sequence_id": 3.0,
+  "sequence_id": 4.0,
   "shortcuts": [],
   "title": "Invoice WIP MAP"
  }

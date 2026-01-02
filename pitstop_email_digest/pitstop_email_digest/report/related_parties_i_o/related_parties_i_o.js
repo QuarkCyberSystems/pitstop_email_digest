@@ -55,6 +55,15 @@ frappe.query_reports["Related Parties I_O"] = {
 		{
 			fieldname: "workspace",
 			label: __("Workspace"),
+			fieldtype: "Link",
+			options:"Workspace",
+			reqd: 0,
+			hidden: 1,
+			read_only: 1
+		},
+		{
+			fieldname: "report_link_access_roles_vehicle_mobility_field",
+			label: __("Link Access Role"),
 			fieldtype: "Data",
 			reqd: 0,
 			hidden: 1,
@@ -62,10 +71,14 @@ frappe.query_reports["Related Parties I_O"] = {
 		}
 	],
 	onload: function(report) {
-		frappe.breadcrumbs.add({
-			type: "Custom",
-			label: __("BRAC"),
-			route: "/app/brac",
-		});
+		let the_workspace = report.get_filter_value("workspace");
+		if(the_workspace) {
+			let the_workspace_link = frappe.scrub(the_workspace).replace(/_/g, "-");
+			frappe.breadcrumbs.add({
+				type: "Custom",
+				label: __(the_workspace),
+				route: "/app/"+the_workspace_link,
+			});
+		}
 	}
 };
