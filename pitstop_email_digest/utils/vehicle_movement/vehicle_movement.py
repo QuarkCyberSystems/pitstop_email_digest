@@ -411,18 +411,26 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
 def get_customers_list(workspace):
 	customer_list = []
 	customer_groups_list = []
+	customer_group = None
 
-	customer_group =  frappe.db.get_value(
-		"Workspace Customer Group Details", 
-		filters={
-			"parent":"Workspace Settings", 
-			"workspace":workspace
-		},
-		fieldname=["customer_group"]
-	)
-
-	customer_groups_list = get_descendants_of("Customer Group", customer_group)
-	customer_groups_list.append(customer_group)
+	if frappe.db.exists("Workspace Customer Group Details",
+			{
+				"parent":"Workspace Settings", 
+				"workspace":workspace
+			}
+		):
+		customer_group =  frappe.db.get_value(
+			"Workspace Customer Group Details", 
+			filters={
+				"parent":"Workspace Settings", 
+				"workspace":workspace
+			},
+			fieldname=["customer_group"]
+		)
+	
+	if customer_group:
+		customer_groups_list = get_descendants_of("Customer Group", customer_group)
+		customer_groups_list.append(customer_group)
 
 	if customer_groups_list:
 		customer_list = frappe.get_list("Customer", 
