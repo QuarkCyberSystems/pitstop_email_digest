@@ -241,14 +241,14 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
 				{
 					"name": wip_timespan
 				},
-				["year_start_date", "year_end_date"],
+				["year_start_date"],
 				as_dict=True
 			) or {}
 			fiscal_start = fiscal_year.get("year_start_date")
-			if today_date.year == frappe.utils.getdate(fiscal_start).year:
-				fiscal_end = today_date
-			else:
-				fiscal_end = fiscal_year.get("year_end_date")
+			fiscal_end = today_date
+		else:
+			fiscal_start = frappe.utils.getdate(f"{today_date.year}-01-01")
+			fiscal_end = today_date
 
 	customer_group_cost_center_revenue_list = []
 	cost_center_list = frappe.db.get_list("Cost Center", filters={"disabled":0, "is_group":0}, pluck="name")
