@@ -230,19 +230,25 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
 	today_date = frappe.utils.getdate(frappe.utils.nowdate())
 	
 	fiscal_start = None
-	if wip_timespan == "Year to Date (YTD)":
-		fiscal_year = frappe.db.get_value(
-			"Fiscal Year",
-			{
-				"year_start_date": ["<=", today_date],
-				"year_end_date":   [">=", today_date]
-			},
-			["year_start_date"],
-			as_dict=True
-		) or {}
-		fiscal_start = fiscal_year.get("year_start_date") or frappe.utils.getdate(f"{today_date.year}-01-01")
-	elif wip_timespan == "All Time":
+	fiscal_end = None
+	if wip_timespan == "All Time":
 		fiscal_start = "2000-01-01"
+		fiscal_end = today_date
+	else:
+		if wip_timespan:
+			fiscal_year = frappe.db.get_value(
+				"Fiscal Year",
+				{
+					"name": wip_timespan
+				},
+				["year_start_date", "year_end_date"],
+				as_dict=True
+			) or {}
+			fiscal_start = fiscal_year.get("year_start_date")
+			if today_date.year == frappe.utils.getdate(fiscal_start).year:
+				fiscal_end = today_date
+			else:
+				fiscal_end = fiscal_year.get("year_end_date")
 
 	customer_group_cost_center_revenue_list = []
 	cost_center_list = frappe.db.get_list("Cost Center", filters={"disabled":0, "is_group":0}, pluck="name")
@@ -268,36 +274,36 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
 
 		if each_cost_center == "AutoWorks - PASLLC":
 			for each_customer_group in autoworks_customer_group_list:
-				customer_group_details = fetch_revenue_customer_group_based_on_ro_wip(fiscal_start, today_date, each_cost_center, each_customer_group, project_status_list=repair_order_status_list)
+				customer_group_details = fetch_revenue_customer_group_based_on_ro_wip(fiscal_start, fiscal_end, each_cost_center, each_customer_group, project_status_list=repair_order_status_list)
 				for each_customer_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
 					if each_customer_group_cost_center_revenue_list.get("cost_center") == each_cost_center:
 						each_customer_group_cost_center_revenue_list.get("customer_group_cost_center_details").extend(customer_group_details)
 
 			for each_vehicle_group in autoworks_vehicle_group_list:
-				vehicle_group_details = fetch_revenue_vehicle_group_based_on_ro_wip(fiscal_start, today_date, each_cost_center, each_vehicle_group, autoworks_customer_group_list, project_status_list=repair_order_status_list)
+				vehicle_group_details = fetch_revenue_vehicle_group_based_on_ro_wip(fiscal_start, fiscal_end, each_cost_center, each_vehicle_group, autoworks_customer_group_list, project_status_list=repair_order_status_list)
 				for each_vehicle_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
 					if each_vehicle_group_cost_center_revenue_list.get("cost_center") == each_cost_center:
 						each_vehicle_group_cost_center_revenue_list.get("customer_group_cost_center_details").extend(vehicle_group_details)
 		
 		if each_cost_center == "AutoCare - PASLLC":
 			for each_customer_group in autocare_customer_group_list:
-				customer_group_details = fetch_revenue_customer_group_based_on_ro_wip(fiscal_start, today_date, each_cost_center, each_customer_group, project_status_list=repair_order_status_list)
+				customer_group_details = fetch_revenue_customer_group_based_on_ro_wip(fiscal_start, fiscal_end, each_cost_center, each_customer_group, project_status_list=repair_order_status_list)
 				for each_customer_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
 					if each_customer_group_cost_center_revenue_list.get("cost_center") == each_cost_center:
 						each_customer_group_cost_center_revenue_list.get("customer_group_cost_center_details").extend(customer_group_details)
 
 			for each_vehicle_group in autocare_vehicle_group_list:
-				vehicle_group_details = fetch_revenue_vehicle_group_based_on_ro_wip(fiscal_start, today_date, each_cost_center, each_vehicle_group, autocare_customer_group_list, project_status_list=repair_order_status_list)
+				vehicle_group_details = fetch_revenue_vehicle_group_based_on_ro_wip(fiscal_start, fiscal_end, each_cost_center, each_vehicle_group, autocare_customer_group_list, project_status_list=repair_order_status_list)
 				for each_vehicle_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
 					if each_vehicle_group_cost_center_revenue_list.get("cost_center") == each_cost_center:
 						each_vehicle_group_cost_center_revenue_list.get("customer_group_cost_center_details").extend(vehicle_group_details)
 		
 		if each_cost_center == "AutoWorks - PASLLC":
-			other_group_details = fetch_revenue_others_group_based_on_ro_wip(fiscal_start, today_date, each_cost_center, autoworks_customer_group_list, autoworks_vehicle_group_list, project_status_list=repair_order_status_list)
+			other_group_details = fetch_revenue_others_group_based_on_ro_wip(fiscal_start, fiscal_end, each_cost_center, autoworks_customer_group_list, autoworks_vehicle_group_list, project_status_list=repair_order_status_list)
 		elif each_cost_center == "AutoCare - PASLLC":
-			other_group_details = fetch_revenue_others_group_based_on_ro_wip(fiscal_start, today_date, each_cost_center, autocare_customer_group_list, autocare_vehicle_group_list, project_status_list=repair_order_status_list)
+			other_group_details = fetch_revenue_others_group_based_on_ro_wip(fiscal_start, fiscal_end, each_cost_center, autocare_customer_group_list, autocare_vehicle_group_list, project_status_list=repair_order_status_list)
 		else:
-			other_group_details = fetch_revenue_others_group_based_on_ro_wip(fiscal_start, today_date, each_cost_center, autocare_customer_group_list, whole_vehicle_group_list, project_status_list=repair_order_status_list)
+			other_group_details = fetch_revenue_others_group_based_on_ro_wip(fiscal_start, fiscal_end, each_cost_center, autocare_customer_group_list, whole_vehicle_group_list, project_status_list=repair_order_status_list)
 
 		for each_vehicle_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
 			if each_vehicle_group_cost_center_revenue_list.get("cost_center") == each_cost_center:

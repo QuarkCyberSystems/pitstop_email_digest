@@ -444,6 +444,10 @@ def fetch_branch():
 	return frappe.get_all("Branch", pluck="name")
 
 @frappe.whitelist()
+def fetch_fiscal_year():
+	return frappe.get_all("Fiscal Year", filters={"disabled":0}, pluck="name")
+
+@frappe.whitelist()
 def download_excel_sheet(html_table):
 	file_name = "excel_sheet_"+nowtime()+".xlsx"
 	html_table_to_excel(html_table, file_name)
