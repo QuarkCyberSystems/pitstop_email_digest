@@ -380,6 +380,14 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
 				branch=branch, task_type_job_status_field=task_type_job_status_field,
 				from_year=from_year, to_year=to_year)
+		elif each_division.get("category") == "ALL":
+			workshop_division = each_division.get("workshop_division")
+			bill_to_customer_check = each_division.get("bill_to_customer_check")
+			final_category_result["all_category"] = fetch_ro_project_status_based_workshop_division(
+				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
+				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
+				branch=branch, task_type_job_status_field=task_type_job_status_field,
+				from_year=from_year, to_year=to_year)
 		elif each_division.get("category") == "BRAC MECHANICAL":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
