@@ -150,7 +150,8 @@ def get_vehicle_movement(workspace=None):
 def fetch_ro_project_status_based_workshop_division(
 	workshop_division=None, bill_to_customer_check=None, 
 	customer_list=None, timespan_list=None, 
-	selected_date=None, branch=None, task_type_job_status_field=None):
+	selected_date=None, branch=None, task_type_job_status_field=None,
+	from_year=None, to_year=None):
 
 	Project = qb.DocType("Project")
 	VSR = qb.DocType("Vehicle Service Receipt")
@@ -171,8 +172,8 @@ def fetch_ro_project_status_based_workshop_division(
 		today_date = today()
 
 		if each_timespan == "YTD":
-			from_date = get_fiscal_year(today_date)[1]
-			to_date = today()
+			from_date = get_fiscal_year(fiscal_year=str(from_year))[1] if from_year else get_fiscal_year(today_date)[1]
+			to_date = get_fiscal_year(fiscal_year=str(to_year))[2] if to_year else today()
 		elif each_timespan == "MTD":
 			from_date = frappe.utils.data.get_first_day(today_date)
 			to_date = today()
@@ -327,7 +328,8 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
 	customer_list=None, division_dict=None, 
 	timespan=None, selected_date=None, 
 	branch=None, workspace=None, 
-	custom_order_field=None, task_type_job_status_field=None):
+	custom_order_field=None, task_type_job_status_field=None,
+	from_year=None, to_year=None):
 	"""
 	Fetch RO project status based on workshop division and customer.
 	"""
@@ -368,42 +370,48 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
 			final_category_result["mechanical_category"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, 
-				selected_date=selected_date, branch=branch, task_type_job_status_field=task_type_job_status_field)
+				selected_date=selected_date, branch=branch, task_type_job_status_field=task_type_job_status_field,
+				from_year=from_year, to_year=to_year)
 		elif each_division.get("category") == "BRAC":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			final_category_result["brac_category"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field)
+				branch=branch, task_type_job_status_field=task_type_job_status_field,
+				from_year=from_year, to_year=to_year)
 		elif each_division.get("category") == "BRAC MECHANICAL":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			final_category_result["brac_mechanical"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field)
+				branch=branch, task_type_job_status_field=task_type_job_status_field,
+				from_year=from_year, to_year=to_year)
 		elif each_division.get("category") == "BRAC BODYSHOP":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			final_category_result["brac_bodyshop"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field)
+				branch=branch, task_type_job_status_field=task_type_job_status_field,
+				from_year=from_year, to_year=to_year)
 		elif each_division.get("category") == "Body Shop - Cash":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			final_category_result["body_shop_cash_category"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field)
+				branch=branch, task_type_job_status_field=task_type_job_status_field,
+				from_year=from_year, to_year=to_year)
 		elif each_division.get("category") == "Body Shop - Insurance":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			final_category_result["body_shop_insurance_category"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field)
+				branch=branch, task_type_job_status_field=task_type_job_status_field,
+				from_year=from_year, to_year=to_year)
 
 	return final_category_result
 
