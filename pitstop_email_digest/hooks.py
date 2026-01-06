@@ -44,9 +44,14 @@ fixtures = [
         "filters": [            
             [       
                 "name", "in", [
+                    # BRAC Customers
                     "Vehicle Movement Workshop Division BRAC",
                     "Vehicle Movement Daily Monthly Yearly BRAC",
                     "Vehicle Movement a Day BRAC",
+                    # All Customers
+                    "Vehicle Movement Workshop Division ALL",
+                    "Vehicle Movement Daily Monthly Yearly ALL",
+                    "Vehicle Movement a Day ALL",
                     "Invoice WIP MAP"
                 ]
             ]
@@ -57,7 +62,10 @@ fixtures = [
         "filters": [            
             [       
                 "name", "in", [
+                    # BRAC
                     "Vehicle Mobility BRAC",
+                    # ALL
+                    "Vehicle Mobility ALL",
                     "Invoice WIP MAP"
                 ]
             ]

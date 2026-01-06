@@ -208,7 +208,7 @@ def fetch_ro_project_status_based_workshop_division(
 			.left_join(LatestVSR)
 			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
 			.left_join(VGP)
-			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
+			.on((VGP.project == Project.name) & (VGP.docstatus == 1) & (VGP.purpose == 'Service - Vehicle Delivery'))
 			.where((LatestVSR.docstatus == 1))  # Additional filters below
 			.groupby(Project.project_status)
 			.select(
@@ -289,7 +289,7 @@ def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, 
 			.left_join(LatestVSR)
 			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
 			.left_join(VGP)
-			.on((VGP.project == Project.name) & (VGP.docstatus == 1))
+			.on((VGP.project == Project.name) & (VGP.docstatus == 1) & (VGP.purpose == 'Service - Vehicle Delivery'))
 			.where((LatestVSR.docstatus == 1) & Project.project_status.isin(task_type_job_status))  # Additional filters below
 			.groupby(Project.current_task_type, Project.project_status)
 			.select(
@@ -396,10 +396,26 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
 				branch=branch, task_type_job_status_field=task_type_job_status_field,
 				from_year=from_year, to_year=to_year)
+		elif each_division.get("category") == "ALL MECHANICAL":
+			workshop_division = each_division.get("workshop_division")
+			bill_to_customer_check = each_division.get("bill_to_customer_check")
+			final_category_result["all_mechanical"] = fetch_ro_project_status_based_workshop_division(
+				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
+				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
+				branch=branch, task_type_job_status_field=task_type_job_status_field,
+				from_year=from_year, to_year=to_year)
 		elif each_division.get("category") == "BRAC BODYSHOP":
 			workshop_division = each_division.get("workshop_division")
 			bill_to_customer_check = each_division.get("bill_to_customer_check")
 			final_category_result["brac_bodyshop"] = fetch_ro_project_status_based_workshop_division(
+				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
+				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
+				branch=branch, task_type_job_status_field=task_type_job_status_field,
+				from_year=from_year, to_year=to_year)
+		elif each_division.get("category") == "ALL BODYSHOP":
+			workshop_division = each_division.get("workshop_division")
+			bill_to_customer_check = each_division.get("bill_to_customer_check")
+			final_category_result["all_bodyshop"] = fetch_ro_project_status_based_workshop_division(
 				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
 				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
 				branch=branch, task_type_job_status_field=task_type_job_status_field,

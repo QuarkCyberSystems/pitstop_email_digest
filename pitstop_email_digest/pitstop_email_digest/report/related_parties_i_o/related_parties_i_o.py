@@ -162,7 +162,7 @@ def get_data(filters=None):
 		.left_join(LatestVSR)
 		.on(LatestVSR.project == Project.name)
 		.left_join(VGP)
-		.on((VGP.project == Project.name) & (VGP.docstatus == 1))
+		.on((VGP.project == Project.name) & (VGP.docstatus == 1) & (VGP.purpose == 'Service - Vehicle Delivery'))
 		.where(LatestVSR.docstatus == 1)
 		.select(
 			Project.name.as_("repair_order"),
