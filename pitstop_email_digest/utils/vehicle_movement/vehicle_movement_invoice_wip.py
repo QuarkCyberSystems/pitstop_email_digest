@@ -340,7 +340,7 @@ def months_between(d1, d2):
 def fetch_field_group_list_data(field_name, link_field_name, document_type):
 	field_list = []
 	field_list = frappe.get_all(document_type, filters={
-			"parent":"Custom Workspace Settings", 
+			"parent":"Workspace Settings", 
 			"parentfield":field_name
 		}, fields=[link_field_name], pluck=link_field_name)
 	return field_list
