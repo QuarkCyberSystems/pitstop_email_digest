@@ -1,7 +1,7 @@
 // Copyright (c) 2025, QCS and contributors
 // For license information, please see license.txt
 
-frappe.query_reports["Related Parties I_O"] = {
+frappe.query_reports["Vehicle Mobility"] = {
 	"filters": [
 		{
 			fieldname: "from_date",

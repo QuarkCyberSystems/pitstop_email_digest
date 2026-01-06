@@ -142,7 +142,7 @@
   "is_hidden": 0,
   "label": "Vehicle Mobility ALL",
   "links": [],
-  "modified": "2026-01-06 13:39:28.890848",
+  "modified": "2026-01-06 14:40:30.082036",
   "module": null,
   "name": "Vehicle Mobility ALL",
   "number_cards": [],
@@ -150,7 +150,15 @@
   "public": 1,
   "quick_lists": [],
   "restrict_to_domain": null,
-  "roles": [],
+  "roles": [
+   {
+    "creation": "2026-01-06 12:27:51.746304",
+    "parent": "Vehicle Mobility ALL",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Vehicle Mobility ALL"
+   }
+  ],
   "sequence_id": 2.0,
   "shortcuts": [],
   "title": "Vehicle Mobility ALL"
