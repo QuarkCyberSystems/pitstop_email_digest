@@ -307,7 +307,12 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
 
 	return {
 		"cost_center_branch_list":cost_center_branch_list, 
-		"customer_group_cost_center_revenue_list":customer_group_cost_center_revenue_list
+		"customer_group_cost_center_revenue_list":customer_group_cost_center_revenue_list,
+		"autoworks_customer_group_list":autoworks_customer_group_list,
+		"autocare_customer_group_list":autocare_customer_group_list,
+		"autoworks_vehicle_group_list":autoworks_vehicle_group_list,
+		"autocare_vehicle_group_list":autocare_vehicle_group_list,
+		"repair_order_status_list":repair_order_status_list
 	}
 
 def get_target_revenue_branchwise(from_date, to_date, branch, cost_center):
