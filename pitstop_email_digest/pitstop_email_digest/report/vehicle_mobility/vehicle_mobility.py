@@ -11,8 +11,8 @@ from ....utils.vehicle_movement.vehicle_movement import get_customers_list
 def execute(filters=None):
 	columns = get_columns(filters)
 	data = get_data(filters)
-	totals = calculate_overall_totals(data)
-	total_summary = get_totals_summary(totals)
+	total_ro, total_timespend, total_average  = calculate_overall_totals(data)
+	total_summary = get_totals_summary(total_ro, total_timespend, total_average)
 	return columns, data, None, None, total_summary
 
 def get_columns(filters=None):
@@ -220,23 +220,24 @@ def get_data(filters=None):
 
 def calculate_overall_totals(data):
 	if not data:
-		return 0.0
+		return 0.0, 0.0, 0.0
 	
 	total_timespend = sum(each_dict.get("timespend") or 0 for each_dict in data)
 	total_ro = sum(1 for item in data if item.get("repair_order") is not None)
 
 	average = total_timespend/total_ro
-	return ceil(average)
+	return total_ro, total_timespend, ceil(average)
 
-def get_totals_summary(totals):
-	if not totals:
-		return None
+def get_totals_summary(total_ro, total_timespend, total_average):
+	the_symbol = "="
+	if (total_ro and ((total_timespend/total_ro) != total_average)):
+		the_symbol = "&#8776;"
 
 	return [
 		{
 			"label": _("Average Time in Days"),
-			"value": totals,
+			"value": str(total_timespend)+"/"+str(total_ro)+the_symbol+str(total_average),
 			"indicator": "red",
-			"datatype": "Float",
+			"datatype": "html",
 		}
 	]

@@ -1,5 +1,5 @@
 {
- "add_total_row": 0,
+ "add_total_row": 1,
  "add_translate_data": 0,
  "columns": [],
  "creation": "2026-01-06 14:35:19.125445",
@@ -9,7 +9,7 @@
  "filters": [],
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2026-01-06 14:35:19.125445",
+ "modified": "2026-01-06 17:47:48.895932",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Vehicle Mobility",
