@@ -28,7 +28,7 @@ class Ceil(Function):
         super().__init__("CEIL", term, *args)
 
 @frappe.whitelist()
-def get_vehicle_movement(workspace=None):
+def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
 	"""
 	Fetch vehicle movement data based on the specified frequency.
 	"""
@@ -39,32 +39,21 @@ def get_vehicle_movement(workspace=None):
 		customer_list = get_customers_list(workspace)
 	
 	today_date = frappe.utils.getdate(frappe.utils.nowdate())
-
-	fy = frappe.db.get_value(
-		"Fiscal Year",
-		{
-			"year_start_date": ["<=", today_date],
-			"year_end_date":   [">=", today_date]
-		},
-		["year_start_date"],
-		as_dict=True
-	) or {}
-
-	fiscal_start = fy.get("year_start_date") or frappe.utils.getdate(f"{today_date.year}-01-01")
+	to_date = today()
 
 	for each_frequency in frequency:
 		posting_date_filter_list = []
 
 		if each_frequency == "Daily":
 			from_date = today()
-			posting_date_filter_list = [from_date, from_date]
+			posting_date_filter_list = [from_date, to_date]
 		elif each_frequency == "Monthly":
 			from_date = frappe.utils.get_first_day(today())
-			posting_date_filter_list = [from_date, today()] 
+			posting_date_filter_list = [from_date, to_date] 
 		elif each_frequency == "Yearly":
-			from_date = fiscal_start
-			posting_date_filter_list = [from_date, today()]
-		to_date = today()
+			from_date = get_fiscal_year(fiscal_year=str(from_year))[1] if from_year else get_fiscal_year(today_date)[1]
+			to_date = get_fiscal_year(fiscal_year=str(to_year))[2] if to_year else today()
+			posting_date_filter_list = [from_date, to_date]
 
 		number_of_vehicle_in = frappe.db.get_all('Vehicle Service Receipt', 
 			fields=['count(name) as total_number_cars_in'],
@@ -132,7 +121,8 @@ def get_vehicle_movement(workspace=None):
 				(TVGP.docstatus == 1) &
 				(LatestVSR.docstatus == 1) &
 				(TVGP.posting_date>=from_date) & 
-				(TVGP.posting_date<=to_date)
+				(TVGP.posting_date<=to_date) &
+				(TVGP.purpose == 'Service - Vehicle Delivery')
 			)
 		)
 
