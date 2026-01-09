@@ -30,89 +30,92 @@ class Ceil(Function):
 @frappe.whitelist()
 def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
 	"""
-	Fetch vehicle movement data based on the specified frequency.
+	Optimized vehicle movement metrics (Daily / Monthly / Yearly)
 	"""
-	frequency = ["Daily", "Monthly", "Yearly"]
-	final_dict = {"Daily":[], "Monthly":[], "Yearly":[]}
-	customer_list = []
-	if workspace:
-		customer_list = get_customers_list(workspace)
-	
+	frequencies = ("Daily", "Monthly", "Yearly")
+	result = {f: {} for f in frequencies}
+
+	customer_list = get_customers_list(workspace) if workspace else []
+
 	today_date = frappe.utils.getdate(frappe.utils.nowdate())
-	to_date = today()
 
-	for each_frequency in frequency:
-		posting_date_filter_list = []
-
-		if each_frequency == "Daily":
-			from_date = today()
-			posting_date_filter_list = [from_date, to_date]
-		elif each_frequency == "Monthly":
-			from_date = frappe.utils.get_first_day(today())
-			posting_date_filter_list = [from_date, to_date] 
-		elif each_frequency == "Yearly":
-			from_date = get_fiscal_year(fiscal_year=str(from_year))[1] if from_year else get_fiscal_year(today_date)[1]
-			to_date = get_fiscal_year(fiscal_year=str(to_year))[2] if to_year else today()
-			posting_date_filter_list = [from_date, to_date]
-
-		number_of_vehicle_in = frappe.db.get_all('Vehicle Service Receipt', 
-			fields=['count(name) as total_number_cars_in'],
-			filters= {
-				'posting_date': ["between", posting_date_filter_list],
-				'customer': ["in", customer_list],
-				'docstatus': 1
-			}
+	date_ranges = {
+		"Daily": (
+			today(),
+			today()
+		),
+		"Monthly": (
+			frappe.utils.get_first_day(today()),
+			today()
+		),
+		"Yearly": (
+			get_fiscal_year(str(from_year))[1] if from_year else get_fiscal_year(today_date)[1],
+			get_fiscal_year(str(to_year))[2] if to_year else today()
 		)
+	}
 
-		number_of_vehicle_out = frappe.db.get_all('Vehicle Gate Pass', 
-			fields=['count(name) as total_number_cars_out'],
-			filters= {
-				'posting_date': ["between", posting_date_filter_list],
-				'customer': ["in", customer_list],
-				'docstatus': 1
-			}
+	TVSR = qb.DocType("Vehicle Service Receipt")
+	TVGP = qb.DocType("Vehicle Gate Pass")
+	TP = qb.DocType("Project")
+
+	LatestVSRSub = (
+		qb.from_(TVSR)
+		.select(
+			TVSR.project,
+			Max(TVSR.posting_date).as_("max_posting_date")
 		)
+		.where(TVSR.docstatus == 1)
+		.groupby(TVSR.project)
+	).as_("latest_vsr_sub")
 
-		TVGP = qb.DocType("Vehicle Gate Pass")
-		TP = qb.DocType("Project")
-		TVSR = qb.DocType("Vehicle Service Receipt")
-		
-		# Step 1: Subquery to get max(posting_date) for each project in VSR
-		LatestVSRSub = (
-			frappe.qb.from_(TVSR)
-			.select(TVSR.project, Max(TVSR.posting_date).as_("max_posting_date"))
-			.where(TVSR.docstatus == 1)
-			.groupby(TVSR.project)
-		).as_("latest_vsr_sub")
+	LatestVSR = (
+		qb.from_(TVSR)
+		.join(LatestVSRSub)
+		.on(
+			(TVSR.project == LatestVSRSub.project) &
+			(TVSR.posting_date == LatestVSRSub.max_posting_date)
+		)
+		.select(
+			TVSR.project,
+			TVSR.posting_date,
+			TVSR.docstatus
+		)
+	).as_("latest_vsr")
 
-		# Step 2: Join this with VSR to get the full latest VSR record
-		LatestVSR = (
-			frappe.qb.from_(TVSR)
-			.join(LatestVSRSub)
-			.on((TVSR.project == LatestVSRSub.project) & (TVSR.posting_date == LatestVSRSub.max_posting_date))
-			.select(
-				TVSR.name,
-				TVSR.project,
-				TVSR.posting_date,
-				TVSR.docstatus
+	datediff = query_builder.CustomFunction("DATEDIFF", ["cur_date", "due_date"])
+
+	for freq in frequencies:
+		from_date, to_date = date_ranges[freq]
+
+		vehicle_in_q = (
+			qb.from_(TVSR)
+			.select(Count(TVSR.name).as_("count"))
+			.where(
+				(TVSR.docstatus == 1) &
+				(TVSR.posting_date.between(from_date, to_date))
 			)
-		).as_("latest_vsr")
+		)
 
-		datediff = query_builder.CustomFunction("DATEDIFF", ["cur_date", "due_date"])
+		vehicle_out_q = (
+			qb.from_(TVGP)
+			.select(Count(TVGP.name).as_("count"))
+			.where(
+				(TVGP.docstatus == 1) &
+				(TVGP.posting_date.between(from_date, to_date))
+			)
+		)
 
-		average_time_delivery = (
-			frappe.qb
-			.from_(TVGP)
-			.join(TP)
-			.on(TP.name == TVGP.project)
-			.left_join(LatestVSR)
-			.on(LatestVSR.project == TP.name)
+		avg_delivery_q = (
+			qb.from_(TVGP)
+			.join(TP).on(TP.name == TVGP.project)
+			.left_join(LatestVSR).on(LatestVSR.project == TP.name)
 			.select(
-				Count(TVGP.name).as_("tvsr_name_count"),
+				Count(TVGP.name).as_("total_deliveries"),
 				Sum(datediff(TVGP.posting_date, LatestVSR.posting_date)).as_("timespend"),
 				Ceil(
 					IfNull(
-						Sum(datediff(TVGP.posting_date, LatestVSR.posting_date)) / Count(TVGP.name),
+						Sum(datediff(TVGP.posting_date, LatestVSR.posting_date)) /
+						Count(TVGP.name),
 						0
 					)
 				).as_("average")
@@ -120,21 +123,23 @@ def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
 			.where(
 				(TVGP.docstatus == 1) &
 				(LatestVSR.docstatus == 1) &
-				(TVGP.posting_date>=from_date) & 
-				(TVGP.posting_date<=to_date) &
-				(TVGP.purpose == 'Service - Vehicle Delivery')
+				(TVGP.posting_date.between(from_date, to_date)) &
+				(TVGP.purpose == "Service - Vehicle Delivery")
 			)
 		)
 
 		if customer_list:
-			average_time_delivery = average_time_delivery.where((TP.customer.isin(customer_list)))
-		else:
-			average_time_delivery = average_time_delivery.where(TP.customer == None)
-		average_time_delivery = average_time_delivery.run(as_dict=True)
+			vehicle_in_q = vehicle_in_q.where(TVSR.customer.isin(customer_list))
+			vehicle_out_q = vehicle_out_q.where(TVGP.customer.isin(customer_list))
+			avg_delivery_q = avg_delivery_q.where(TP.customer.isin(customer_list))
 
-		final_dict[each_frequency] = {"number_of_vehicle_in":number_of_vehicle_in, "number_of_vehicle_out":number_of_vehicle_out, "average_time_delivery":average_time_delivery}
+		result[freq] = {
+			"number_of_vehicle_in": vehicle_in_q.run(as_dict=True)[0]["count"],
+			"number_of_vehicle_out": vehicle_out_q.run(as_dict=True)[0]["count"],
+			"average_time_delivery": avg_delivery_q.run(as_dict=True)
+		}
 
-	return final_dict
+	return result
 
 def fetch_all_category(from_date, to_date, branch=None, customer_list=None, timespan=None):
     customer_condition = ""
