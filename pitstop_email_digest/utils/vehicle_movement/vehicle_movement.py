@@ -310,7 +310,7 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
 	elif timespan == "Custom Date":
 		timespan = ["Custom Date"]
 
-	final_category_result_test = {
+	final_category_result = {
 		"all_mechanical": [], 
 		"all_bodyshop": [], 
 		"mechanical_category": [], 
@@ -341,22 +341,23 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
 		division_group_result = fetch_division_group_category(from_date, to_date, branch=branch if (branch and branch!="") else None, customer_list=customer_list, timespan=each_timespan)
 		for row in division_group_result:
 			if row["category_key"]:
-				final_category_result_test[row["category_key"]].append(row)
+				final_category_result[row["category_key"]].append(row)
 
 		# fetch brac_category separately
 		all_result = fetch_all_category(from_date, to_date, branch=branch if (branch and branch!="") else None, customer_list=customer_list, timespan=each_timespan)
 
 		for row in all_result:
 			if row["check_mechanical_bodyshop"] == "all_mechanical":
-				final_category_result_test["all_mechanical"].append(row)
+				final_category_result["all_mechanical"].append(row)
 			if row["check_mechanical_bodyshop"] == "all_bodyshop":
-				final_category_result_test["all_bodyshop"].append(row)
+				final_category_result["all_bodyshop"].append(row)
+			final_category_result["all_category"].append(row)
 
 
 	if fetch_custom_order_data(custom_order_field):
-		final_category_result_test["custom_order_field"] = fetch_custom_order_data(custom_order_field)
+		final_category_result["custom_order_field"] = fetch_custom_order_data(custom_order_field)
 
-	return final_category_result_test
+	return final_category_result
 
 @frappe.whitelist()
 def get_customers_list(workspace):
