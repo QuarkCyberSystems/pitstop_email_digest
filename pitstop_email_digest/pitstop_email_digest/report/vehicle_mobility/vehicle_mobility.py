@@ -211,8 +211,6 @@ def get_data(filters=None):
 
 	if customer_list:
 		query = query.where(Project.customer.isin(customer_list))
-	else:
-		query = query.where(Project.customer == None)
 
 	workshop_division_project_status_data_mechanical = query.run(as_dict=True)
 

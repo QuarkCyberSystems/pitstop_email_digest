@@ -24,8 +24,8 @@ class Literal(Term):
 	
 # Define CEIL function
 class Ceil(Function):
-    def __init__(self, term, *args):
-        super().__init__("CEIL", term, *args)
+	def __init__(self, term, *args):
+		super().__init__("CEIL", term, *args)
 
 @frappe.whitelist()
 def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
@@ -136,181 +136,156 @@ def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
 
 	return final_dict
 
-@frappe.whitelist()
-def fetch_ro_project_status_based_workshop_division(
-	workshop_division=None, bill_to_customer_check=None, 
-	customer_list=None, timespan_list=None, 
-	selected_date=None, branch=None, task_type_job_status_field=None,
-	from_year=None, to_year=None):
+def fetch_all_category(from_date, to_date, branch=None, customer_list=None, timespan=None):
+    customer_condition = ""
+    params = {
+        "from_date": from_date,
+        "to_date": to_date,
+        "branch": branch,
+        "timespan": timespan
+    }
 
-	Project = qb.DocType("Project")
-	VSR = qb.DocType("Vehicle Service Receipt")
-	VGP = qb.DocType("Vehicle Gate Pass")
+    if customer_list:
+        customer_condition = "AND p.customer IN %(customer_list)s"
+        params["customer_list"] = tuple(customer_list)
 
-	datediff = query_builder.CustomFunction("DATEDIFF", ["cur_date", "due_date"])
+    sql_query_fstring = f"""
+    SELECT
+        COUNT(DISTINCT p.name) AS total_ro,
+        CEIL(SUM(DATEDIFF(IFNULL(vgp.posting_date, CURDATE()), lv.posting_date))) AS total_time_take,
+        CEIL(
+            IFNULL(
+                SUM(DATEDIFF(IFNULL(vgp.posting_date, CURDATE()), lv.posting_date)) / COUNT(DISTINCT p.name),
+                0
+            )
+        ) AS average,
+        p.project_status,
+        p.project_status AS original_status,
+        CASE
+            WHEN p.project_status IN ('Assigned', 'In Progress')
+            THEN p.current_task_type
+            ELSE NULL
+        END AS current_task_type,
+		CASE
+			WHEN p.vehicle_workshop_division = 'Mechanical'
+				THEN 'all_mechanical'
+			WHEN p.vehicle_workshop_division = 'Body Shop'
+				THEN 'all_bodyshop'
+		END AS check_mechanical_bodyshop,
+        %(timespan)s AS timespan
+    FROM `tabProject` p
+    INNER JOIN (
+        SELECT project, MAX(posting_date) AS posting_date
+        FROM `tabVehicle Service Receipt`
+        WHERE docstatus = 1
+        GROUP BY project
+    ) lv ON lv.project = p.name
+    LEFT JOIN `tabVehicle Gate Pass` vgp
+        ON vgp.project = p.name
+        AND vgp.docstatus = 1
+        AND vgp.purpose = 'Service - Vehicle Delivery'
+    WHERE
+        p.project_date BETWEEN %(from_date)s AND %(to_date)s
+        AND (%(branch)s IS NULL OR p.branch = %(branch)s)
+        {customer_condition}
+    GROUP BY
+        p.project_status,
+        CASE
+            WHEN p.project_status IN ('Assigned', 'In Progress')
+            THEN p.current_task_type
+            ELSE NULL
+        END
+    """
+    return frappe.db.sql(sql_query_fstring, params, as_dict=True)
 
-	task_type_job_status = frappe.db.get_all(
-		"Job Status Details", 
-		filters={"parent":"Workspace Settings", "parentfield":task_type_job_status_field}, 
-		fields=["job_status"],pluck="job_status"
-	)
+def fetch_division_group_category(from_date, to_date, branch=None, customer_list=None, timespan=None):
+	customer_condition = ""
+	params = {
+		"from_date": from_date,
+		"to_date": to_date,
+		"branch": branch,
+		"timespan": timespan
+	}
 
-	final_list = []
+	if customer_list:
+		customer_condition = "AND p.customer IN %(customer_list)s"
+		params["customer_list"] = tuple(customer_list)
 
-	for each_timespan in timespan_list:
-
-		today_date = today()
-
-		if each_timespan == "YTD":
-			from_date = get_fiscal_year(fiscal_year=str(from_year))[1] if from_year else get_fiscal_year(today_date)[1]
-			to_date = get_fiscal_year(fiscal_year=str(to_year))[2] if to_year else today()
-		elif each_timespan == "MTD":
-			from_date = frappe.utils.data.get_first_day(today_date)
-			to_date = today()
-		elif each_timespan == "Custom Date":
-			from_date = selected_date
-			to_date = selected_date
-
-		# Step 1: Subquery to get max(posting_date) for each project in VSR
-		LatestVSRSub = (
-			frappe.qb.from_(VSR)
-			.select(VSR.project, Max(VSR.posting_date).as_("max_posting_date"))
-			.where(VSR.docstatus == 1)
-			.groupby(VSR.project)
-		).as_("latest_vsr_sub")
-
-		# Step 2: Join this with VSR to get the full latest VSR record
-		LatestVSR = (
-			frappe.qb.from_(VSR)
-			.join(LatestVSRSub)
-			.on((VSR.project == LatestVSRSub.project) & (VSR.posting_date == LatestVSRSub.max_posting_date))
-			.select(
-				VSR.name,
-				VSR.project,
-				VSR.posting_date,
-				VSR.docstatus
+	sql_f_string = f"""
+	SELECT
+		COUNT(DISTINCT p.name) AS total_ro,
+		CEIL(
+			SUM(
+				DATEDIFF(
+					IFNULL(vgp.posting_date, CURDATE()),
+					lv.posting_date
+				)
 			)
-		).as_("latest_vsr")
-
-		query_wo_ass_inp = (
-			frappe.qb
-			.from_(Project)
-			.left_join(LatestVSR)
-			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
-			.left_join(VGP)
-			.on((VGP.project == Project.name) & (VGP.docstatus == 1) & (VGP.purpose == 'Service - Vehicle Delivery'))
-			.where((LatestVSR.docstatus == 1))  # Additional filters below
-			.groupby(Project.project_status)
-			.select(
-				Count(Project.name).distinct().as_("total_ro"),
-				Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
-				Ceil(
-					IfNull(
-						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name).distinct(),
-						0
+		) AS total_time_take,
+		CEIL(
+			IFNULL(
+				SUM(
+					DATEDIFF(
+						IFNULL(vgp.posting_date, CURDATE()),
+						lv.posting_date
 					)
-				).as_("average"),
-				Ceil(
-					IfNull(
-						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)),
-						0
-					)
-				).as_("total_time_take"),
-				Project.project_status,
-				Project.project_status.as_("original_project_status"),
-				Project.vehicle_workshop_division,
-				Literal(each_timespan).as_("timespan")
+				) / COUNT(DISTINCT p.name),
+				0
 			)
-		)
+		) AS average,
+		p.project_status,
+		p.project_status AS original_status,
 
-		if task_type_job_status:
-			query_wo_ass_inp = query_wo_ass_inp.where((Project.project_status.notin(task_type_job_status)))
-			query_with_ass_inp = query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, task_type_job_status)
+		-- ✅ conditional task grouping for Assigned & In Progress
+		CASE
+			WHEN p.project_status IN ('Assigned', 'In Progress')
+			THEN p.current_task_type
+			ELSE NULL
+		END AS current_task_type,
 
-		# Add dynamic filters if applicable
-		if workshop_division:
-			query_wo_ass_inp = query_wo_ass_inp.where(Project.vehicle_workshop_division == workshop_division)
-			if task_type_job_status:
-				query_with_ass_inp = query_with_ass_inp.where(Project.vehicle_workshop_division == workshop_division)
-		
-		if branch:
-			query_wo_ass_inp = query_wo_ass_inp.where(Project.branch == branch)
-			if task_type_job_status:
-				query_with_ass_inp = query_with_ass_inp.where(Project.branch == branch)
+		CASE
+			WHEN p.vehicle_workshop_division = 'Mechanical'
+				THEN 'mechanical_category'
+			WHEN p.vehicle_workshop_division = 'Body Shop'
+				AND (p.insurance_company IS NULL OR p.insurance_company = '')
+				THEN 'body_shop_cash_category'
+			WHEN p.vehicle_workshop_division = 'Body Shop'
+				AND (p.insurance_company IS NOT NULL AND p.insurance_company != '')
+				THEN 'body_shop_insurance_category'
+		END AS category_key,
+		CASE
+			WHEN p.vehicle_workshop_division = 'Mechanical'
+				THEN 'all_mechanical'
+			WHEN p.vehicle_workshop_division = 'Body Shop'
+				THEN 'all_bodyshop'
+		END AS check_mechanical_bodyshop,
+		%(timespan)s AS timespan
+	FROM `tabProject` p
+	INNER JOIN (
+		SELECT project, MAX(posting_date) AS posting_date
+		FROM `tabVehicle Service Receipt`
+		WHERE docstatus = 1
+		GROUP BY project
+	) lv ON lv.project = p.name
+	LEFT JOIN `tabVehicle Gate Pass` vgp
+		ON vgp.project = p.name
+		AND vgp.docstatus = 1
+		AND vgp.purpose = 'Service - Vehicle Delivery'
+	WHERE
+		p.project_date BETWEEN %(from_date)s AND %(to_date)s
+		AND (%(branch)s IS NULL OR p.branch = %(branch)s)
+		{customer_condition}
+	GROUP BY
+		category_key,
+		p.project_status,
+		CASE
+			WHEN p.project_status IN ('Assigned', 'In Progress')
+			THEN p.current_task_type
+			ELSE NULL
+		END
+	"""
 
-		if bill_to_customer_check:
-			if bill_to_customer_check == "Same":
-				query_wo_ass_inp = query_wo_ass_inp.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
-				if task_type_job_status:
-					query_with_ass_inp = query_with_ass_inp.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
-			else:
-				query_wo_ass_inp = query_wo_ass_inp.where(((Project.insurance_company!="") & (Project.insurance_company.isnotnull())))
-				if task_type_job_status:
-					query_with_ass_inp = query_with_ass_inp.where(((Project.insurance_company!="") & (Project.insurance_company.isnotnull())))
-		
-		if customer_list:
-			query_wo_ass_inp = query_wo_ass_inp.where(Project.customer.isin(customer_list))
-			if task_type_job_status:
-				query_with_ass_inp = query_with_ass_inp.where(Project.customer.isin(customer_list))
-		else:
-			query_wo_ass_inp = query_wo_ass_inp.where(Project.customer == None)
-			if task_type_job_status:
-				query_with_ass_inp = query_with_ass_inp.where(Project.customer == None)
-		
-		query_wo_ass_inp = query_wo_ass_inp.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
-		if task_type_job_status:
-			query_with_ass_inp = query_with_ass_inp.where((Project.project_date>=from_date) & (Project.project_date<=to_date))
-
-		if task_type_job_status:
-			query_with_ass_inp_result = query_with_ass_inp.run(as_dict=True)
-		
-		workshop_division_project_status_data_mechanical = query_wo_ass_inp.run(as_dict=True)
-
-		final_list.extend(workshop_division_project_status_data_mechanical)
-		if task_type_job_status:
-			final_list.extend(query_with_ass_inp_result)
-	return final_list
-
-def query_with_ass_inp_method(Project, LatestVSR, VGP, datediff, each_timespan, task_type_job_status):
-
-	query_wo_ass_inp = (
-			frappe.qb
-			.from_(Project)
-			.left_join(LatestVSR)
-			.on((LatestVSR.project == Project.name) & (LatestVSR.docstatus == 1))
-			.left_join(VGP)
-			.on((VGP.project == Project.name) & (VGP.docstatus == 1) & (VGP.purpose == 'Service - Vehicle Delivery'))
-			.where((LatestVSR.docstatus == 1) & Project.project_status.isin(task_type_job_status))  # Additional filters below
-			.groupby(Project.current_task_type, Project.project_status)
-			.select(
-				Count(Project.name).distinct().as_("total_ro"),
-				Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)).as_("timespend"),
-				Ceil(
-					IfNull(
-						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)) / Count(Project.name).distinct(),
-						0
-					)
-				).as_("average"),
-				Ceil(
-					IfNull(
-						Sum(datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date)),
-						0
-					)
-				).as_("total_time_take"),
-				Project.current_task_type,
-				Project.vehicle_workshop_division,
-				Literal(each_timespan).as_("timespan"),
-				Concat(
-					Project.project_status, 
-					" (", 
-					Project.current_task_type, 
-					")"
-				).as_("project_status"),
-				Project.project_status.as_("original_project_status")
-			)
-		)
-	return query_wo_ass_inp
-
+	return frappe.db.sql(sql_f_string, params, as_dict=True)
 
 @frappe.whitelist()
 def fetch_ro_project_status_based_workshop_division_for_vehicle(
@@ -335,13 +310,13 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
 	elif timespan == "Custom Date":
 		timespan = ["Custom Date"]
 
-	final_category_result = {
-		"brac_mechanical": None, 
-		"brac_bodyshop": None, 
-		"mechanical_category": None, 
-		"brac_category": None, 
-		"body_shop_cash_category": None, 
-		"body_shop_insurance_category": None,
+	final_category_result_test = {
+		"all_mechanical": [], 
+		"all_bodyshop": [], 
+		"mechanical_category": [], 
+		"all_category": [], 
+		"body_shop_cash_category": [], 
+		"body_shop_insurance_category": [],
 		"selected_filters" : {
 			"branch": branch
 		},
@@ -350,84 +325,38 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
 
 	customer_list = get_customers_list(workspace)
 
+	for each_timespan in timespan:
+		today_date = today()
+
+		if each_timespan == "YTD":
+			from_date = get_fiscal_year(fiscal_year=str(from_year))[1] if from_year else get_fiscal_year(today_date)[1]
+			to_date = get_fiscal_year(fiscal_year=str(to_year))[2] if to_year else today()
+		elif each_timespan == "MTD":
+			from_date = frappe.utils.data.get_first_day(today_date)
+			to_date = today()
+		elif each_timespan == "Custom Date":
+			from_date = selected_date
+			to_date = selected_date
+
+		division_group_result = fetch_division_group_category(from_date, to_date, branch=branch if (branch and branch!="") else None, customer_list=customer_list, timespan=each_timespan)
+		for row in division_group_result:
+			if row["category_key"]:
+				final_category_result_test[row["category_key"]].append(row)
+
+		# fetch brac_category separately
+		all_result = fetch_all_category(from_date, to_date, branch=branch if (branch and branch!="") else None, customer_list=customer_list, timespan=each_timespan)
+
+		for row in all_result:
+			if row["check_mechanical_bodyshop"] == "all_mechanical":
+				final_category_result_test["all_mechanical"].append(row)
+			if row["check_mechanical_bodyshop"] == "all_bodyshop":
+				final_category_result_test["all_bodyshop"].append(row)
+
+
 	if fetch_custom_order_data(custom_order_field):
-		final_category_result["custom_order_field"] = fetch_custom_order_data(custom_order_field)
+		final_category_result_test["custom_order_field"] = fetch_custom_order_data(custom_order_field)
 
-	for each_division in division_dict:
-		if each_division.get("category") == "Mechanical":
-			workshop_division = each_division.get("workshop_division")
-			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			final_category_result["mechanical_category"] = fetch_ro_project_status_based_workshop_division(
-				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
-				customer_list = customer_list, timespan_list = timespan, 
-				selected_date=selected_date, branch=branch, task_type_job_status_field=task_type_job_status_field,
-				from_year=from_year, to_year=to_year)
-		elif each_division.get("category") == "BRAC":
-			workshop_division = each_division.get("workshop_division")
-			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			final_category_result["brac_category"] = fetch_ro_project_status_based_workshop_division(
-				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
-				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field,
-				from_year=from_year, to_year=to_year)
-		elif each_division.get("category") == "ALL":
-			workshop_division = each_division.get("workshop_division")
-			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			final_category_result["all_category"] = fetch_ro_project_status_based_workshop_division(
-				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
-				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field,
-				from_year=from_year, to_year=to_year)
-		elif each_division.get("category") == "BRAC MECHANICAL":
-			workshop_division = each_division.get("workshop_division")
-			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			final_category_result["brac_mechanical"] = fetch_ro_project_status_based_workshop_division(
-				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
-				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field,
-				from_year=from_year, to_year=to_year)
-		elif each_division.get("category") == "ALL MECHANICAL":
-			workshop_division = each_division.get("workshop_division")
-			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			final_category_result["all_mechanical"] = fetch_ro_project_status_based_workshop_division(
-				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
-				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field,
-				from_year=from_year, to_year=to_year)
-		elif each_division.get("category") == "BRAC BODYSHOP":
-			workshop_division = each_division.get("workshop_division")
-			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			final_category_result["brac_bodyshop"] = fetch_ro_project_status_based_workshop_division(
-				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
-				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field,
-				from_year=from_year, to_year=to_year)
-		elif each_division.get("category") == "ALL BODYSHOP":
-			workshop_division = each_division.get("workshop_division")
-			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			final_category_result["all_bodyshop"] = fetch_ro_project_status_based_workshop_division(
-				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
-				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field,
-				from_year=from_year, to_year=to_year)
-		elif each_division.get("category") == "Body Shop - Cash":
-			workshop_division = each_division.get("workshop_division")
-			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			final_category_result["body_shop_cash_category"] = fetch_ro_project_status_based_workshop_division(
-				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
-				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field,
-				from_year=from_year, to_year=to_year)
-		elif each_division.get("category") == "Body Shop - Insurance":
-			workshop_division = each_division.get("workshop_division")
-			bill_to_customer_check = each_division.get("bill_to_customer_check")
-			final_category_result["body_shop_insurance_category"] = fetch_ro_project_status_based_workshop_division(
-				workshop_division = workshop_division, bill_to_customer_check = bill_to_customer_check, 
-				customer_list = customer_list, timespan_list = timespan, selected_date=selected_date, 
-				branch=branch, task_type_job_status_field=task_type_job_status_field,
-				from_year=from_year, to_year=to_year)
-
-	return final_category_result
+	return final_category_result_test
 
 @frappe.whitelist()
 def get_customers_list(workspace):
@@ -449,6 +378,12 @@ def get_customers_list(workspace):
 			},
 			fieldname=["customer_group"]
 		)
+
+		parent_customer_group = frappe.db.get_value("Customer Group", customer_group, "parent_customer_group")
+
+		# no filter for root customer group
+		if not parent_customer_group:
+			customer_group = None
 	
 	if customer_group:
 		customer_groups_list = get_descendants_of("Customer Group", customer_group)
