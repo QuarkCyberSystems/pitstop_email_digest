@@ -1,0 +1,45 @@
+{
+ "add_total_row": 1,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2026-01-14 16:49:46.642571",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2026-01-14 17:17:40.889613",
+ "modified_by": "Administrator",
+ "module": "Pitstop Email Digest",
+ "name": "CRM Campaign Report",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "Campaign",
+ "report_name": "CRM Campaign Report",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "Sales Manager"
+  },
+  {
+   "role": "Customer Master Manager"
+  },
+  {
+   "role": "Sales User"
+  },
+  {
+   "role": "Sales User (Read Only)"
+  },
+  {
+   "role": "Accounts User"
+  },
+  {
+   "role": "Cashier"
+  },
+  {
+   "role": "CR User"
+  }
+ ],
+ "timeout": 0
+}
