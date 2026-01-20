@@ -4,7 +4,8 @@ from frappe import _
 # ──────────────────────────────────────────────────────────────
 # Constants – adjust only if you use different masters
 # ──────────────────────────────────────────────────────────────
-DEFAULT_ITEM_GROUP = "Parts"   # must exist in Item Group master
+DEFAULT_ITEM_GROUP = "Parts"  # must exist in Item Group master
+
 
 # ──────────────────────────────────────────────────────────────
 # Main API
@@ -47,21 +48,23 @@ def upsert_item_and_add_to_so():
             updated = True
 
         if updated:
-            item.flags.ignore_permissions = True   # integration users may lack rights
+            item.flags.ignore_permissions = True  # integration users may lack rights
             item.save()
             item_status = "exists-and-updated"
     else:
         item_status = "created"
-        item = frappe.get_doc({
-            "doctype": "Item",
-            "item_code": data.item_code,
-            "item_name": data.item_name,
-            "item_group": DEFAULT_ITEM_GROUP,
-            "stock_uom": data.uom,
-            "maintain_stock": 1,
-            "is_sales_item": 1,
-            "is_purchase_item": 1,
-        })
+        item = frappe.get_doc(
+            {
+                "doctype": "Item",
+                "item_code": data.item_code,
+                "item_name": data.item_name,
+                "item_group": DEFAULT_ITEM_GROUP,
+                "stock_uom": data.uom,
+                "maintain_stock": 1,
+                "is_sales_item": 1,
+                "is_purchase_item": 1,
+            }
+        )
         item.append("uoms", {"uom": data.uom, "conversion_factor": 1})
         item.save(ignore_permissions=True)
 
@@ -79,19 +82,22 @@ def upsert_item_and_add_to_so():
         return {
             "status": "warning",
             "item_status": item_status,
-            "message": _("Item already present on Sales Order")
+            "message": _("Item already present on Sales Order"),
         }
 
     # ------------------------------------------------------------------
     # 3) Append new Item row and save
     # ------------------------------------------------------------------
-    so.append("items", {
-        "item_code": data.item_code,
-        "item_name": data.item_name,
-        "uom": data.uom,
-        "qty": 1,
-        #"schedule_date": frappe.utils.today()
-    })
+    so.append(
+        "items",
+        {
+            "item_code": data.item_code,
+            "item_name": data.item_name,
+            "uom": data.uom,
+            "qty": 1,
+            # "schedule_date": frappe.utils.today()
+        },
+    )
     so.save()
 
     # ------------------------------------------------------------------
@@ -100,5 +106,5 @@ def upsert_item_and_add_to_so():
     return {
         "status": "success",
         "item_status": item_status,
-        "message": _("Item added to Sales Order")
+        "message": _("Item added to Sales Order"),
     }

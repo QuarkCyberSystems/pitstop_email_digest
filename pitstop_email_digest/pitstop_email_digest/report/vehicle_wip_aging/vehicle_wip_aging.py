@@ -14,11 +14,11 @@ def _label_to_field(label: str) -> str:
 
 
 BUCKETS = [
-    (1,    30,   "1-30"),
-    (31,   60,   "30-60"),
-    (61,   120,  "60-120"),
-    (121,  240,  "120-240"),
-    (241,  360,  "240-360"),
+    (1, 30, "1-30"),
+    (31, 60, "30-60"),
+    (61, 120, "60-120"),
+    (121, 240, "120-240"),
+    (241, 360, "240-360"),
     # (361, 99999, ">360"),   # uncomment to add a >360 bucket
 ]
 
@@ -31,8 +31,8 @@ def execute(filters=None):
     filters.as_of = getdate(filters.get("as_of") or getdate())
 
     columns = _get_columns()
-    raw     = _get_raw_data(filters)
-    data    = _structure_rows(raw)
+    raw = _get_raw_data(filters)
+    data = _structure_rows(raw)
 
     return columns, data
 
@@ -40,34 +40,40 @@ def execute(filters=None):
 # ────────────────────────────────────────────────
 def _get_columns():
     cols = [
-        {"label": _("Workshop"), "fieldname": "branch",
-         "fieldtype": "Link", "options": "Vehicle Workshop", "width": 140},
-        {"label": _("Status"), "fieldname": "status_name",
-         "fieldtype": "Data", "width": 220},
-        {"label": _("Total"), "fieldname": "total",
-         "fieldtype": "Int", "width": 70},
+        {
+            "label": _("Workshop"),
+            "fieldname": "branch",
+            "fieldtype": "Link",
+            "options": "Vehicle Workshop",
+            "width": 140,
+        },
+        {
+            "label": _("Status"),
+            "fieldname": "status_name",
+            "fieldtype": "Data",
+            "width": 220,
+        },
+        {"label": _("Total"), "fieldname": "total", "fieldtype": "Int", "width": 70},
     ]
 
-    for start_day, end_day, label in BUCKETS:      # ← no '_' shadowing
-        cols.append({
-            "label": label,
-            "fieldname": _label_to_field(label),
-            "fieldtype": "Int",
-            "width": 70,
-        })
+    for start_day, end_day, label in BUCKETS:  # ← no '_' shadowing
+        cols.append(
+            {
+                "label": label,
+                "fieldname": _label_to_field(label),
+                "fieldtype": "Int",
+                "width": 70,
+            }
+        )
     return cols
 
 
 # ────────────────────────────────────────────────
 def _get_raw_data(filters):
     """Fetch one row per (workshop, status) with counts in each ageing bucket."""
-    age_expr = "DATEDIFF(%(as_of)s, DATE(p.creation))"   # change to vehicle_received_date if required
+    age_expr = "DATEDIFF(%(as_of)s, DATE(p.creation))"  # change to vehicle_received_date if required
 
-    bucket_sql = ",\n       ".join(
-        f"SUM(CASE WHEN {age_expr} BETWEEN {s} AND {e} THEN 1 ELSE 0 END)"
-        f" AS `{_label_to_field(label)}`"
-        for s, e, label in BUCKETS
-    )
+    bucket_sql = ",\n       ".join(f"SUM(CASE WHEN {age_expr} BETWEEN {s} AND {e} THEN 1 ELSE 0 END)" f" AS `{_label_to_field(label)}`" for s, e, label in BUCKETS)
 
     # dynamic filter conditions
     conds = []
@@ -118,7 +124,7 @@ def _structure_rows(raw_rows):
         # detail lines
         for r in block:
             r["indent"] = 1
-            r["branch"] = ""          # hide workshop name in detail rows
+            r["branch"] = ""  # hide workshop name in detail rows
             output.append(r)
             # accumulate into grand total
             for k in NUMERIC_KEYS:

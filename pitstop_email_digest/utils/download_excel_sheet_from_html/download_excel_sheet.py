@@ -1,12 +1,14 @@
-from bs4 import BeautifulSoup
 from io import BytesIO
-from openpyxl import Workbook
+
 import frappe
+from bs4 import BeautifulSoup
+from openpyxl import Workbook
+
 
 def html_table_to_excel(html_string, excel_file_path):
     soup = BeautifulSoup(html_string, "html.parser")
     tables = soup.find_all("table")
-    
+
     wb = Workbook()
     wb.remove(wb.active)  # Remove default sheet
 
@@ -35,8 +37,12 @@ def html_table_to_excel(html_string, excel_file_path):
                 if colspan > 1 or rowspan > 1:
                     end_row = row_idx + rowspan - 1
                     end_col = col_idx + colspan - 1
-                    ws.merge_cells(start_row=row_idx, start_column=col_idx,
-                                   end_row=end_row, end_column=end_col)
+                    ws.merge_cells(
+                        start_row=row_idx,
+                        start_column=col_idx,
+                        end_row=end_row,
+                        end_column=end_col,
+                    )
 
                     # Mark all cells in the merged area except top-left
                     for r in range(row_idx, end_row + 1):
@@ -46,8 +52,8 @@ def html_table_to_excel(html_string, excel_file_path):
 
                 col_idx += colspan
             row_idx += 1
-    
-     # Instead of saving to disk, write to in-memory buffer
+
+    # Instead of saving to disk, write to in-memory buffer
     xlsx_file = BytesIO()
     wb.save(xlsx_file)
     xlsx_file.seek(0)

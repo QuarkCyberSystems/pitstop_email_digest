@@ -18,3 +18,14 @@ build-backend = "flit_core.buildapi"
 # These dependencies are only installed when developer mode is enabled
 [tool.bench.dev-dependencies]
 # package_name = "~=1.1.0"
+[tool.ruff]
+# Ignore lambda assignment
+ignore = ["E731", "F541"]
+# Optional: match your Black config
+line-length = 200
+exclude = [
+    ".git",
+    "node_modules",
+    "pitstop_email_digest/__pycache__",
+    ".venv",
+]

@@ -4,59 +4,62 @@
 import frappe
 from frappe import _
 
+
 def execute(filters=None):
-	columns, data = get_columns(filters), get_data(filters)
-	return columns, data
+    columns, data = get_columns(filters), get_data(filters)
+    return columns, data
+
 
 def get_columns(filters):
-	columns = [
-		{
-			"label": _("Campaign"),
-			"fieldname": "campaign",
-			"fieldtype": "Link",
-			"options": "Campaign",
-			"width": 120,
-		},
-		{
-			"label": _("Opportunity Count"),
-			"fieldname": "opportunity_count",
-			"fieldtype": "Data",
-			"width": 160,
-		},
-		{
-			"label": _("New Customer Count"),
-			"fieldname": "new_customer_count",
-			"fieldtype": "Data",
-			"width": 160,
-		},
-		{
-			"label": _("Appointment Count"),
-			"fieldname": "appointment_count",
-			"fieldtype": "Data",
-			"width": 180,
-		},
-		{
-			"label": _("Repair Order Count"),
-			"fieldname": "project_count",
-			"fieldtype": "Data",
-			"width": 180,
-		},
-		{
-			"label": _("Net Revenue"),
-			"fieldname": "net_revenue",
-			"fieldtype": "Currency",
-			"width": 120,
-			"default":0.0
-		},
-	]
-	return columns
+    columns = [
+        {
+            "label": _("Campaign"),
+            "fieldname": "campaign",
+            "fieldtype": "Link",
+            "options": "Campaign",
+            "width": 120,
+        },
+        {
+            "label": _("Opportunity Count"),
+            "fieldname": "opportunity_count",
+            "fieldtype": "Data",
+            "width": 160,
+        },
+        {
+            "label": _("New Customer Count"),
+            "fieldname": "new_customer_count",
+            "fieldtype": "Data",
+            "width": 160,
+        },
+        {
+            "label": _("Appointment Count"),
+            "fieldname": "appointment_count",
+            "fieldtype": "Data",
+            "width": 180,
+        },
+        {
+            "label": _("Repair Order Count"),
+            "fieldname": "project_count",
+            "fieldtype": "Data",
+            "width": 180,
+        },
+        {
+            "label": _("Net Revenue"),
+            "fieldname": "net_revenue",
+            "fieldtype": "Currency",
+            "width": 120,
+            "default": 0.0,
+        },
+    ]
+    return columns
+
 
 def get_data(filters):
-	
-	condition_dict, condition = get_condition(filters)
+    condition_dict, condition = get_condition(filters)
 
-	return frappe.db.sql(f"""
-		select 
+    return frappe.db.sql(
+        f"""
+		select
 			tc.name as campaign,
 			count(to2.name) as opportunity_count,
 			count(ta.name) as appointment_count,
@@ -75,63 +78,67 @@ def get_data(filters):
 					else null
 				end
 			) as new_customer_count
-		from 
-			tabCampaign tc 
+		from
+			tabCampaign tc
 		left join
-			tabOpportunity to2 
+			tabOpportunity to2
 		on
 			to2.campaign = tc.name
-		left join 
-			tabAppointment ta 
+		left join
+			tabAppointment ta
 		on
 			ta.campaign = tc.name  and ta.docstatus = 1 and ta.opportunity = to2.name
-		left join 
-			tabProject tp 
+		left join
+			tabProject tp
 		on
 			tp.appointment = ta.name
-		left join 
-			`tabSales Invoice Item` tsii 
+		left join
+			`tabSales Invoice Item` tsii
 		on
 			tsii.project = tp.name and tsii.docstatus = 1
-		left join 
-			`tabSales Invoice` tsi 
+		left join
+			`tabSales Invoice` tsi
 		on
 			tsi.name = tsii.parent and tsi.docstatus = 1
-		left join 
+		left join
 			tabCustomer cust_direct
-		on 
+		on
 			cust_direct.name = to2.party_name and to2.opportunity_from = 'Customer'
-		left join 
+		left join
 			tabLead tl
-		on 
+		on
 			tl.name = to2.party_name and to2.opportunity_from = 'Lead'
-		left join 
+		left join
 			tabCustomer cust_from_lead
-		on 
+		on
 			cust_from_lead.name = tl.customer
-		where 
+		where
 			1=1 {condition}
-		group by 
+		group by
 			tc.name;
-	""", condition_dict, as_dict=True)
+	""",
+        condition_dict,
+        as_dict=True,
+    )
+
 
 def get_condition(filters):
-	condition_dict = {
-		"campaign":filters.get("campaign"),
-		"from_date":filters.get("from_date"),
-		"to_date":filters.get("to_date"),
-		"cost_center":filters.get("cost_center")
-	}
-	condition = ""
-	if filters.get("campaign"):
-		condition += " and tc.name = %(campaign)s"
-	
-	if filters.get("from_date"):
-		condition += " and to2.transaction_date >= %(from_date)s"
-	
-	if filters.get("to_date"):
-		condition += " and to2.transaction_date <= %(to_date)s"
+    condition_dict = {
+        "campaign": filters.get("campaign"),
+        "from_date": filters.get("from_date"),
+        "to_date": filters.get("to_date"),
+        "cost_center": filters.get("cost_center"),
+    }
+    condition = ""
+    if filters.get("campaign"):
+        condition += " and tc.name = %(campaign)s"
 
-	if filters.get("cost_center"):
-		condition += " and tp.cost_center <= %(cost_center)s"
-	return condition_dict, condition
+    if filters.get("from_date"):
+        condition += " and to2.transaction_date >= %(from_date)s"
+
+    if filters.get("to_date"):
+        condition += " and to2.transaction_date <= %(to_date)s"
+
+    if filters.get("cost_center"):
+        condition += " and tp.cost_center <= %(cost_center)s"
+    return condition_dict, condition

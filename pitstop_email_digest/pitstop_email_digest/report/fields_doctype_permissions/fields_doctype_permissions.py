@@ -3,41 +3,63 @@
 
 import frappe
 
+
 def execute(filters=None):
-	columns = get_columns()
-	data = get_data(filters)
-	return columns, data
+    columns = get_columns()
+    data = get_data(filters)
+    return columns, data
 
 
 def get_columns():
-	return [
-		{"label": "DocType", "fieldname": "doctype", "fieldtype": "Data", "width": 180},
-		{"label": "Fieldname", "fieldname": "fieldname", "fieldtype": "Data", "width": 160},
-		{"label": "Field Label", "fieldname": "label", "fieldtype": "Data", "width": 180},
-		{"label": "Fieldtype", "fieldname": "fieldtype", "fieldtype": "Data", "width": 120},
-		{"label": "Role", "fieldname": "role", "fieldtype": "Data", "width": 160},
-		{"label": "Perm Level", "fieldname": "permlevel", "fieldtype": "Int", "width": 90},
-		{"label": "Read", "fieldname": "read", "fieldtype": "Check", "width": 60},
-		{"label": "Write", "fieldname": "write", "fieldtype": "Check", "width": 60},
-		{"label": "Create", "fieldname": "create", "fieldtype": "Check", "width": 60},
-		{"label": "Submit", "fieldname": "submit", "fieldtype": "Check", "width": 60},
-		{"label": "Cancel", "fieldname": "cancel", "fieldtype": "Check", "width": 60},
-		{"label": "Amend", "fieldname": "amend", "fieldtype": "Check", "width": 60},
-	]
+    return [
+        {"label": "DocType", "fieldname": "doctype", "fieldtype": "Data", "width": 180},
+        {
+            "label": "Fieldname",
+            "fieldname": "fieldname",
+            "fieldtype": "Data",
+            "width": 160,
+        },
+        {
+            "label": "Field Label",
+            "fieldname": "label",
+            "fieldtype": "Data",
+            "width": 180,
+        },
+        {
+            "label": "Fieldtype",
+            "fieldname": "fieldtype",
+            "fieldtype": "Data",
+            "width": 120,
+        },
+        {"label": "Role", "fieldname": "role", "fieldtype": "Data", "width": 160},
+        {
+            "label": "Perm Level",
+            "fieldname": "permlevel",
+            "fieldtype": "Int",
+            "width": 90,
+        },
+        {"label": "Read", "fieldname": "read", "fieldtype": "Check", "width": 60},
+        {"label": "Write", "fieldname": "write", "fieldtype": "Check", "width": 60},
+        {"label": "Create", "fieldname": "create", "fieldtype": "Check", "width": 60},
+        {"label": "Submit", "fieldname": "submit", "fieldtype": "Check", "width": 60},
+        {"label": "Cancel", "fieldname": "cancel", "fieldtype": "Check", "width": 60},
+        {"label": "Amend", "fieldname": "amend", "fieldtype": "Check", "width": 60},
+    ]
 
 
 def get_data(filters):
-	condition = ""
-	if filters.get("doctype"):
-		condition += " and dt.name = '{doctype}'".format(doctype=filters.get("doctype"))
-	
-	if filters.get("permlevel"):
-		condition += " and p.permlevel = '{permlevel}'".format(permlevel=filters.get("permlevel"))
-	
-	if filters.get("role"):
-		condition += " and p.role = '{role}'".format(role=filters.get("role"))
-		
-	return frappe.db.sql("""
+    condition = ""
+    if filters.get("doctype"):
+        condition += " and dt.name = '{doctype}'".format(doctype=filters.get("doctype"))
+
+    if filters.get("permlevel"):
+        condition += " and p.permlevel = '{permlevel}'".format(permlevel=filters.get("permlevel"))
+
+    if filters.get("role"):
+        condition += " and p.role = '{role}'".format(role=filters.get("role"))
+
+    return frappe.db.sql(
+        """
 		SELECT
 			dt.name AS doctype,
 			df.fieldname,
@@ -61,5 +83,6 @@ def get_data(filters):
 			AND dt.custom = 0 {condition}
 		ORDER BY
 			dt.name, df.idx, p.permlevel
-	""".format(condition=condition), as_dict=True)
-
+	""".format(condition=condition),
+        as_dict=True,
+    )

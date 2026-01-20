@@ -22,28 +22,23 @@ app_license = "mit"
 # ]
 
 
-
-
 scheduler_events = {
     "cron": {
         # every day at 00:05
-        "05 00 * * *":
-            "pitstop_email_digest.pitstop_email_digest.doctype."
-            "pitstop_email_digest.pitstop_email_digest.cron_auto_send_daily",
-
+        "05 00 * * *": "pitstop_email_digest.pitstop_email_digest.doctype." "pitstop_email_digest.pitstop_email_digest.cron_auto_send_daily",
         # every Sunday at 00:05
-        "05 00 * * 0":
-            "pitstop_email_digest.pitstop_email_digest.doctype."
-            "pitstop_email_digest.pitstop_email_digest.cron_auto_send_weekly",
+        "05 00 * * 0": "pitstop_email_digest.pitstop_email_digest.doctype." "pitstop_email_digest.pitstop_email_digest.cron_auto_send_weekly",
     }
 }
 
 fixtures = [
     {
         "dt": "Custom HTML Block",
-        "filters": [            
-            [       
-                "name", "in", [
+        "filters": [
+            [
+                "name",
+                "in",
+                [
                     # BRAC Customers
                     "Vehicle Movement Workshop Division BRAC",
                     "Vehicle Movement Daily Monthly Yearly BRAC",
@@ -52,35 +47,39 @@ fixtures = [
                     "Vehicle Movement Workshop Division ALL",
                     "Vehicle Movement Daily Monthly Yearly ALL",
                     "Vehicle Movement a Day ALL",
-                    "Invoice WIP MAP"
-                ]
+                    "Invoice WIP MAP",
+                ],
             ]
-        ]
+        ],
     },
     {
         "dt": "Workspace",
-        "filters": [            
-            [       
-                "name", "in", [
+        "filters": [
+            [
+                "name",
+                "in",
+                [
                     # BRAC
                     "Vehicle Mobility BRAC",
                     # ALL
                     "Vehicle Mobility ALL",
-                    "Invoice WIP MAP"
-                ]
+                    "Invoice WIP MAP",
+                ],
             ]
-        ]
+        ],
     },
     {
-        "dt":"Custom Field",
+        "dt": "Custom Field",
         "filters": [
             [
-                "name", "in", [
+                "name",
+                "in",
+                [
                     "Company-branch_monthly_revenue_target",
-                ]
+                ],
             ]
-        ]
-    }
+        ],
+    },
 ]
 
 
@@ -305,4 +304,3 @@ fixtures = [
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
-
