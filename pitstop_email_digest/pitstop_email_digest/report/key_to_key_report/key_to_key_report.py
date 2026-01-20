@@ -25,8 +25,14 @@ class VehicleKeyToKeyReport(object):
         self.filters.to_date = getdate(self.filters.to_date)
 
         self.report_date = getdate(self.filters.to_date)
-        self.report_time = get_time(now_datetime()) if self.report_date == getdate() else datetime.time.max
-        self.report_dt = frappe.utils.combine_datetime(self.report_date, self.report_time)
+        self.report_time = (
+            get_time(now_datetime())
+            if self.report_date == getdate()
+            else datetime.time.max
+        )
+        self.report_dt = frappe.utils.combine_datetime(
+            self.report_date, self.report_time
+        )
 
         if getdate(self.filters.from_date) > self.filters.to_date:
             frappe.throw(_("From Date cannot be after To Date"))
@@ -42,16 +48,24 @@ class VehicleKeyToKeyReport(object):
         conditions = ""
 
         if self.filters.to_date:
-            conditions += " and p.vehicle_received_date <= '{to_date}'".format(to_date=self.filters.get("to_date"))
+            conditions += " and p.vehicle_received_date <= '{to_date}'".format(
+                to_date=self.filters.get("to_date")
+            )
 
         if self.filters.from_date:
-            conditions += " and p.vehicle_received_date >= '{from_date}'".format(from_date=self.filters.get("from_date"))
+            conditions += " and p.vehicle_received_date >= '{from_date}'".format(
+                from_date=self.filters.get("from_date")
+            )
 
         if self.filters.workshop_division:
-            conditions += " and p.vehicle_workshop_division = '{vehicle_workshop_division}'".format(vehicle_workshop_division=self.filters.workshop_division)
+            conditions += " and p.vehicle_workshop_division = '{vehicle_workshop_division}'".format(
+                vehicle_workshop_division=self.filters.workshop_division
+            )
 
         if self.filters.repair_order:
-            conditions += " and p.name = '{repair_order}'".format(repair_order=self.filters.repair_order)
+            conditions += " and p.name = '{repair_order}'".format(
+                repair_order=self.filters.repair_order
+            )
 
         return conditions
 
@@ -444,24 +458,34 @@ class VehicleKeyToKeyReport(object):
     def set_formatted_datetime(self, d):
         d.vehicle_received_date_fmt = formatdate(d.vehicle_received_dt, date_format)
         d.vehicle_received_time_fmt = format_time(d.vehicle_received_dt, time_format)
-        d.vehicle_received_dt_fmt = format_datetime(d.vehicle_received_dt, datetime_format)
+        d.vehicle_received_dt_fmt = format_datetime(
+            d.vehicle_received_dt, datetime_format
+        )
 
-        d.vehicle_delivered_dt_fmt = format_datetime(d.vehicle_delivered_dt, datetime_format)
+        d.vehicle_delivered_dt_fmt = format_datetime(
+            d.vehicle_delivered_dt, datetime_format
+        )
 
         d.ready_to_close_date_fmt = formatdate(d.ready_to_close_dt, date_format)
         d.ready_to_close_time_fmt = format_time(d.ready_to_close_dt, time_format)
         d.ready_to_close_dt_fmt = format_datetime(d.ready_to_close_dt, datetime_format)
 
         d.expected_delivery_date_fmt = formatdate(d.expected_delivery_date, date_format)
-        d.expected_delivery_time_fmt = format_time(d.expected_delivery_time, time_format)
+        d.expected_delivery_time_fmt = format_time(
+            d.expected_delivery_time, time_format
+        )
 
         d.final_invoice_date_fmt = formatdate(d.final_invoice_date, date_format)
         d.creation_dt_fmt = format_datetime(d.creation, datetime_format)
 
         if d.expected_delivery_date and d.expected_delivery_time:
-            d.expected_delivery_dt_fmt = format_datetime(d.expected_delivery_dt, datetime_format)
+            d.expected_delivery_dt_fmt = format_datetime(
+                d.expected_delivery_dt, datetime_format
+            )
         elif d.expected_delivery_date:
-            d.expected_delivery_dt_fmt = formatdate(d.expected_delivery_date, date_format)
+            d.expected_delivery_dt_fmt = formatdate(
+                d.expected_delivery_date, date_format
+            )
 
 
 def execute(filters=None):

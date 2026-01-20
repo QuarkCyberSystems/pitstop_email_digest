@@ -25,9 +25,11 @@ app_license = "mit"
 scheduler_events = {
     "cron": {
         # every day at 00:05
-        "05 00 * * *": "pitstop_email_digest.pitstop_email_digest.doctype." "pitstop_email_digest.pitstop_email_digest.cron_auto_send_daily",
+        "05 00 * * *": "pitstop_email_digest.pitstop_email_digest.doctype."
+        "pitstop_email_digest.pitstop_email_digest.cron_auto_send_daily",
         # every Sunday at 00:05
-        "05 00 * * 0": "pitstop_email_digest.pitstop_email_digest.doctype." "pitstop_email_digest.pitstop_email_digest.cron_auto_send_weekly",
+        "05 00 * * 0": "pitstop_email_digest.pitstop_email_digest.doctype."
+        "pitstop_email_digest.pitstop_email_digest.cron_auto_send_weekly",
     }
 }
 

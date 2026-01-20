@@ -70,7 +70,9 @@ class WorkshopTurnoverReport:
         self.filters.from_date = getdate(self.filters.from_date or nowdate())
         self.filters.to_date = getdate(self.filters.to_date or nowdate())
 
-        self.filters.from_dt = combine_datetime(self.filters.from_date, datetime.time.min)
+        self.filters.from_dt = combine_datetime(
+            self.filters.from_date, datetime.time.min
+        )
         self.filters.to_dt = combine_datetime(self.filters.to_date, datetime.time.max)
 
         if self.filters.from_date > self.filters.to_date:
@@ -136,7 +138,11 @@ class WorkshopTurnoverReport:
             d.split_percentage = 100
 
             if d.depreciation_type and not d.ignore_depreciation:
-                d.split_percentage = 100 - d.depreciation_percentage if d.depreciation_type == "After Depreciation Amount" else d.depreciation_percentage
+                d.split_percentage = (
+                    100 - d.depreciation_percentage
+                    if d.depreciation_type == "After Depreciation Amount"
+                    else d.depreciation_percentage
+                )
 
             if d.claim_customer:
                 if d.claim_customer != d.bill_to:
@@ -155,15 +161,25 @@ class WorkshopTurnoverReport:
         sublet_item_groups = []
         paint_item_groups = []
         if projects_settings.materials_item_group:
-            materials_item_groups = get_item_group_subtree(projects_settings.materials_item_group)
+            materials_item_groups = get_item_group_subtree(
+                projects_settings.materials_item_group
+            )
         if projects_settings.lubricants_item_group:
-            lubricants_item_groups = get_item_group_subtree(projects_settings.lubricants_item_group)
+            lubricants_item_groups = get_item_group_subtree(
+                projects_settings.lubricants_item_group
+            )
         if projects_settings.consumables_item_group:
-            consumables_item_groups = get_item_group_subtree(projects_settings.consumables_item_group)
+            consumables_item_groups = get_item_group_subtree(
+                projects_settings.consumables_item_group
+            )
         if projects_settings.sublet_item_group:
-            sublet_item_groups = get_item_group_subtree(projects_settings.sublet_item_group)
+            sublet_item_groups = get_item_group_subtree(
+                projects_settings.sublet_item_group
+            )
         if projects_settings.paint_item_group:
-            paint_item_groups = get_item_group_subtree(projects_settings.paint_item_group)
+            paint_item_groups = get_item_group_subtree(
+                projects_settings.paint_item_group
+            )
 
         # Project Wise Totals
         project_map = {}
@@ -200,7 +216,9 @@ class WorkshopTurnoverReport:
                         d.item_code,
                         d.uom,
                         "Hour",
-                        conversion_factor=d.conversion_factor if d.stock_uom == "Hour" else None,
+                        conversion_factor=d.conversion_factor
+                        if d.stock_uom == "Hour"
+                        else None,
                         null_if_not_convertible=True,
                     )
                     if hours is not None:
@@ -258,13 +276,17 @@ class WorkshopTurnoverReport:
             conditions.append("p.cost_center = %(cost_center)s")
 
         if self.filters.get("vehicle_workshop_division"):
-            conditions.append("p.vehicle_workshop_division = %(vehicle_workshop_division)s")
+            conditions.append(
+                "p.vehicle_workshop_division = %(vehicle_workshop_division)s"
+            )
 
         if self.filters.get("service_advisor"):
             conditions.append("p.service_advisor = %(service_advisor)s")
 
         if self.filters.get("customer_group"):
-            lft, rgt = frappe.db.get_value("Customer Group", self.filters.customer_group, ["lft", "rgt"])
+            lft, rgt = frappe.db.get_value(
+                "Customer Group", self.filters.customer_group, ["lft", "rgt"]
+            )
             conditions.append(
                 f"""
 				if(ifnull(p.bill_to_customer_group, '') = '', p.customer_group, p.bill_to_customer_group) in (
@@ -275,11 +297,19 @@ class WorkshopTurnoverReport:
 
         if self.filters.get("segmentation"):
             if self.filters.get("segmentation") == "BRAC-QIC":
-                conditions.append("p.customer_group = 'Budget Mobility' and " "p.bill_to_customer_group = 'Insurance' and p.vehicle_workshop_division = 'Body Shop'")
+                conditions.append(
+                    "p.customer_group = 'Budget Mobility' and "
+                    "p.bill_to_customer_group = 'Insurance' and p.vehicle_workshop_division = 'Body Shop'"
+                )
             if self.filters.get("segmentation") == "BRAC-CASH":
-                conditions.append("p.customer_group = 'Budget Mobility' and " "p.bill_to_customer_group != 'Insurance' and p.vehicle_workshop_division = 'Body Shop'")
+                conditions.append(
+                    "p.customer_group = 'Budget Mobility' and "
+                    "p.bill_to_customer_group != 'Insurance' and p.vehicle_workshop_division = 'Body Shop'"
+                )
             if self.filters.get("segmentation") == "BRAC-MECH.":
-                conditions.append("p.customer_group = 'Budget Mobility' and p.vehicle_workshop_division = 'Mechanical'")
+                conditions.append(
+                    "p.customer_group = 'Budget Mobility' and p.vehicle_workshop_division = 'Mechanical'"
+                )
             if self.filters.get("segmentation") == "TESLA":
                 conditions.append(
                     f"""
@@ -314,7 +344,9 @@ class WorkshopTurnoverReport:
 
         self.group_by = [None]
         for i in range(2):
-            group_label = self.filters.get("group_by_" + str(i + 1), "").replace("Group by ", "")
+            group_label = self.filters.get("group_by_" + str(i + 1), "").replace(
+                "Group by ", ""
+            )
 
             if not group_label:
                 continue
@@ -354,15 +386,24 @@ class WorkshopTurnoverReport:
                 totals[f] += flt(d.get(f))
 
         # Set reference field
-        reference_field = group_field[0] if isinstance(group_field, (list, tuple)) else group_field
+        reference_field = (
+            group_field[0] if isinstance(group_field, (list, tuple)) else group_field
+        )
         reference_dt = unscrub(cstr(reference_field))
         totals["reference_type"] = reference_dt
-        totals["reference"] = grouped_by.get(reference_field) if group_field else "Total"
+        totals["reference"] = (
+            grouped_by.get(reference_field) if group_field else "Total"
+        )
 
         if not group_field and self.group_by == [None]:
             totals["parent"] = "'Total'"
 
-        if group_field == "vehicle_workshop" and group_value and len(grouped_by) <= 2 and not self.filters.get("customer_group"):
+        if (
+            group_field == "vehicle_workshop"
+            and group_value
+            and len(grouped_by) <= 2
+            and not self.filters.get("customer_group")
+        ):
             self.set_unproductive_labour_cost(totals, group_value)
 
         self.postprocess_row(totals)
@@ -370,7 +411,9 @@ class WorkshopTurnoverReport:
         return totals
 
     def calculate_overall_totals(self):
-        totals = frappe._dict({"currency": erpnext.get_company_currency(self.filters.company)})
+        totals = frappe._dict(
+            {"currency": erpnext.get_company_currency(self.filters.company)}
+        )
 
         for field in self.total_fields:
             totals[field] = 0
@@ -399,7 +442,8 @@ class WorkshopTurnoverReport:
             },
             {
                 "label": _("Service Sales"),
-                "value": totals.hourly_labour_sales_amount + totals.package_sales_amount,
+                "value": totals.hourly_labour_sales_amount
+                + totals.package_sales_amount,
                 "indicator": "blue",
                 "datatype": "Currency",
             },
@@ -509,9 +553,15 @@ class WorkshopTurnoverReport:
         if not group_object.group_field:
             group_object.totals.update(
                 {
-                    "total_available_time": sum([flt(d.total_available_time) for d in group_object.rows]),
-                    "total_unproductive_time": sum([flt(d.total_unproductive_time) for d in group_object.rows]),
-                    "total_unproductive_cost": sum([flt(d.total_unproductive_cost) for d in group_object.rows]),
+                    "total_available_time": sum(
+                        [flt(d.total_available_time) for d in group_object.rows]
+                    ),
+                    "total_unproductive_time": sum(
+                        [flt(d.total_unproductive_time) for d in group_object.rows]
+                    ),
+                    "total_unproductive_cost": sum(
+                        [flt(d.total_unproductive_cost) for d in group_object.rows]
+                    ),
                 }
             )
 
@@ -519,15 +569,35 @@ class WorkshopTurnoverReport:
 
     def postprocess_row(self, d):
         d.parts_gross_profit = flt(d.material_sales_amount) - flt(d.parts_cogs)
-        d.parts_profit_margin = d.parts_gross_profit / flt(d.material_sales_amount) * 100 if flt(d.material_sales_amount) else 0
+        d.parts_profit_margin = (
+            d.parts_gross_profit / flt(d.material_sales_amount) * 100
+            if flt(d.material_sales_amount)
+            else 0
+        )
 
-        d.total_labour_cost = flt(d.timesheet_costing_amount) + flt(d.total_unproductive_cost)
+        d.total_labour_cost = flt(d.timesheet_costing_amount) + flt(
+            d.total_unproductive_cost
+        )
 
         d.labour_gross_profit = flt(d.hourly_labour_sales_amount) - d.total_labour_cost
-        d.labour_profit_margin = d.labour_gross_profit / flt(d.hourly_labour_sales_amount) * 100 if flt(d.hourly_labour_sales_amount) else 0
+        d.labour_profit_margin = (
+            d.labour_gross_profit / flt(d.hourly_labour_sales_amount) * 100
+            if flt(d.hourly_labour_sales_amount)
+            else 0
+        )
 
-        d.total_gross_profit = flt(d.total_sales_amount) - flt(d.parts_cogs) - flt(d.total_consumed_material_cost) - flt(d.timesheet_costing_amount) - flt(d.total_purchase_cost)
-        d.total_profit_margin = d.total_gross_profit / d.total_sales_amount * 100 if d.total_sales_amount else 0
+        d.total_gross_profit = (
+            flt(d.total_sales_amount)
+            - flt(d.parts_cogs)
+            - flt(d.total_consumed_material_cost)
+            - flt(d.timesheet_costing_amount)
+            - flt(d.total_purchase_cost)
+        )
+        d.total_profit_margin = (
+            d.total_gross_profit / d.total_sales_amount * 100
+            if d.total_sales_amount
+            else 0
+        )
 
         if d.sold_time:
             d.effective_labour_rate = d.hourly_labour_sales_amount / d.sold_time
@@ -594,7 +664,9 @@ class WorkshopTurnoverReport:
         for employee_dict in employee_map.values():
             total_available_time += employee_dict.available_time
 
-            employee_dict.unproductive_time = employee_dict.available_time - employee_dict.actual_time
+            employee_dict.unproductive_time = (
+                employee_dict.available_time - employee_dict.actual_time
+            )
             if employee_dict.unproductive_time <= 0:
                 continue
 
@@ -613,8 +685,12 @@ class WorkshopTurnoverReport:
         )
 
         self.total_unproductive_cost_data.total_available_time += total_available_time
-        self.total_unproductive_cost_data.total_unproductive_time += total_unproductive_time
-        self.total_unproductive_cost_data.total_unproductive_cost += total_unproductive_cost
+        self.total_unproductive_cost_data.total_unproductive_time += (
+            total_unproductive_time
+        )
+        self.total_unproductive_cost_data.total_unproductive_cost += (
+            total_unproductive_cost
+        )
 
     def set_throughput_and_open_repair_orders(self, totals, grouped_by):
         group_fields = {k: v for k, v in grouped_by.items() if k}
@@ -632,9 +708,13 @@ class WorkshopTurnoverReport:
         for k, v in group_fields.items():
             if k == "customer_group":
                 if v:
-                    conditions.append(f"if(ifnull(p.bill_to_customer_group, '') = '', p.customer_group, p.bill_to_customer_group) = %(customer_group)s")
+                    conditions.append(
+                        f"if(ifnull(p.bill_to_customer_group, '') = '', p.customer_group, p.bill_to_customer_group) = %(customer_group)s"
+                    )
                 else:
-                    conditions.append(f"ifnull(if(ifnull(p.bill_to_customer_group, '') = '', p.customer_group, p.bill_to_customer_group), '') = ''")
+                    conditions.append(
+                        f"ifnull(if(ifnull(p.bill_to_customer_group, '') = '', p.customer_group, p.bill_to_customer_group), '') = ''"
+                    )
             else:
                 if v:
                     conditions.append(f"p.{k} = %({k})s")
@@ -927,7 +1007,11 @@ class WorkshopTurnoverReport:
         ]
 
         if len(self.group_by) <= 1:
-            columns = [c for c in columns if c.get("fieldname") not in ("reference_type", "reference")]
+            columns = [
+                c
+                for c in columns
+                if c.get("fieldname") not in ("reference_type", "reference")
+            ]
         else:
             columns = [c for c in columns if c.get("fieldname") != "project"]
             if self.filters.totals_only:

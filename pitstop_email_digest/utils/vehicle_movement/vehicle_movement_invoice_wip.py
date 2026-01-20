@@ -11,17 +11,25 @@ def fetch_revenue_others_group_based_on_ro_wip(
     project_status_list=None,
 ):
     if customer_group_list:
-        customer_group_condition = " AND tp.customer_group NOT IN ({})".format(", ".join("'{}'".format(cg) for cg in customer_group_list))
+        customer_group_condition = " AND tp.customer_group NOT IN ({})".format(
+            ", ".join("'{}'".format(cg) for cg in customer_group_list)
+        )
     else:
         customer_group_condition = ""
 
     if vehicle_group_list:
-        vehicle_group_condition = " AND ti.brand NOT IN ({})".format(", ".join("'{}'".format(vg) for vg in vehicle_group_list))
+        vehicle_group_condition = " AND ti.brand NOT IN ({})".format(
+            ", ".join("'{}'".format(vg) for vg in vehicle_group_list)
+        )
     else:
         vehicle_group_condition = ""
 
     if project_status_list:
-        project_status_condition = " AND tp.project_status IN ({})".format(", ".join("'{}'".format(project_status) for project_status in project_status_list))
+        project_status_condition = " AND tp.project_status IN ({})".format(
+            ", ".join(
+                "'{}'".format(project_status) for project_status in project_status_list
+            )
+        )
     else:
         project_status_condition = ""
 
@@ -73,14 +81,22 @@ def fetch_revenue_vehicle_group_based_on_ro_wip(
     project_status_list=None,
 ):
     if customer_group_list:
-        customer_group_condition = " AND tp.customer_group NOT IN ({})".format(", ".join("'{}'".format(cg) for cg in customer_group_list))
+        customer_group_condition = " AND tp.customer_group NOT IN ({})".format(
+            ", ".join("'{}'".format(cg) for cg in customer_group_list)
+        )
     else:
         customer_group_condition = ""
     vehicle_group_condition = ""
-    vehicle_group_condition += " and ti.brand = '{vehicle_variant}'".format(vehicle_variant=vehicle_variant)
+    vehicle_group_condition += " and ti.brand = '{vehicle_variant}'".format(
+        vehicle_variant=vehicle_variant
+    )
 
     if project_status_list:
-        project_status_condition = " AND tp.project_status IN ({})".format(", ".join("'{}'".format(project_status) for project_status in project_status_list))
+        project_status_condition = " AND tp.project_status IN ({})".format(
+            ", ".join(
+                "'{}'".format(project_status) for project_status in project_status_list
+            )
+        )
     else:
         project_status_condition = ""
 
@@ -132,10 +148,16 @@ def fetch_revenue_customer_group_based_on_ro_wip(
     project_status_list=None,
 ):
     customer_group_condition = ""
-    customer_group_condition += " and gp.name = '{customer_group}'".format(customer_group=customer_group)
+    customer_group_condition += " and gp.name = '{customer_group}'".format(
+        customer_group=customer_group
+    )
 
     if project_status_list:
-        project_status_condition = " AND tp.project_status IN ({})".format(", ".join("'{}'".format(project_status) for project_status in project_status_list))
+        project_status_condition = " AND tp.project_status IN ({})".format(
+            ", ".join(
+                "'{}'".format(project_status) for project_status in project_status_list
+            )
+        )
     else:
         project_status_condition = ""
 
@@ -177,9 +199,13 @@ def fetch_revenue_customer_group_based_on_ro_wip(
     return customer_group_details
 
 
-def fetch_revenue_customer_group_based_on_costcenter(from_date, to_date, cost_center, customer_group, customer_group_list=None):
+def fetch_revenue_customer_group_based_on_costcenter(
+    from_date, to_date, cost_center, customer_group, customer_group_list=None
+):
     customer_group_condition = ""
-    customer_group_condition += " and gp.name = '{customer_group}'".format(customer_group=customer_group)
+    customer_group_condition += " and gp.name = '{customer_group}'".format(
+        customer_group=customer_group
+    )
     customer_group_details = frappe.db.sql(
         """
 		SELECT
@@ -269,17 +295,30 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
         "customer_group",
         "Customer Group Details",
     )
-    autoworks_vehicle_group_list = fetch_field_group_list_data("autoworks_vehicle_group_list_invoice_wip_map", "brand", "Brand Details")
-    autocare_vehicle_group_list = fetch_field_group_list_data("autocare_vehicle_group_list_invoice_wip_map", "brand", "Brand Details")
-    whole_vehicle_group_list = fetch_field_group_list_data("whole_vehicle_group_list_invoice_wip_map", "brand", "Brand Details")
-    repair_order_status_list = fetch_field_group_list_data("project_status_invoice_wip_map", "job_status", "Job Status Details")
+    autoworks_vehicle_group_list = fetch_field_group_list_data(
+        "autoworks_vehicle_group_list_invoice_wip_map", "brand", "Brand Details"
+    )
+    autocare_vehicle_group_list = fetch_field_group_list_data(
+        "autocare_vehicle_group_list_invoice_wip_map", "brand", "Brand Details"
+    )
+    whole_vehicle_group_list = fetch_field_group_list_data(
+        "whole_vehicle_group_list_invoice_wip_map", "brand", "Brand Details"
+    )
+    repair_order_status_list = fetch_field_group_list_data(
+        "project_status_invoice_wip_map", "job_status", "Job Status Details"
+    )
 
     today_date = frappe.utils.getdate(frappe.utils.nowdate())
 
     fiscal_start = None
     fiscal_end = None
     if wip_timespan:
-        fiscal_year = frappe.db.get_value("Fiscal Year", {"name": wip_timespan}, ["year_start_date"], as_dict=True) or {}
+        fiscal_year = (
+            frappe.db.get_value(
+                "Fiscal Year", {"name": wip_timespan}, ["year_start_date"], as_dict=True
+            )
+            or {}
+        )
         fiscal_start = fiscal_year.get("year_start_date")
         fiscal_end = today_date
     else:
@@ -287,12 +326,16 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
         fiscal_end = today_date
 
     customer_group_cost_center_revenue_list = []
-    cost_center_list = frappe.db.get_list("Cost Center", filters={"disabled": 0, "is_group": 0}, pluck="name")
+    cost_center_list = frappe.db.get_list(
+        "Cost Center", filters={"disabled": 0, "is_group": 0}, pluck="name"
+    )
     cost_center_branch_list = []
     for each_cost_center in cost_center_list:
         branch_revenue_details_list = []
         if fetch_revenue_branchwise(from_date, to_date, each_cost_center):
-            for each_result_row in fetch_revenue_branchwise(from_date, to_date, each_cost_center):
+            for each_result_row in fetch_revenue_branchwise(
+                from_date, to_date, each_cost_center
+            ):
                 each_result_row["Target"] = get_target_revenue_branchwise(
                     getdate(from_date),
                     getdate(to_date),
@@ -307,7 +350,9 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
             }
         )
 
-        customer_group_cost_center_revenue_list.append({"cost_center": each_cost_center, "customer_group_cost_center_details": []})
+        customer_group_cost_center_revenue_list.append(
+            {"cost_center": each_cost_center, "customer_group_cost_center_details": []}
+        )
 
         if each_cost_center == "AutoWorks - PASLLC":
             for each_customer_group in autoworks_customer_group_list:
@@ -318,9 +363,16 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
                     each_customer_group,
                     project_status_list=repair_order_status_list,
                 )
-                for each_customer_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
-                    if each_customer_group_cost_center_revenue_list.get("cost_center") == each_cost_center:
-                        each_customer_group_cost_center_revenue_list.get("customer_group_cost_center_details").extend(customer_group_details)
+                for (
+                    each_customer_group_cost_center_revenue_list
+                ) in customer_group_cost_center_revenue_list:
+                    if (
+                        each_customer_group_cost_center_revenue_list.get("cost_center")
+                        == each_cost_center
+                    ):
+                        each_customer_group_cost_center_revenue_list.get(
+                            "customer_group_cost_center_details"
+                        ).extend(customer_group_details)
 
             for each_vehicle_group in autoworks_vehicle_group_list:
                 vehicle_group_details = fetch_revenue_vehicle_group_based_on_ro_wip(
@@ -331,9 +383,16 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
                     autoworks_customer_group_list,
                     project_status_list=repair_order_status_list,
                 )
-                for each_vehicle_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
-                    if each_vehicle_group_cost_center_revenue_list.get("cost_center") == each_cost_center:
-                        each_vehicle_group_cost_center_revenue_list.get("customer_group_cost_center_details").extend(vehicle_group_details)
+                for (
+                    each_vehicle_group_cost_center_revenue_list
+                ) in customer_group_cost_center_revenue_list:
+                    if (
+                        each_vehicle_group_cost_center_revenue_list.get("cost_center")
+                        == each_cost_center
+                    ):
+                        each_vehicle_group_cost_center_revenue_list.get(
+                            "customer_group_cost_center_details"
+                        ).extend(vehicle_group_details)
 
         if each_cost_center == "AutoCare - PASLLC":
             for each_customer_group in autocare_customer_group_list:
@@ -344,9 +403,16 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
                     each_customer_group,
                     project_status_list=repair_order_status_list,
                 )
-                for each_customer_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
-                    if each_customer_group_cost_center_revenue_list.get("cost_center") == each_cost_center:
-                        each_customer_group_cost_center_revenue_list.get("customer_group_cost_center_details").extend(customer_group_details)
+                for (
+                    each_customer_group_cost_center_revenue_list
+                ) in customer_group_cost_center_revenue_list:
+                    if (
+                        each_customer_group_cost_center_revenue_list.get("cost_center")
+                        == each_cost_center
+                    ):
+                        each_customer_group_cost_center_revenue_list.get(
+                            "customer_group_cost_center_details"
+                        ).extend(customer_group_details)
 
             for each_vehicle_group in autocare_vehicle_group_list:
                 vehicle_group_details = fetch_revenue_vehicle_group_based_on_ro_wip(
@@ -357,9 +423,16 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
                     autocare_customer_group_list,
                     project_status_list=repair_order_status_list,
                 )
-                for each_vehicle_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
-                    if each_vehicle_group_cost_center_revenue_list.get("cost_center") == each_cost_center:
-                        each_vehicle_group_cost_center_revenue_list.get("customer_group_cost_center_details").extend(vehicle_group_details)
+                for (
+                    each_vehicle_group_cost_center_revenue_list
+                ) in customer_group_cost_center_revenue_list:
+                    if (
+                        each_vehicle_group_cost_center_revenue_list.get("cost_center")
+                        == each_cost_center
+                    ):
+                        each_vehicle_group_cost_center_revenue_list.get(
+                            "customer_group_cost_center_details"
+                        ).extend(vehicle_group_details)
 
         if each_cost_center == "AutoWorks - PASLLC":
             other_group_details = fetch_revenue_others_group_based_on_ro_wip(
@@ -389,9 +462,16 @@ def fetch_revenue_branchwise_based_on_costcenter(from_date, to_date, wip_timespa
                 project_status_list=repair_order_status_list,
             )
 
-        for each_vehicle_group_cost_center_revenue_list in customer_group_cost_center_revenue_list:
-            if each_vehicle_group_cost_center_revenue_list.get("cost_center") == each_cost_center:
-                each_vehicle_group_cost_center_revenue_list.get("customer_group_cost_center_details").extend(other_group_details)
+        for (
+            each_vehicle_group_cost_center_revenue_list
+        ) in customer_group_cost_center_revenue_list:
+            if (
+                each_vehicle_group_cost_center_revenue_list.get("cost_center")
+                == each_cost_center
+            ):
+                each_vehicle_group_cost_center_revenue_list.get(
+                    "customer_group_cost_center_details"
+                ).extend(other_group_details)
 
     return {
         "cost_center_branch_list": cost_center_branch_list,

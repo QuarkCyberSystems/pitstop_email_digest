@@ -20,12 +20,4 @@ build-backend = "flit_core.buildapi"
 # package_name = "~=1.1.0"
 [tool.ruff]
 # Ignore lambda assignment
-ignore = ["E731", "F541"]
-# Optional: match your Black config
-line-length = 200
-exclude = [
-    ".git",
-    "node_modules",
-    "pitstop_email_digest/__pycache__",
-    ".venv",
-]
+lint.ignore = ["E731", "F541"]

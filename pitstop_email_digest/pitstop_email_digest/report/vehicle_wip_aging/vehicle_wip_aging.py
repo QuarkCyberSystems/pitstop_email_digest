@@ -73,7 +73,11 @@ def _get_raw_data(filters):
     """Fetch one row per (workshop, status) with counts in each ageing bucket."""
     age_expr = "DATEDIFF(%(as_of)s, DATE(p.creation))"  # change to vehicle_received_date if required
 
-    bucket_sql = ",\n       ".join(f"SUM(CASE WHEN {age_expr} BETWEEN {s} AND {e} THEN 1 ELSE 0 END)" f" AS `{_label_to_field(label)}`" for s, e, label in BUCKETS)
+    bucket_sql = ",\n       ".join(
+        f"SUM(CASE WHEN {age_expr} BETWEEN {s} AND {e} THEN 1 ELSE 0 END)"
+        f" AS `{_label_to_field(label)}`"
+        for s, e, label in BUCKETS
+    )
 
     # dynamic filter conditions
     conds = []

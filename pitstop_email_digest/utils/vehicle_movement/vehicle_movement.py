@@ -46,7 +46,9 @@ def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
         "Daily": (today(), today()),
         "Monthly": (frappe.utils.get_first_day(today()), today()),
         "Yearly": (
-            get_fiscal_year(str(from_year))[1] if from_year else get_fiscal_year(today_date)[1],
+            get_fiscal_year(str(from_year))[1]
+            if from_year
+            else get_fiscal_year(today_date)[1],
             get_fiscal_year(str(to_year))[2] if to_year else today(),
         ),
     }
@@ -55,10 +57,21 @@ def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
     TVGP = qb.DocType("Vehicle Gate Pass")
     TP = qb.DocType("Project")
 
-    LatestVSRSub = (qb.from_(TVSR).select(TVSR.project, Max(TVSR.posting_date).as_("max_posting_date")).where(TVSR.docstatus == 1).groupby(TVSR.project)).as_("latest_vsr_sub")
+    LatestVSRSub = (
+        qb.from_(TVSR)
+        .select(TVSR.project, Max(TVSR.posting_date).as_("max_posting_date"))
+        .where(TVSR.docstatus == 1)
+        .groupby(TVSR.project)
+    ).as_("latest_vsr_sub")
 
     LatestVSR = (
-        qb.from_(TVSR).join(LatestVSRSub).on((TVSR.project == LatestVSRSub.project) & (TVSR.posting_date == LatestVSRSub.max_posting_date)).select(TVSR.project, TVSR.posting_date, TVSR.docstatus)
+        qb.from_(TVSR)
+        .join(LatestVSRSub)
+        .on(
+            (TVSR.project == LatestVSRSub.project)
+            & (TVSR.posting_date == LatestVSRSub.max_posting_date)
+        )
+        .select(TVSR.project, TVSR.posting_date, TVSR.docstatus)
     ).as_("latest_vsr")
 
     datediff = query_builder.CustomFunction("DATEDIFF", ["cur_date", "due_date"])
@@ -66,9 +79,21 @@ def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
     for freq in frequencies:
         from_date, to_date = date_ranges[freq]
 
-        vehicle_in_q = qb.from_(TVSR).select(Count(TVSR.name).as_("count")).where((TVSR.docstatus == 1) & (TVSR.posting_date.between(from_date, to_date)))
+        vehicle_in_q = (
+            qb.from_(TVSR)
+            .select(Count(TVSR.name).as_("count"))
+            .where(
+                (TVSR.docstatus == 1) & (TVSR.posting_date.between(from_date, to_date))
+            )
+        )
 
-        vehicle_out_q = qb.from_(TVGP).select(Count(TVGP.name).as_("count")).where((TVGP.docstatus == 1) & (TVGP.posting_date.between(from_date, to_date)))
+        vehicle_out_q = (
+            qb.from_(TVGP)
+            .select(Count(TVGP.name).as_("count"))
+            .where(
+                (TVGP.docstatus == 1) & (TVGP.posting_date.between(from_date, to_date))
+            )
+        )
 
         avg_delivery_q = (
             qb.from_(TVGP)
@@ -78,15 +103,23 @@ def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
             .on(LatestVSR.project == TP.name)
             .select(
                 Count(TVGP.name).as_("total_deliveries"),
-                Sum(datediff(TVGP.posting_date, LatestVSR.posting_date)).as_("timespend"),
+                Sum(datediff(TVGP.posting_date, LatestVSR.posting_date)).as_(
+                    "timespend"
+                ),
                 Ceil(
                     IfNull(
-                        Sum(datediff(TVGP.posting_date, LatestVSR.posting_date)) / Count(TVGP.name),
+                        Sum(datediff(TVGP.posting_date, LatestVSR.posting_date))
+                        / Count(TVGP.name),
                         0,
                     )
                 ).as_("average"),
             )
-            .where((TVGP.docstatus == 1) & (LatestVSR.docstatus == 1) & (TVGP.posting_date.between(from_date, to_date)) & (TVGP.purpose == "Service - Vehicle Delivery"))
+            .where(
+                (TVGP.docstatus == 1)
+                & (LatestVSR.docstatus == 1)
+                & (TVGP.posting_date.between(from_date, to_date))
+                & (TVGP.purpose == "Service - Vehicle Delivery")
+            )
         )
 
         if customer_list:
@@ -103,7 +136,9 @@ def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
     return result
 
 
-def fetch_all_category(from_date, to_date, branch=None, customer_list=None, timespan=None):
+def fetch_all_category(
+    from_date, to_date, branch=None, customer_list=None, timespan=None
+):
     customer_condition = ""
     params = {
         "from_date": from_date,
@@ -166,7 +201,9 @@ def fetch_all_category(from_date, to_date, branch=None, customer_list=None, time
     return frappe.db.sql(sql_query_fstring, params, as_dict=True)
 
 
-def fetch_division_group_category(from_date, to_date, branch=None, customer_list=None, timespan=None):
+def fetch_division_group_category(
+    from_date, to_date, branch=None, customer_list=None, timespan=None
+):
     customer_condition = ""
     params = {
         "from_date": from_date,
@@ -303,8 +340,14 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
         today_date = today()
 
         if each_timespan == "YTD":
-            from_date = get_fiscal_year(fiscal_year=str(from_year))[1] if from_year else get_fiscal_year(today_date)[1]
-            to_date = get_fiscal_year(fiscal_year=str(to_year))[2] if to_year else today()
+            from_date = (
+                get_fiscal_year(fiscal_year=str(from_year))[1]
+                if from_year
+                else get_fiscal_year(today_date)[1]
+            )
+            to_date = (
+                get_fiscal_year(fiscal_year=str(to_year))[2] if to_year else today()
+            )
         elif each_timespan == "MTD":
             from_date = frappe.utils.data.get_first_day(today_date)
             to_date = today()
@@ -340,7 +383,9 @@ def fetch_ro_project_status_based_workshop_division_for_vehicle(
             final_category_result["all_category"].append(row)
 
     if fetch_custom_order_data(custom_order_field):
-        final_category_result["custom_order_field"] = fetch_custom_order_data(custom_order_field)
+        final_category_result["custom_order_field"] = fetch_custom_order_data(
+            custom_order_field
+        )
 
     return final_category_result
 
@@ -361,7 +406,9 @@ def get_customers_list(workspace):
             fieldname=["customer_group"],
         )
 
-        parent_customer_group = frappe.db.get_value("Customer Group", customer_group, "parent_customer_group")
+        parent_customer_group = frappe.db.get_value(
+            "Customer Group", customer_group, "parent_customer_group"
+        )
 
         # no filter for root customer group
         if not parent_customer_group:

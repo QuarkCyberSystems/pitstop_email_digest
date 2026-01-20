@@ -106,7 +106,9 @@ def check_link_roles(filters):
         "Role Details",
         filters={
             "parent": "Workspace Settings",
-            "parentfield": filters.get("report_link_access_roles_vehicle_mobility_field"),
+            "parentfield": filters.get(
+                "report_link_access_roles_vehicle_mobility_field"
+            ),
         },
         fields=["roles"],
         pluck="roles",
@@ -143,13 +145,21 @@ def get_data(filters=None):
     datediff = query_builder.CustomFunction("DATEDIFF", ["cur_date", "due_date"])
 
     # Step 1: Subquery to get max(posting_date) for each project in VSR
-    LatestVSRSub = (frappe.qb.from_(VSR).select(VSR.project, Max(VSR.posting_date).as_("max_posting_date")).where(VSR.docstatus == 1).groupby(VSR.project)).as_("latest_vsr_sub")
+    LatestVSRSub = (
+        frappe.qb.from_(VSR)
+        .select(VSR.project, Max(VSR.posting_date).as_("max_posting_date"))
+        .where(VSR.docstatus == 1)
+        .groupby(VSR.project)
+    ).as_("latest_vsr_sub")
 
     # Step 2: Join this with VSR to get the full latest VSR record
     LatestVSR = (
         frappe.qb.from_(VSR)
         .join(LatestVSRSub)
-        .on((VSR.project == LatestVSRSub.project) & (VSR.posting_date == LatestVSRSub.max_posting_date))
+        .on(
+            (VSR.project == LatestVSRSub.project)
+            & (VSR.posting_date == LatestVSRSub.max_posting_date)
+        )
         .select(VSR.name, VSR.project, VSR.posting_date, VSR.docstatus)
     ).as_("latest_vsr")
 
@@ -158,11 +168,17 @@ def get_data(filters=None):
         .left_join(LatestVSR)
         .on(LatestVSR.project == Project.name)
         .left_join(VGP)
-        .on((VGP.project == Project.name) & (VGP.docstatus == 1) & (VGP.purpose == "Service - Vehicle Delivery"))
+        .on(
+            (VGP.project == Project.name)
+            & (VGP.docstatus == 1)
+            & (VGP.purpose == "Service - Vehicle Delivery")
+        )
         .where(LatestVSR.docstatus == 1)
         .select(
             Project.name.as_("repair_order"),
-            datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date).as_("timespend"),
+            datediff(IfNull(VGP.posting_date, today()), LatestVSR.posting_date).as_(
+                "timespend"
+            ),
             Project.project_status,
             Project.current_task_type,
             Project.vehicle_workshop_division,
@@ -184,19 +200,28 @@ def get_data(filters=None):
         query = query.where(Project.project_date <= filters.get("to_date"))
 
     if filters and filters.get("workshop_division"):
-        query = query.where(Project.vehicle_workshop_division == filters.get("workshop_division"))
+        query = query.where(
+            Project.vehicle_workshop_division == filters.get("workshop_division")
+        )
 
     if filters and filters.get("project_status"):
         query = query.where(Project.project_status == filters.get("project_status"))
 
     if filters and filters.get("current_task_type"):
-        query = query.where(Project.current_task_type == filters.get("current_task_type"))
+        query = query.where(
+            Project.current_task_type == filters.get("current_task_type")
+        )
 
     if filters and filters.get("billing_type"):
         if filters.get("billing_type") == "Customer":
-            query = query.where((Project.insurance_company == "") | (Project.insurance_company.isnull()))
+            query = query.where(
+                (Project.insurance_company == "") | (Project.insurance_company.isnull())
+            )
         elif filters.get("billing_type") == "Insurance":
-            query = query.where((Project.insurance_company != "") & (Project.insurance_company.isnotnull()))
+            query = query.where(
+                (Project.insurance_company != "")
+                & (Project.insurance_company.isnotnull())
+            )
 
     if filters and filters.get("branch"):
         query = query.where((Project.branch == filters.get("branch")))
@@ -232,7 +257,11 @@ def get_totals_summary(total_ro, total_timespend, total_average):
     return [
         {
             "label": _("Average Time in Days"),
-            "value": str(total_timespend) + "/" + str(total_ro) + the_symbol + str(total_average),
+            "value": str(total_timespend)
+            + "/"
+            + str(total_ro)
+            + the_symbol
+            + str(total_average),
             "indicator": "red",
             "datatype": "html",
         }

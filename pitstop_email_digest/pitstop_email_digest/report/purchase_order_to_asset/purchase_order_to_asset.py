@@ -99,13 +99,19 @@ def get_columns(filters):
 def get_data(filters):
     condition = ""
     if filters.get("from_date"):
-        condition += " and tpo.transaction_date>='{from_date}'".format(from_date=filters.get("from_date"))
+        condition += " and tpo.transaction_date>='{from_date}'".format(
+            from_date=filters.get("from_date")
+        )
 
     if filters.get("to_date"):
-        condition += " and tpo.transaction_date<='{to_date}'".format(to_date=filters.get("to_date"))
+        condition += " and tpo.transaction_date<='{to_date}'".format(
+            to_date=filters.get("to_date")
+        )
 
     if filters.get("item_code"):
-        condition += " and tpoi.item_code ='{item_code}'".format(item_code=filters.get("item_code"))
+        condition += " and tpoi.item_code ='{item_code}'".format(
+            item_code=filters.get("item_code")
+        )
 
     return frappe.db.sql(
         """

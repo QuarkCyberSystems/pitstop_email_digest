@@ -26,7 +26,9 @@ def packing_data_engine(email_digest):
             summary_data = REPORT_SUMMARY_DICT.get(email_digest.report_reference)(
                 start_date=get_send_date(email_digest),
                 end_date=get_send_date(email_digest),
-                company=frappe.get_cached_value("Global Defaults", None, "default_company"),
+                company=frappe.get_cached_value(
+                    "Global Defaults", None, "default_company"
+                ),
             )
             date_property = "Date " + str(get_send_date(email_digest))
             title = _("Daily " + email_digest.report_reference + " Summary")
@@ -34,10 +36,20 @@ def packing_data_engine(email_digest):
             summary_data = REPORT_SUMMARY_DICT.get(email_digest.report_reference)(
                 start_date=frappe.utils.get_first_day(get_send_date(email_digest)),
                 end_date=get_send_date(email_digest),
-                company=frappe.get_cached_value("Global Defaults", None, "default_company"),
+                company=frappe.get_cached_value(
+                    "Global Defaults", None, "default_company"
+                ),
             )
             date_property = (
-                "Month " + str(get_month(get_send_date(email_digest)) + "(from " + str(frappe.utils.get_first_day(get_send_date(email_digest)))) + " to " + str(get_send_date(email_digest)) + ")"
+                "Month "
+                + str(
+                    get_month(get_send_date(email_digest))
+                    + "(from "
+                    + str(frappe.utils.get_first_day(get_send_date(email_digest)))
+                )
+                + " to "
+                + str(get_send_date(email_digest))
+                + ")"
             )
             title = _("Monthly " + email_digest.report_reference + " Summary")
 
@@ -47,7 +59,9 @@ def packing_data_engine(email_digest):
 def send_report_summary(email_digest, show_html=False):
     """Send the daily workshop turnover summary email"""
     summary_data, date_property, title = packing_data_engine(email_digest)
-    summary_data = frappe._dict({"summary_data": summary_data, "title": title, "date": date_property})
+    summary_data = frappe._dict(
+        {"summary_data": summary_data, "title": title, "date": date_property}
+    )
     email_digest.set_style(summary_data)
 
     if show_html:
@@ -64,12 +78,19 @@ def send_report_summary(email_digest, show_html=False):
 				where enabled=1"""
             )
         ]
-        recipients = list(filter(lambda r: r in valid_users, email_digest.recipient_list.split("\n")))
+        recipients = list(
+            filter(lambda r: r in valid_users, email_digest.recipient_list.split("\n"))
+        )
 
         original_user = frappe.session.user
 
         if recipients:
-            email_subject = email_digest.frequency + " " + email_digest.report_reference + " Summary"
+            email_subject = (
+                email_digest.frequency
+                + " "
+                + email_digest.report_reference
+                + " Summary"
+            )
             for user_id in recipients:
                 frappe.set_user(user_id)
                 frappe.set_user_lang(user_id)

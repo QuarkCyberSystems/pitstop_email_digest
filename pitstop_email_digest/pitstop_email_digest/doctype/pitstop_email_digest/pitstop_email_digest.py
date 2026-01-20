@@ -43,7 +43,9 @@ def get_projects_settings():
         doc = frappe.get_cached_doc("Projects Settings", None)
     except Exception:
         doc = frappe._dict()
-    return frappe._dict({k: doc.get(k) or PROJECTS_DEFAULTS[k] for k in PROJECTS_DEFAULTS})
+    return frappe._dict(
+        {k: doc.get(k) or PROJECTS_DEFAULTS[k] for k in PROJECTS_DEFAULTS}
+    )
 
 
 def _server_today():
@@ -68,7 +70,11 @@ def _fy_start(d):
 # ──────────────────────────────────────────────────────────────
 class PitstopEmailDigest(CoreDigest):
     def _as_of_date(self):
-        return getdate(self.as_of_date) if getattr(self, "as_of_date", None) else _server_yesterday()
+        return (
+            getdate(self.as_of_date)
+            if getattr(self, "as_of_date", None)
+            else _server_yesterday()
+        )
 
     def get_msg_html(self, custom_method=None):
         if not custom_method:
@@ -128,7 +134,9 @@ class PitstopEmailDigest(CoreDigest):
 
         # Labour extra groups
         lumpsum_group = get_item_group_subtree("Lumpsum Labour") or ["Lumpsum Labour"]
-        autocare_group = get_item_group_subtree("AutoCare Services") or ["AutoCare Services"]
+        autocare_group = get_item_group_subtree("AutoCare Services") or [
+            "AutoCare Services"
+        ]
         labour_groups = set(lumpsum_group + autocare_group)
 
         revenue = labour_amt = parts_amt = cons_amt = sold_time = 0
@@ -140,7 +148,11 @@ class PitstopEmailDigest(CoreDigest):
                 ro_projects.add(r.project)
 
             # ---------------- Labour bucket --------------------------
-            if r.uom == "Hour" or r.stock_uom == "Hour" or r.item_group in labour_groups:
+            if (
+                r.uom == "Hour"
+                or r.stock_uom == "Hour"
+                or r.item_group in labour_groups
+            ):
                 labour_amt += r.net_amount
 
             # ---------------- Parts bucket ---------------------------
@@ -161,7 +173,9 @@ class PitstopEmailDigest(CoreDigest):
                 r.item_code,
                 r.uom,
                 "Hour",
-                conversion_factor=(r.conversion_factor if r.stock_uom == "Hour" else None),
+                conversion_factor=(
+                    r.conversion_factor if r.stock_uom == "Hour" else None
+                ),
                 null_if_not_convertible=True,
             )
             if hrs is not None:
@@ -225,7 +239,12 @@ class PitstopEmailDigest(CoreDigest):
                 "YTD<br/>(" + str(current_year) + ")",
                 "Last Month<br/>(" + str(last_month_year) + ")",
                 str(current_month) + "<br/>(" + str(last_year) + ")",
-                str(first_month_last_year) + "-" + str(current_month) + "<br/>(" + str(last_year) + ")",
+                str(first_month_last_year)
+                + "-"
+                + str(current_month)
+                + "<br/>("
+                + str(last_year)
+                + ")",
             ],
             [
                 "No of Repair Order Invoiced",
@@ -233,7 +252,11 @@ class PitstopEmailDigest(CoreDigest):
                 i0(mtd.ro_count),
                 i0(ytd.ro_count),
                 i0(last_month.ro_count),
-                round_dirham(self.get_back_date_data("No of Repair Order Invoiced", last_year, current_month_number)),
+                round_dirham(
+                    self.get_back_date_data(
+                        "No of Repair Order Invoiced", last_year, current_month_number
+                    )
+                ),
                 round_dirham(
                     self.get_back_date_data(
                         "No of Repair Order Invoiced",
@@ -249,7 +272,11 @@ class PitstopEmailDigest(CoreDigest):
                 round_dirham(mtd.labour_hours),
                 round_dirham(ytd.labour_hours),
                 round_dirham(last_month.labour_hours),
-                round_dirham(self.get_back_date_data("Labour Hours", last_year, current_month_number)),
+                round_dirham(
+                    self.get_back_date_data(
+                        "Labour Hours", last_year, current_month_number
+                    )
+                ),
                 round_dirham(
                     self.get_back_date_data(
                         "Labour Hours",
@@ -265,7 +292,9 @@ class PitstopEmailDigest(CoreDigest):
                 round_dirham(mtd.labour_amount),
                 round_dirham(ytd.labour_amount),
                 round_dirham(last_month.labour_amount),
-                round_dirham(self.get_back_date_data("Labour", last_year, current_month_number)),
+                round_dirham(
+                    self.get_back_date_data("Labour", last_year, current_month_number)
+                ),
                 round_dirham(
                     self.get_back_date_data(
                         "Labour",
@@ -281,7 +310,9 @@ class PitstopEmailDigest(CoreDigest):
                 round_dirham(mtd.parts_amount),
                 round_dirham(ytd.parts_amount),
                 round_dirham(last_month.parts_amount),
-                round_dirham(self.get_back_date_data("Parts", last_year, current_month_number)),
+                round_dirham(
+                    self.get_back_date_data("Parts", last_year, current_month_number)
+                ),
                 round_dirham(
                     self.get_back_date_data(
                         "Parts",
@@ -293,11 +324,27 @@ class PitstopEmailDigest(CoreDigest):
             ],
             [
                 "Parts GP (%)",
-                round_dirham(self.get_workshop_turnover_report_details(today, today, "Parts GP (%)")),
-                round_dirham(self.get_workshop_turnover_report_details(m0, today, "Parts GP (%)")),
-                round_dirham(self.get_workshop_turnover_report_details(y0, today, "Parts GP (%)")),
-                round_dirham(self.get_workshop_turnover_report_details(first_day_last_month, last_day_last_month, "Parts GP (%)")),
-                round_dirham(self.get_back_date_data("Parts GP %", last_year, current_month_number)),
+                round_dirham(
+                    self.get_workshop_turnover_report_details(
+                        today, today, "Parts GP (%)"
+                    )
+                ),
+                round_dirham(
+                    self.get_workshop_turnover_report_details(m0, today, "Parts GP (%)")
+                ),
+                round_dirham(
+                    self.get_workshop_turnover_report_details(y0, today, "Parts GP (%)")
+                ),
+                round_dirham(
+                    self.get_workshop_turnover_report_details(
+                        first_day_last_month, last_day_last_month, "Parts GP (%)"
+                    )
+                ),
+                round_dirham(
+                    self.get_back_date_data(
+                        "Parts GP %", last_year, current_month_number
+                    )
+                ),
                 "-",
             ],
             [
@@ -306,7 +353,11 @@ class PitstopEmailDigest(CoreDigest):
                 round_dirham(mtd.cons_amount),
                 round_dirham(ytd.cons_amount),
                 round_dirham(last_month.cons_amount),
-                round_dirham(self.get_back_date_data("Consumable & Other", last_year, current_month_number)),
+                round_dirham(
+                    self.get_back_date_data(
+                        "Consumable & Other", last_year, current_month_number
+                    )
+                ),
                 round_dirham(
                     self.get_back_date_data(
                         "Consumable & Other",
@@ -322,7 +373,11 @@ class PitstopEmailDigest(CoreDigest):
                 round_dirham(mtd.labour_rate),
                 round_dirham(ytd.labour_rate),
                 round_dirham(last_month.labour_rate),
-                round_dirham(self.get_back_date_data("Effective labour rate", last_year, current_month_number)),
+                round_dirham(
+                    self.get_back_date_data(
+                        "Effective labour rate", last_year, current_month_number
+                    )
+                ),
                 round_dirham(
                     self.get_back_date_data(
                         "Effective labour rate",
@@ -338,7 +393,11 @@ class PitstopEmailDigest(CoreDigest):
                 round_dirham(mtd.hours_per_ro),
                 round_dirham(ytd.hours_per_ro),
                 round_dirham(last_month.hours_per_ro),
-                round_dirham(self.get_back_date_data("Hours per RO", last_year, current_month_number)),
+                round_dirham(
+                    self.get_back_date_data(
+                        "Hours per RO", last_year, current_month_number
+                    )
+                ),
                 round_dirham(
                     self.get_back_date_data(
                         "Hours per RO",
@@ -354,7 +413,9 @@ class PitstopEmailDigest(CoreDigest):
                 ratio(mtd),
                 ratio(ytd),
                 ratio(last_month),
-                self.get_back_date_data("Parts to Labour ratio", last_year, current_month_number),
+                self.get_back_date_data(
+                    "Parts to Labour ratio", last_year, current_month_number
+                ),
                 "-",
             ],
         ]
@@ -392,20 +453,39 @@ class PitstopEmailDigest(CoreDigest):
                 "MTD<br/>(" + str(current_month_year) + ")",
                 "YTD<br/>(" + str(current_year) + ")",
                 "Target<br/>(" + str(current_month_year) + ")",
-                "Target<br/>(" + str(first_month_last_year) + "-" + str(current_month) + "-" + str(current_year) + ")",
+                "Target<br/>("
+                + str(first_month_last_year)
+                + "-"
+                + str(current_month)
+                + "-"
+                + str(current_year)
+                + ")",
                 "Last Month<br/>(" + str(last_month_year) + ")",
                 str(current_month) + "<br/>(" + str(last_year) + ")",
-                str(first_month_last_year) + "-" + str(current_month) + "<br/>(" + str(last_year) + ")",
+                str(first_month_last_year)
+                + "-"
+                + str(current_month)
+                + "<br/>("
+                + str(last_year)
+                + ")",
             ],
             [
                 "Revenue",
                 round_dirham(daily.revenue),
                 round_dirham(mtd.revenue),
                 round_dirham(ytd.revenue),
-                round_dirham(self.get_target_revenue(current_year, current_month_number)),
-                round_dirham(self.get_target_revenue(current_year, current_month_number, ["01", current_month_number])),
+                round_dirham(
+                    self.get_target_revenue(current_year, current_month_number)
+                ),
+                round_dirham(
+                    self.get_target_revenue(
+                        current_year, current_month_number, ["01", current_month_number]
+                    )
+                ),
                 round_dirham(last_month.revenue),
-                round_dirham(self.get_back_date_data("Revenue", last_year, current_month_number)),
+                round_dirham(
+                    self.get_back_date_data("Revenue", last_year, current_month_number)
+                ),
                 round_dirham(
                     self.get_back_date_data(
                         "Revenue",
@@ -442,7 +522,9 @@ class PitstopEmailDigest(CoreDigest):
 
     def get_back_date_data(self, status, pre_year, month_number, month_range=None):
         last_year = pre_year
-        last_year_data = frappe.get_all("Last Year", filters={"period": last_year}, fields=["*"])
+        last_year_data = frappe.get_all(
+            "Last Year", filters={"period": last_year}, fields=["*"]
+        )
 
         if not month_range:
             for each_ly_data_dict in last_year_data:
@@ -459,12 +541,16 @@ class PitstopEmailDigest(CoreDigest):
                 for each_ly_data_dict in last_year_data:
                     if each_ly_data_dict.type == status:
                         rqd_range_month_number = str(range_month_number).zfill(2)
-                        the_sum_of_value += flt(each_ly_data_dict.get(rqd_range_month_number)) or 0
+                        the_sum_of_value += (
+                            flt(each_ly_data_dict.get(rqd_range_month_number)) or 0
+                        )
                         break
             return the_sum_of_value
 
     def get_target_revenue(self, year, month_number, month_range=None):
-        budget_data = frappe.db.get_all("Monthly Revenue Target", filters={"fiscal_year": year}, fields=["*"])
+        budget_data = frappe.db.get_all(
+            "Monthly Revenue Target", filters={"fiscal_year": year}, fields=["*"]
+        )
         if not month_range:
             for each_ly_data_dict in budget_data:
                 return each_ly_data_dict.get(month_number) or 0
@@ -478,7 +564,9 @@ class PitstopEmailDigest(CoreDigest):
             for range_month_number in range(month_start, month_end + 1):
                 for each_ly_data_dict in budget_data:
                     rqd_range_month_number = str(range_month_number).zfill(2)
-                    the_sum_of_value += flt(each_ly_data_dict.get(rqd_range_month_number)) or 0
+                    the_sum_of_value += (
+                        flt(each_ly_data_dict.get(rqd_range_month_number)) or 0
+                    )
                     break
             return the_sum_of_value
 
@@ -492,17 +580,23 @@ class PitstopEmailDigest(CoreDigest):
             filters={"enabled": 1, "frequency": freq},
             fields=["name", "enable_custom_method"],
         ):
-            email_digest_record = frappe.get_doc("Pitstop Email Digest", each_dict.get("name"))
+            email_digest_record = frappe.get_doc(
+                "Pitstop Email Digest", each_dict.get("name")
+            )
             if not email_digest_record.enable_custom_method:
                 email_digest_record.send()
             else:
                 if email_digest_record.method:
                     try:
-                        frappe.get_attr(email_digest_record.method)(email_digest_record, show_html=False)
+                        frappe.get_attr(email_digest_record.method)(
+                            email_digest_record, show_html=False
+                        )
                     except Exception as e:
                         frappe.log_error(
                             frappe.get_traceback(),
-                            _(f"Error in custom method for Pitstop Email Digest {str(e)}"),
+                            _(
+                                f"Error in custom method for Pitstop Email Digest {str(e)}"
+                            ),
                         )
 
     @staticmethod
@@ -549,6 +643,8 @@ auto_send_weekly = PitstopEmailDigest.auto_send_weekly
 def get_digest_msg(name):
     email_digest_record = frappe.get_doc("Pitstop Email Digest", name)
     if email_digest_record.enable_custom_method:
-        return frappe.get_doc("Pitstop Email Digest", name).get_msg_html(email_digest_record.method)
+        return frappe.get_doc("Pitstop Email Digest", name).get_msg_html(
+            email_digest_record.method
+        )
     else:
         return frappe.get_doc("Pitstop Email Digest", name).get_msg_html()

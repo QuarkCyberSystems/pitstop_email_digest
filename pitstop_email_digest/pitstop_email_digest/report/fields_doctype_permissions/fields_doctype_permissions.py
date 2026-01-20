@@ -53,7 +53,9 @@ def get_data(filters):
         condition += " and dt.name = '{doctype}'".format(doctype=filters.get("doctype"))
 
     if filters.get("permlevel"):
-        condition += " and p.permlevel = '{permlevel}'".format(permlevel=filters.get("permlevel"))
+        condition += " and p.permlevel = '{permlevel}'".format(
+            permlevel=filters.get("permlevel")
+        )
 
     if filters.get("role"):
         condition += " and p.role = '{role}'".format(role=filters.get("role"))
