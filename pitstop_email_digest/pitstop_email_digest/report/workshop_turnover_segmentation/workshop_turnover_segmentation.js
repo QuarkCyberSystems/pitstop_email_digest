@@ -108,4 +108,11 @@ frappe.query_reports["Workshop Turnover Segmentation"] = {
 	],
 
 	initial_depth: 1,
+	onload: function (report) {
+		frappe.breadcrumbs.add({
+			type: "Custom",
+			label: __("Workshop"),
+			route: "/app/workshop",
+		});
+	},
 };
