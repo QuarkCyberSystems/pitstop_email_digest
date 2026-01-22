@@ -59,64 +59,67 @@ def get_data(filters):
 
     return frappe.db.sql(
         f"""
-		select
-			tc.name as campaign,
-			count(to2.name) as opportunity_count,
-			count(ta.name) as appointment_count,
-			count(tp.name) as project_count,
-			COALESCE(sum(tsii.base_net_amount), 0) as net_revenue,
-			count(distinct
-				case
-					when to2.opportunity_from = 'Customer'
-						and cust_direct.creation > to2.creation
-					then cust_direct.name
-
-					when to2.opportunity_from = 'Lead'
-						and cust_from_lead.creation > to2.creation
-					then cust_from_lead.name
-
-					else null
-				end
-			) as new_customer_count
-		from
-			tabCampaign tc
-		left join
-			tabOpportunity to2
-		on
-			to2.campaign = tc.name
-		left join
-			tabAppointment ta
-		on
-			ta.campaign = tc.name  and ta.docstatus = 1 and ta.opportunity = to2.name
-		left join
-			tabProject tp
-		on
-			tp.appointment = ta.name
-		left join
-			`tabSales Invoice Item` tsii
-		on
-			tsii.project = tp.name and tsii.docstatus = 1
-		left join
-			`tabSales Invoice` tsi
-		on
-			tsi.name = tsii.parent and tsi.docstatus = 1
-		left join
-			tabCustomer cust_direct
-		on
-			cust_direct.name = to2.party_name and to2.opportunity_from = 'Customer'
-		left join
-			tabLead tl
-		on
-			tl.name = to2.party_name and to2.opportunity_from = 'Lead'
-		left join
-			tabCustomer cust_from_lead
-		on
-			cust_from_lead.name = tl.customer
-		where
-			1=1 {condition}
-		group by
-			tc.name;
-	""",
+        select
+            tc.name as campaign,
+            COALESCE(opp.opportunity_count, 0) as opportunity_count,
+            COALESCE(app.appointment_count, 0) as appointment_count,
+            COALESCE(prj.project_count, 0) as project_count,
+            COALESCE(sr.net_revenue, 0) as net_revenue,
+            COALESCE(nc.new_customer_count, 0) as new_customer_count
+        from
+            tabCampaign tc
+        left join (
+            select campaign, count(distinct name) as opportunity_count
+            from tabOpportunity
+            group by campaign
+        ) opp on opp.campaign = tc.name
+        left join (
+            select campaign, count(distinct name) as appointment_count
+            from tabAppointment
+            where docstatus = 1
+            group by campaign
+        ) app on app.campaign = tc.name
+        left join (
+            select
+                ta.campaign,
+                count(distinct tp.name) as project_count
+            from tabAppointment ta
+            join tabProject tp on tp.appointment = ta.name
+            group by ta.campaign
+        ) prj on prj.campaign = tc.name
+        left join (
+            select
+                ta.campaign,
+                sum(tsii.base_net_amount) as net_revenue
+            from tabAppointment ta
+            join tabProject tp
+                on tp.appointment = ta.name
+            join `tabSales Invoice Item` tsii
+                on tsii.project = tp.name
+                and tsii.docstatus = 1
+            join `tabSales Invoice` tsi
+                on tsi.name = tsii.parent
+                and tsi.docstatus = 1
+            group by ta.campaign
+        ) sr on sr.campaign = tc.name
+        left join (
+            select
+                to2.campaign,
+                count(distinct
+                    case
+                        when to2.opportunity_from = 'Customer' and cust_direct.creation > to2.creation then cust_direct.name
+                        when to2.opportunity_from = 'Lead' and cust_from_lead.creation > to2.creation then cust_from_lead.name
+                        else null
+                    end
+                ) as new_customer_count
+            from tabOpportunity to2
+            left join tabCustomer cust_direct on cust_direct.name = to2.party_name and to2.opportunity_from = 'Customer'
+            left join tabLead tl on tl.name = to2.party_name and to2.opportunity_from = 'Lead'
+            left join tabCustomer cust_from_lead on cust_from_lead.name = tl.customer
+            group by to2.campaign
+        ) nc on nc.campaign = tc.name
+        where 1=1 {condition}
+        """,
         condition_dict,
         as_dict=True,
     )
