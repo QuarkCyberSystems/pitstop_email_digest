@@ -50,6 +50,8 @@ fixtures = [
                     "Vehicle Movement Daily Monthly Yearly ALL",
                     "Vehicle Movement a Day ALL",
                     "Invoice WIP MAP",
+                    # Cashier
+                    "POS Transaction Summary",
                 ],
             ]
         ],
