@@ -1,3 +1,7 @@
+import frappe
+from frappe.utils.pdf import get_pdf
+
+
 def fetch_cashier_data_sql(selected_date):
     return f"""
 			SELECT
@@ -103,3 +107,196 @@ def fetch_group_by_payment_mode_data(placeholders):
 		group by
 			tpced.mode_of_payment
 	"""
+
+
+def generate_summary_data_payment_data(cashiers_data):
+    """
+    Generate the array for the mail digest
+    """
+    summary_data = []
+    payment_mode_data = []
+    total_number_of_transactions = 0
+    total_number_of_tills_closed = 0
+    total_amount_collected = 0
+    total_amount_pos_closed_collected = 0
+    branch_summary_data_array = []
+
+    for each_message_summary_data in cashiers_data.get("summary_data"):
+        if each_message_summary_data.get("status") == "Closed":
+            total_number_of_tills_closed += 1
+        total_number_of_transactions += (
+            each_message_summary_data.get("total_no_of_transactions")
+            if each_message_summary_data.get("total_no_of_transactions")
+            else 0
+        )
+        total_amount_collected += (
+            each_message_summary_data.get("total_collected")
+            if each_message_summary_data.get("total_collected")
+            else 0
+        )
+        total_amount_pos_closed_collected += (
+            each_message_summary_data.get("total_amount_pos_close_collected")
+            if each_message_summary_data.get("total_amount_pos_close_collected")
+            else 0
+        )
+
+        pos_profile_found = None
+
+        for each_branch_summary_data_array in branch_summary_data_array:
+            if (
+                each_branch_summary_data_array.get("pos_profile")
+                == each_message_summary_data.pos_profile
+            ):
+                each_branch_summary_data_array["total_no_of_transactions"] += (
+                    each_message_summary_data.get("total_no_of_transactions")
+                    if each_message_summary_data.get("total_no_of_transactions")
+                    else 0
+                )
+                each_branch_summary_data_array["total_collected"] += (
+                    each_message_summary_data.get("total_collected")
+                    if each_message_summary_data.get("total_collected")
+                    else 0
+                )
+                each_branch_summary_data_array["total_amount_pos_close_collected"] += (
+                    each_message_summary_data.get("total_amount_pos_close_collected")
+                    if each_message_summary_data.get("total_amount_pos_close_collected")
+                    else 0
+                )
+                pos_profile_found = each_message_summary_data
+                break
+
+        if not pos_profile_found:
+            pos_profile_found = {
+                "pos_profile": each_message_summary_data.get("pos_profile"),
+                "total_no_of_transactions": each_message_summary_data.get(
+                    "total_no_of_transactions"
+                ),
+                "total_collected": each_message_summary_data.get("total_collected"),
+                "total_amount_pos_close_collected": each_message_summary_data.get(
+                    "total_amount_pos_close_collected"
+                ),
+                "status": each_message_summary_data.get("status"),
+            }
+            branch_summary_data_array.append(pos_profile_found)
+
+    summary_data.append(
+        {"datatype": "Section Break", "label": "Branch Summary", "colspan": 5}
+    )
+    summary_data.append(
+        {
+            "datatype": "Header",
+            "labels": [
+                "Branch",
+                "Total No. Of Transactions",
+                "Total Collected",
+                "Total Amount POS Not Closed",
+                "Status",
+            ],
+            "colspan": 1,
+        }
+    )
+
+    for each_branch_summary_data_array in branch_summary_data_array:
+        check_status = any(
+            each_data
+            for each_data in cashiers_data.get("summary_data")
+            if each_data.get("status") == "Open"
+            and each_data.get("pos_profile")
+            == each_branch_summary_data_array.get("pos_profile")
+        )
+
+        total_amount_pos_not_closed = (
+            each_branch_summary_data_array["total_collected"]
+            if each_branch_summary_data_array["total_collected"]
+            else 0
+        ) - (
+            each_branch_summary_data_array["total_amount_pos_close_collected"]
+            if each_branch_summary_data_array["total_amount_pos_close_collected"]
+            else 0
+        )
+
+        summary_data.append(
+            {
+                "key": each_branch_summary_data_array["pos_profile"],
+                "label": f"{each_branch_summary_data_array['pos_profile']} - Total Transactions",
+                "total_no_of_transactions": each_branch_summary_data_array[
+                    "total_no_of_transactions"
+                ]
+                if each_branch_summary_data_array.get("total_no_of_transactions")
+                else 0,
+                "total_collected": each_branch_summary_data_array["total_collected"]
+                if each_branch_summary_data_array.get("total_collected")
+                else 0,
+                "total_amount_pos_not_closed": total_amount_pos_not_closed,
+                "status": "Open" if check_status else "Closed",
+            }
+        )
+
+    summary_data.append(
+        {
+            "datatype": "Total",
+            "label": "Total",
+            "total_no_of_transactions": total_number_of_transactions,
+            "total_collected": total_amount_collected,
+            "total_amount_pos_not_closed": (
+                total_amount_collected - total_amount_pos_closed_collected
+            ),
+            "colspan": 4,
+        }
+    )
+
+    # Section: Payment Mode
+    if cashiers_data.get("payment_mode_data"):
+        payment_mode_data.append(
+            {
+                "datatype": "Section Break",
+                "label": "Collection Break Up Payment Mode Basis",
+                "colspan": 4,
+            }
+        )
+        payment_mode_data.append(
+            {"datatype": "Header", "labels": ["Payment Mode", "Amount"], "colspan": 1}
+        )
+        for payment in cashiers_data.get("payment_mode_data"):
+            payment_mode_data.append(
+                {
+                    "label": payment["mode_of_payment"],
+                    "value": payment["total_paid_amount"]
+                    if payment.get("total_paid_amount")
+                    else 0,
+                }
+            )
+        payment_mode_data.append(
+            {"datatype": "Total", "label": "Total", "value": total_amount_collected}
+        )
+
+    return summary_data, payment_mode_data
+
+
+@frappe.whitelist()
+def download_cashier_dashboard_pdf(selected_date):
+    from .cashier_dashboard import fetch_cashier_dashboard_data
+
+    cashiers_data = fetch_cashier_dashboard_data(selected_date)
+    summary_data, payment_mode_data = generate_summary_data_payment_data(cashiers_data)
+    local = frappe.local
+
+    html = frappe.render_template(
+        "utils/report_summary/templates/cashier_dashboard.html",
+        {
+            "title": "Cashier Dashboard Summary",
+            "date": selected_date,
+            "h1": "font-size:20px; color:#333;",
+            "h2": "font-size:16px; color:#666;",
+            "summary_data": summary_data,
+            "payment_mode_data": payment_mode_data,
+        },
+        is_path=True,
+    )
+
+    pdf = get_pdf(html)
+    local.letter_head = "Pitstop Letterhead"
+
+    frappe.local.response.filename = "cashier_dashboard_summary.pdf"
+    frappe.local.response.filecontent = pdf
+    frappe.local.response.type = "download"

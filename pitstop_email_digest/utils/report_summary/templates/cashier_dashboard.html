@@ -1,0 +1,95 @@
+
+
+{% if title %}
+    <h1 style="{{ h1 }}">{{ title }}</h1>
+{% endif %}
+
+{% if date %}
+    <h2 style="{{ h2 }}">{{ date }}</h2>
+{% endif %}
+
+<table style="width:100%; border-collapse:collapse; margin:30px 0;">
+  <tbody>
+    {% if summary_data %}
+        {% for item in summary_data %}
+            {% if item.datatype == "Section Break" %}
+                <tr>
+                    <td colspan="{{ item.colspan|default(2) }}"
+                        style="border:1px solid #d1d8dd; padding:6px;font-weight: bold; background-color: #f0f0f0;text-align: center;">
+                        {{ item.label }}
+                    </td>
+                </tr>
+            {% elif item.datatype == "Header" %}
+                <tr>
+                    {% for each_header in item.labels %}
+                        <td colspan="{{ item.colspan|default(1) }}"
+                            style="border:1px solid #d1d8dd; padding:6px;font-weight: bold; background-color: #f0f0f0;text-align: center;">
+                            {{ each_header }}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% elif (item.datatype != "Header" and item.datatype != "Section Break" and item.datatype != "Total") %}
+                <tr>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;">{{ item.label }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;">{{ item.total_no_of_transactions }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;">{{ frappe.format_value(item.total_collected) }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;">{{ frappe.format_value(item.total_amount_pos_not_closed) }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;">{{ item.status }}</td>
+                </tr>
+            {% elif (item.datatype == "Total") %}
+                <tr>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;background-color: #f0f0f0;font-weight: bold">{{ item.label }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;background-color: #f0f0f0;font-weight: bold">{{ item.total_no_of_transactions }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;background-color: #f0f0f0;font-weight: bold">{{ frappe.format_value(item.total_collected) }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;background-color: #f0f0f0;font-weight: bold">{{ frappe.format_value(item.total_amount_pos_not_closed) }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;background-color: #f0f0f0;font-weight: bold"></td>
+                </tr>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <tr>
+            <td colspan="2" style="text-align: center; color: red;">No data available</td>
+        </tr>
+    {% endif %}
+  </tbody>
+</table>
+
+<table style="width:100%; border-collapse:collapse; margin:30px 0;">
+  <tbody>
+    {% if payment_mode_data %}
+        {% for item in payment_mode_data %}
+            {% if item.datatype == "Section Break" %}
+                <tr>
+                    <td colspan="{{ item.colspan|default(2) }}"
+                        style="border:1px solid #d1d8dd; padding:6px;font-weight: bold; background-color: #f0f0f0;text-align: center;">
+                        {{ item.label }}
+                    </td>
+                </tr>
+            {% elif item.datatype == "Header" %}
+                <tr>
+                    {% for each_header in item.labels %}
+                        <td colspan="{{ item.colspan|default(1) }}"
+                            style="border:1px solid #d1d8dd; padding:6px;font-weight: bold; background-color: #f0f0f0;text-align: center;">
+                            {{ each_header }}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% elif (item.datatype != "Header" and item.datatype != "Section Break" and item.datatype != "Total") %}
+                <tr>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;">{{ item.label }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;">{{ frappe.format_value(item.value) }}</td>
+                </tr>
+            {% elif (item.datatype == "Total") %}
+                <tr>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;background-color: #f0f0f0;font-weight: bold">{{ item.label }}</td>
+                    <td style="border:1px solid #d1d8dd; padding:6px;text-align: center;background-color: #f0f0f0;font-weight: bold">{{ frappe.format_value(item.value) }}</td>
+                </tr>
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        <tr>
+            <td colspan="2" style="text-align: center; color: red;">No data available</td>
+        </tr>
+    {% endif %}
+  </tbody>
+</table>

@@ -439,9 +439,9 @@ def fetch_fiscal_year():
 
 
 @frappe.whitelist()
-def download_excel_sheet(html_table):
+def download_excel_sheet(html_table, filters=None):
     file_name = "excel_sheet_" + nowtime() + ".xlsx"
-    html_table_to_excel(html_table, file_name)
+    html_table_to_excel(html_table, file_name, filters)
 
 
 def fetch_custom_order_data(field_name):

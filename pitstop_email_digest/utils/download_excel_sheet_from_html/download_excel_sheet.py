@@ -1,3 +1,4 @@
+import json
 from io import BytesIO
 
 import frappe
@@ -5,17 +6,27 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
 
-def html_table_to_excel(html_string, excel_file_path):
+def html_table_to_excel(html_string, excel_file_path, filters=None):
     soup = BeautifulSoup(html_string, "html.parser")
     tables = soup.find_all("table")
 
     wb = Workbook()
     wb.remove(wb.active)  # Remove default sheet
+    ws = wb.create_sheet(title=f"Sheet 1")
+
+    row_idx = 1
+    if filters:
+        filters = json.loads(filters)
+        ws.cell(row=row_idx, column=1, value="Filters")
+        row_idx += 1
+        for each_filter in filters:
+            ws.cell(row=row_idx, column=1, value=each_filter)
+            ws.cell(row=row_idx, column=2, value=filters.get(each_filter))
+            row_idx += 1
+        row_idx += 1
 
     for t_idx, table in enumerate(tables, start=1):
-        ws = wb.create_sheet(title=f"Sheet{t_idx}")
         rows = table.find_all("tr")
-        row_idx = 1
 
         # Track merged cells
         merged_cells = set()
@@ -52,6 +63,7 @@ def html_table_to_excel(html_string, excel_file_path):
 
                 col_idx += colspan
             row_idx += 1
+        row_idx += 1
 
     # Instead of saving to disk, write to in-memory buffer
     xlsx_file = BytesIO()
