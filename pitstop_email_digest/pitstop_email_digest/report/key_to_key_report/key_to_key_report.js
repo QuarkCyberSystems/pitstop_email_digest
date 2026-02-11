@@ -32,4 +32,11 @@ frappe.query_reports["Key To Key Report"] = {
 			reqd: 0,
 		},
 	],
+	onload: function (report) {
+		frappe.breadcrumbs.add({
+			type: "Custom",
+			label: __("Workshop"),
+			route: "/app/workshop",
+		});
+	},
 };
