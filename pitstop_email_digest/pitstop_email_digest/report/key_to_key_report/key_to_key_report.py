@@ -9,6 +9,7 @@ from frappe.utils import (
     format_datetime,
     format_time,
     formatdate,
+    get_datetime,
     get_time,
     getdate,
     now_datetime,
@@ -196,6 +197,12 @@ class VehicleKeyToKeyReport(object):
                 "label": _("Duration/ Key to Key (Days)"),
                 "fieldname": "age",
                 "fieldtype": "Int",
+                "width": 150,
+            },
+            {
+                "label": _("Duration/ Key to Key (Hours)"),
+                "fieldname": "age_hours",
+                "fieldtype": "Float",
                 "width": 150,
             },
             {
@@ -442,6 +449,10 @@ class VehicleKeyToKeyReport(object):
 
                 if start_date and d.vehicle_delivered_date:
                     d.age = (getdate(d.vehicle_delivered_date) - start_date).days or 0
+                    time_delta = get_datetime(
+                        d.vehicle_delivered_dt_fmt
+                    ) - get_datetime(d.vehicle_received_dt_fmt)
+                    d.age_hours = time_delta.total_seconds() / 3600 if time_delta else 0
 
                 if d.ready_to_close_dt:
                     d.ready_days = (getdate(d.ready_to_close_dt) - start_date).days
