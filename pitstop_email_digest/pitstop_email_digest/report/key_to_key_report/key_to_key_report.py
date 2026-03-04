@@ -449,9 +449,12 @@ class VehicleKeyToKeyReport(object):
 
                 if start_date and d.vehicle_delivered_date:
                     d.age = (getdate(d.vehicle_delivered_date) - start_date).days or 0
+
                     time_delta = get_datetime(
-                        d.vehicle_delivered_dt_fmt
-                    ) - get_datetime(d.vehicle_received_dt_fmt)
+                        format_datetime(d.vehicle_delivered_dt, "y-MM-dd hh:mm a")
+                    ) - get_datetime(
+                        format_datetime(d.vehicle_received_dt, "y-MM-dd hh:mm a")
+                    )
                     d.age_hours = time_delta.total_seconds() / 3600 if time_delta else 0
 
                 if d.ready_to_close_dt:
