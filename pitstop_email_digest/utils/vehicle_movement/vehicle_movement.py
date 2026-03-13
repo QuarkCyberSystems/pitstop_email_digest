@@ -450,6 +450,7 @@ def fetch_custom_order_data(field_name):
         filters={"parent": "Workspace Settings", "parentfield": field_name},
         fields=["job_status"],
         pluck="job_status",
+        order_by="idx asc",
     )
     if job_status_list:
         return job_status_list
