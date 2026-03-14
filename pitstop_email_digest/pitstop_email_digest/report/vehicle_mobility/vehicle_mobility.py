@@ -6,7 +6,10 @@ from frappe import _, qb, query_builder
 from frappe.query_builder.functions import IfNull, Max
 from frappe.utils import ceil, today
 
-from ....utils.vehicle_movement.vehicle_movement import get_customers_list
+from ....utils.vehicle_movement.vehicle_movement import (
+    fetch_custom_order_data,
+    get_customers_list,
+)
 
 
 def execute(filters=None):
@@ -138,9 +141,16 @@ def get_data(filters=None):
     """
     Fetch data based on filters.
     """
+
     Project = qb.DocType("Project")
     VSR = qb.DocType("Vehicle Service Receipt")
     VGP = qb.DocType("Vehicle Gate Pass")
+
+    task_type_job_status = []
+    if filters.get("task_type_job_status_vehicle_mobility_field"):
+        task_type_job_status = fetch_custom_order_data(
+            filters.get("task_type_job_status_vehicle_mobility_field")
+        )
 
     datediff = query_builder.CustomFunction("DATEDIFF", ["cur_date", "due_date"])
 
@@ -210,6 +220,10 @@ def get_data(filters=None):
     if filters and filters.get("current_task_type"):
         query = query.where(
             Project.current_task_type == filters.get("current_task_type")
+        )
+    elif filters and (filters.get("project_status") in task_type_job_status):
+        query = query.where(
+            (Project.current_task_type.isnull()) | (Project.current_task_type == "")
         )
 
     if filters and filters.get("billing_type"):

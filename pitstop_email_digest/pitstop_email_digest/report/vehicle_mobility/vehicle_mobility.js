@@ -69,6 +69,14 @@ frappe.query_reports["Vehicle Mobility"] = {
 			hidden: 1,
 			read_only: 1,
 		},
+		{
+			fieldname: "task_type_job_status_vehicle_mobility_field",
+			label: __("Task Type Job Status"),
+			fieldtype: "Data",
+			reqd: 0,
+			hidden: 1,
+			read_only: 1,
+		},
 	],
 	onload: function (report) {
 		let the_workspace = report.get_filter_value("workspace");

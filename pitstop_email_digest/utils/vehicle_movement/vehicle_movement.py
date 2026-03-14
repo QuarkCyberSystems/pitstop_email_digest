@@ -162,7 +162,7 @@ def fetch_all_category(
             )
         ) AS average,
         p.project_status,
-        p.project_status AS original_status,
+        p.project_status AS original_project_status,
         CASE
             WHEN p.project_status IN ('Assigned', 'In Progress')
             THEN p.current_task_type
@@ -239,7 +239,7 @@ def fetch_division_group_category(
 			)
 		) AS average,
 		p.project_status,
-		p.project_status AS original_status,
+		p.project_status AS original_project_status,
 
 		-- ✅ conditional task grouping for Assigned & In Progress
 		CASE
