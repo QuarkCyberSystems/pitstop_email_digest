@@ -61,4 +61,11 @@ frappe.query_reports["User Access Report"] = {
 			reqd: 0,
 		},
 	],
+	onload: function (report) {
+		frappe.breadcrumbs.add({
+			type: "Custom",
+			label: __("Users"),
+			route: "/app/users",
+		});
+	},
 };
