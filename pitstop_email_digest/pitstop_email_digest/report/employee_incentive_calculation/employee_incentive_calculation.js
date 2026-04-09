@@ -63,6 +63,12 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			fieldtype: "Float",
 			reqd: 0,
 		},
+		{
+			label: "Above 125",
+			fieldname: "above_125",
+			fieldtype: "Float",
+			reqd: 0,
+		},
 	],
 	formatter: function (value, row, column, data, default_formatter) {
 		let style = {};
@@ -88,6 +94,8 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			data.per_efficiency >= 115 &&
 			data.per_efficiency <= 125
 		) {
+			style["background-color"] = "#a0edff";
+		} else if (column.fieldname === "above_125" && data && data.per_efficiency > 125) {
 			style["background-color"] = "#a0edff";
 		}
 

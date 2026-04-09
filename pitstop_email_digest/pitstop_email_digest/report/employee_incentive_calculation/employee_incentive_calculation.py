@@ -12,6 +12,7 @@ INCENTIVE_FIELDS = [
     "between_85_and_100",
     "between_100_and_115",
     "between_115_and_125",
+    "above_125",
 ]
 
 
@@ -79,6 +80,9 @@ def post_process(filters, data):
             and each_data.get("per_efficiency") <= 125.0
         ):
             calculated_incentive = compute_incentive(each_data, "between_115_and_125")
+            each_data["calculated_incentive"] = calculated_incentive
+        elif each_data.get("per_efficiency") > 125.0:
+            calculated_incentive = compute_incentive(each_data, "above_125")
             each_data["calculated_incentive"] = calculated_incentive
 
     return data
