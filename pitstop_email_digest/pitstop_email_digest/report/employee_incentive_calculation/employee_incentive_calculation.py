@@ -107,24 +107,27 @@ def calculate_total_summary(data, efficiency_cap_counts):
     ]
 
     if efficiency_cap_counts:
-        for each_key in efficiency_cap_counts:
-            percentage_calc = flt(
-                ((efficiency_cap_counts.get(each_key) or 0) / total_data_length)
-                * 100.0,
-                2,
-            )
-            total_data_list.append(
-                {
-                    "label": format_label("efficiency_" + each_key),
-                    "value": str(efficiency_cap_counts.get(each_key) or 0)
-                    + "("
-                    + str(percentage_calc)
-                    + "%"
-                    + ")",
-                    "indicator": "red",
-                    "datatype": "html",
-                }
-            )
+        # to make it in order added the INCENTIVE_FIELD_MAP keys
+        for each_ince in INCENTIVE_FIELD_MAP:
+            for each_key in efficiency_cap_counts:
+                if each_ince == each_key:
+                    percentage_calc = flt(
+                        ((efficiency_cap_counts.get(each_key) or 0) / total_data_length)
+                        * 100.0,
+                        2,
+                    )
+                    total_data_list.append(
+                        {
+                            "label": format_label("efficiency_" + each_key),
+                            "value": str(efficiency_cap_counts.get(each_key) or 0)
+                            + "("
+                            + str(percentage_calc)
+                            + "%"
+                            + ")",
+                            "indicator": "red",
+                            "datatype": "html",
+                        }
+                    )
     return total_data_list
 
 
