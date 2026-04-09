@@ -1,6 +1,14 @@
 // Copyright (c) 2026, QCS and contributors
 // For license information, please see license.txt
 
+const INCENTIVE_FIELD_MAP = {
+	below_85: [null, 85],
+	between_85_and_100: [85, 100],
+	between_100_and_115: [100, 115],
+	between_115_and_125: [115, 125],
+	above_125: [125, null],
+};
+
 frappe.query_reports["Employee Incentive Calculation"] = {
 	filters: [
 		{
@@ -69,34 +77,30 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			fieldtype: "Float",
 			reqd: 0,
 		},
+		{
+			label: "Efficiency Filter",
+			fieldname: "efficiency_filter",
+			fieldtype: "Select",
+			options: [
+				"",
+				"below_85",
+				"between_85_and_100",
+				"between_100_and_115",
+				"between_115_and_125",
+				"above_125",
+			],
+			reqd: 0,
+		},
 	],
 	formatter: function (value, row, column, data, default_formatter) {
 		let style = {};
-		if (column.fieldname === "below_85" && data && data.per_efficiency < 85) {
-			style["background-color"] = "#a0edff";
-		} else if (
-			column.fieldname === "between_85_and_100" &&
-			data &&
-			data.per_efficiency >= 85 &&
-			data.per_efficiency < 100
-		) {
-			style["background-color"] = "#a0edff";
-		} else if (
-			column.fieldname === "between_100_and_115" &&
-			data &&
-			data.per_efficiency >= 100 &&
-			data.per_efficiency < 115
-		) {
-			style["background-color"] = "#a0edff";
-		} else if (
-			column.fieldname === "between_115_and_125" &&
-			data &&
-			data.per_efficiency >= 115 &&
-			data.per_efficiency <= 125
-		) {
-			style["background-color"] = "#a0edff";
-		} else if (column.fieldname === "above_125" && data && data.per_efficiency > 125) {
-			style["background-color"] = "#a0edff";
+		if (data) {
+			const efficiency = data.per_efficiency || 0;
+			const efficiency_cap = getEfficiencyCap(efficiency);
+
+			if (efficiency_cap === column.fieldname) {
+				style["background-color"] = "#a0edff";
+			}
 		}
 
 		return default_formatter(value, row, column, data, { css: style });
@@ -114,6 +118,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 								"between_100_and_115",
 								"between_115_and_125",
 								"per_efficiency",
+								"above_125",
 							],
 							column.column.fieldname
 						)
@@ -130,3 +135,12 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 		frappe.breadcrumbs.add("HR");
 	},
 };
+
+function getEfficiencyCap(efficiency) {
+	for (const [key, [min, max]] of Object.entries(INCENTIVE_FIELD_MAP)) {
+		if (min !== null && efficiency < min) continue;
+		if (max !== null && efficiency >= max) continue;
+		return key;
+	}
+	return null;
+}
