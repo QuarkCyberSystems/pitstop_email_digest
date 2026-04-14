@@ -159,13 +159,11 @@ def post_process(filters, data):
 
 
 def compute_incentive(data_row, incentive_field):
-    base_incentive = data_row.get("base_incentive")
-    calculated_incentive = (
-        (data_row.get("per_efficiency") if data_row.get("per_efficiency") else 0.0)
-        * (data_row.get(incentive_field) if data_row.get(incentive_field) else 0.0)
-        * (base_incentive if base_incentive else 0.0)
-    ) / 100.0
-    return flt(calculated_incentive, 2)
+    get = data_row.get
+    per_efficiency = min(get("per_efficiency") or 0.0, 125.0)
+    base_incentive = get("base_incentive") or 0.0
+    incentive_value = get(incentive_field) or 0.0
+    return flt((per_efficiency * incentive_value * base_incentive) / 100.0, 2)
 
 
 def format_label(fieldname):
