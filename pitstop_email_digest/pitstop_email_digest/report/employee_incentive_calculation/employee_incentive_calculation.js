@@ -45,36 +45,42 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			fieldname: "base_incentive",
 			label: __("Base Incentive"),
 			fieldtype: "Float",
+			default: 350.0,
 			reqd: 0,
 		},
 		{
 			label: "Below 85%",
 			fieldname: "below_85",
 			fieldtype: "Float",
+			default: 1.0,
 			reqd: 0,
 		},
 		{
 			label: "Between 85 and 100",
 			fieldname: "between_85_and_100",
 			fieldtype: "Float",
+			default: 1.1,
 			reqd: 0,
 		},
 		{
 			label: "Between 100 and 115",
 			fieldname: "between_100_and_115",
 			fieldtype: "Float",
+			default: 1.15,
 			reqd: 0,
 		},
 		{
 			label: "Between 115 and 125",
 			fieldname: "between_115_and_125",
 			fieldtype: "Float",
+			default: 1.2,
 			reqd: 0,
 		},
 		{
 			label: "Above 125",
 			fieldname: "above_125",
 			fieldtype: "Float",
+			default: 1.2,
 			reqd: 0,
 		},
 		{
@@ -102,7 +108,6 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 				style["background-color"] = "#a0edff";
 			}
 		}
-
 		return default_formatter(value, row, column, data, { css: style });
 	},
 	get_datatable_options(options) {
