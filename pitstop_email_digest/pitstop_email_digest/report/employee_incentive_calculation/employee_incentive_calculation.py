@@ -18,10 +18,16 @@ INCENTIVE_FIELD_MAP = {
 
 
 def execute(filters=None):
+    if filters.get("based_on") == "Technician":
+        filters["group_by_1"] = "Group by Technician/Service Bay"
+    elif filters.get("based_on") == "Team Lead":
+        filters["group_by_1"] = "Group by Team Lead/Service Bay"
+
     produtivity_report = WorkshopProductivityReport(filters).run()
     columns = produtivity_report[0]
-    columns = update_columns(columns)
+    columns = update_columns(filters, columns)
     data = produtivity_report[1]
+    data = organize_the_group_data(data)
     filtered_data, efficiency_cap_counts = post_process(filters, data)
     return (
         columns,
@@ -32,14 +38,76 @@ def execute(filters=None):
     )
 
 
-def update_columns(columns):
+def update_columns(filters, columns):
     for each_column in columns:
         if each_column.get("fieldname") in [
             "mttr",
             "no_of_repair_orders",
             "per_utilization",
+            "reference",
+            "vehicle_workshop",
+            "vehicle_workshop_division",
+            "employee",
+            "employee_name",
+            "technician_workshop_division",
+            "vehicle_service_bay",
+            "vehicle_service_bay_title",
+            "project",
+            "task",
+            "task_type",
+            "subject",
+            "team_lead",
+            "team_lead_name",
         ]:
             each_column["hidden"] = 1
+
+    employee_columns = []
+
+    based_on = filters.get("based_on")
+
+    columns_map = {
+        "Technician": [
+            {
+                "label": "Employee ID",
+                "fieldname": "employee",
+                "fieldtype": "Link",
+                "options": "Employee",
+                "width": 150,
+            },
+            {
+                "label": "Employee Name",
+                "fieldname": "employee_name",
+                "fieldtype": "Data",
+                "width": 150,
+            },
+            {
+                "label": "Team Lead",
+                "fieldname": "team_lead",
+                "fieldtype": "Link",
+                "options": "Employee",
+                "width": 150,
+            },
+        ],
+        "Team Lead": [
+            {
+                "label": "Team Lead",
+                "fieldname": "team_lead",
+                "fieldtype": "Link",
+                "options": "Employee",
+                "width": 150,
+            },
+            {
+                "label": "Team Lead Name",
+                "fieldname": "team_lead_name",
+                "fieldtype": "Data",
+                "width": 150,
+            },
+        ],
+    }
+
+    employee_columns = columns_map.get(based_on, [])
+
+    columns[:0] = employee_columns
 
     incentive_columns = [
         {
@@ -50,7 +118,9 @@ def update_columns(columns):
         }
         for field in INCENTIVE_FIELD_MAP
     ]
+
     columns.extend(incentive_columns)
+
     columns.append(
         {
             "label": "Calculated Incentive",
@@ -179,3 +249,12 @@ def format_label(fieldname):
         return f"Between {parts[1]} and {parts[3]}"
 
     return fieldname.replace("_", " ").title()
+
+
+def organize_the_group_data(data):
+    filter_data_list = []
+    for each_data in data:
+        for each_group_rows in each_data.rows:
+            totals_dict = each_group_rows.totals or {}
+            filter_data_list.append(totals_dict.copy())
+    return filter_data_list
