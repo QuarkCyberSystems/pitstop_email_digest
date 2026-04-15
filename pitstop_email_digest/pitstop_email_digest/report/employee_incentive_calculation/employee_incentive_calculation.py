@@ -205,6 +205,10 @@ def post_process(filters, data):
     filtered_data = []
     efficiency_cap_counts = {}
     for each_data in data:
+        if filters.get("based_on") == "Team Lead":
+            if not each_data.get("team_lead"):
+                continue
+
         if not validate_efficiency_filter(filters, each_data):
             continue
 
