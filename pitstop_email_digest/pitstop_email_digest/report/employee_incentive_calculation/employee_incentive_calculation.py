@@ -34,7 +34,7 @@ def execute(filters=None):
         filtered_data,
         None,
         None,
-        calculate_total_summary(data, efficiency_cap_counts),
+        calculate_total_summary(data, efficiency_cap_counts, filtered_data, filters),
     )
 
 
@@ -164,8 +164,11 @@ def get_efficiency_cap(row_data):
     return None
 
 
-def calculate_total_summary(data, efficiency_cap_counts):
-    total_data_length = len(data) or 0.0
+def calculate_total_summary(data, efficiency_cap_counts, filtered_data, filters):
+    if filters.get("based_on") == "Team Lead":
+        total_data_length = len(filtered_data) or 0.0
+    else:
+        total_data_length = len(data) or 0.0
 
     total_data_list = [
         {
@@ -260,5 +263,7 @@ def organize_the_group_data(data):
     for each_data in data:
         for each_group_rows in each_data.rows:
             totals_dict = each_group_rows.totals or {}
+            if totals_dict.get("_bold"):
+                totals_dict["_bold"] = 0
             filter_data_list.append(totals_dict.copy())
     return filter_data_list
