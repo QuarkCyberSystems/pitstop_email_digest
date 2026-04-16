@@ -37,7 +37,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			fieldname: "based_on",
 			label: __("Based On"),
 			fieldtype: "Select",
-			options: ["Technician", "Team Lead"],
+			options: ["Technician"], // Team Lead
 			default: "Technician",
 			reqd: 1,
 		},
