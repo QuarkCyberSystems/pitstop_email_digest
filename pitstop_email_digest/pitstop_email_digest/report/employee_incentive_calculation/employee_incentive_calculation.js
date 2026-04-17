@@ -124,6 +124,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 								"between_115_and_125",
 								"per_efficiency",
 								"above_125",
+								"customer_overall_rating",
 							],
 							column.column.fieldname
 						)

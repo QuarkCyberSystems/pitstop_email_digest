@@ -29,6 +29,7 @@ def execute(filters=None):
     data = produtivity_report[1]
     data = organize_the_group_data(data)
     filtered_data, efficiency_cap_counts = post_process(filters, data)
+    filtered_data = append_customer_feedback_and_ro_count(filters, filtered_data)
     return (
         columns,
         filtered_data,
@@ -100,6 +101,18 @@ def update_columns(filters, columns):
                 "label": "Team Lead Name",
                 "fieldname": "team_lead_name",
                 "fieldtype": "Data",
+                "width": 150,
+            },
+            {
+                "label": "Avg. CFB",
+                "fieldname": "customer_overall_rating",
+                "fieldtype": "Rating",
+                "width": 150,
+            },
+            {
+                "label": "RO Count (CFB)",
+                "fieldname": "ro_count_cfb",
+                "fieldtype": "Float",
                 "width": 150,
             },
         ],
@@ -267,3 +280,53 @@ def organize_the_group_data(data):
                 totals_dict["_bold"] = 0
             filter_data_list.append(totals_dict.copy())
     return filter_data_list
+
+
+def fetch_avg_customer_feed_back_overall(filters):
+    return frappe.db.sql(
+        f"""
+        select
+            cbf_task_employee.reports_to,
+            cbf_task_employee.custom_reports_to_name,
+            count(distinct cbf_task_employee.project) as ro_count,
+            round(avg(cbf_task_employee.overall_satisfaction_rating), 2) as avg_rating
+        from (
+            select distinct
+                te.reports_to,
+                te.custom_reports_to_name,
+                tt.project,
+                tcf.overall_satisfaction_rating
+            from
+                tabTask tt
+            join
+                `tabCustomer Feedback` tcf
+                on tt.project = tcf.project
+            join
+                tabEmployee te
+                on te.name = tt.assigned_to
+            where
+                tcf.status = 'Completed'
+                and te.reports_to != ""
+                and te.reports_to is not null
+        ) cbf_task_employee
+
+        group by
+            cbf_task_employee.reports_to
+    """,
+        as_dict=True,
+    )
+
+
+def append_customer_feedback_and_ro_count(filters, filtered_data):
+    customer_feed_back = fetch_avg_customer_feed_back_overall(filters)
+    if customer_feed_back:
+        for each_cfb in customer_feed_back:
+            for each_fd in filtered_data:
+                if each_cfb.get("reports_to") == each_fd.get("team_lead"):
+                    if each_cfb.get("avg_rating"):
+                        each_fd["customer_overall_rating"] = flt(
+                            each_cfb.get("avg_rating"), 2
+                        )
+                        each_fd["ro_count_cfb"] = each_cfb.get("ro_count")
+                        break
+    return filtered_data
