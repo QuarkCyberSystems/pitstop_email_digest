@@ -99,6 +99,35 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 		},
 	],
 	formatter: function (value, row, column, data, default_formatter) {
+		if (data && column.fieldname === "customer_overall_rating") {
+			if (data.ro_count_cfb) {
+				let convert_into_out_of_five = data.customer_overall_rating_value
+					? (data.customer_overall_rating_value / 0.2).toFixed(1)
+					: 0.0;
+				value = default_formatter(value, row, column, data);
+				let updated_value = value;
+				updated_value = updated_value.replace(
+					'<div class="rating">',
+					`<div class="rating">
+						<span style="font-weight:600; margin-right:6px;">
+							${convert_into_out_of_five}
+						</span>`
+				);
+
+				return updated_value.replace(
+					"</div>",
+					`
+						<span style="font-weight:600; margin-left:6px;">
+							(${data.ro_count_cfb})
+						</span>
+					</div>
+					`
+				);
+			} else {
+				return default_formatter(value, row, column, data);
+			}
+		}
+
 		let style = {};
 		if (data) {
 			const efficiency = data.per_efficiency || 0;
@@ -108,7 +137,8 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 				style["background-color"] = "#a0edff";
 			}
 		}
-		return default_formatter(value, row, column, data, { css: style });
+
+		return default_formatter(value, row, column, data);
 	},
 	get_datatable_options(options) {
 		return Object.assign(options, {

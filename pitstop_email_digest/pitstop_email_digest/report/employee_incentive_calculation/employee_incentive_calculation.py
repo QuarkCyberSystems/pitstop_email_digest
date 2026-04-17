@@ -22,7 +22,7 @@ def execute(filters=None):
         filters["group_by_1"] = "Group by Technician/Service Bay"
     elif filters.get("based_on") == "Team Lead":
         filters["group_by_1"] = "Group by Team Lead/Service Bay"
-
+    print(filters)
     produtivity_report = WorkshopProductivityReport(filters).run()
     columns = produtivity_report[0]
     columns = update_columns(filters, columns)
@@ -30,6 +30,7 @@ def execute(filters=None):
     data = organize_the_group_data(data)
     filtered_data, efficiency_cap_counts = post_process(filters, data)
     filtered_data = append_customer_feedback_and_ro_count(filters, filtered_data)
+
     return (
         columns,
         filtered_data,
@@ -107,12 +108,19 @@ def update_columns(filters, columns):
                 "label": "Avg. CFB",
                 "fieldname": "customer_overall_rating",
                 "fieldtype": "Rating",
+                "width": 200,
+            },
+            {
+                "label": "Rating Value",
+                "fieldname": "customer_overall_rating_value",
+                "fieldtype": "Float",
                 "width": 150,
+                "hidden": 1,
             },
             {
                 "label": "RO Count (CFB)",
                 "fieldname": "ro_count_cfb",
-                "fieldtype": "Float",
+                "fieldtype": "Int",
                 "width": 150,
             },
         ],
@@ -325,6 +333,9 @@ def append_customer_feedback_and_ro_count(filters, filtered_data):
                 if each_cfb.get("reports_to") == each_fd.get("team_lead"):
                     if each_cfb.get("avg_rating"):
                         each_fd["customer_overall_rating"] = flt(
+                            each_cfb.get("avg_rating"), 2
+                        )
+                        each_fd["customer_overall_rating_value"] = flt(
                             each_cfb.get("avg_rating"), 2
                         )
                         each_fd["ro_count_cfb"] = each_cfb.get("ro_count")
