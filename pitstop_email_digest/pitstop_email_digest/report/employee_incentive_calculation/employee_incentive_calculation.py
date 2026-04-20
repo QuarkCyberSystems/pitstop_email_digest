@@ -22,7 +22,7 @@ def execute(filters=None):
         filters["group_by_1"] = "Group by Technician/Service Bay"
     elif filters.get("based_on") == "Team Lead":
         filters["group_by_1"] = "Group by Team Lead/Service Bay"
-    print(filters)
+
     produtivity_report = WorkshopProductivityReport(filters).run()
     columns = produtivity_report[0]
     columns = update_columns(filters, columns)
@@ -291,6 +291,13 @@ def organize_the_group_data(data):
 
 
 def fetch_avg_customer_feed_back_overall(filters):
+    condition_dict = {
+        "from_dt": filters.get("from_date"),
+        "to_dt": filters.get("to_date"),
+    }
+
+    condition = "and %(from_dt)s <= ttd.to_time and %(to_dt)s >= ttd.from_time"
+
     return frappe.db.sql(
         f"""
         select
@@ -302,25 +309,36 @@ def fetch_avg_customer_feed_back_overall(filters):
             select distinct
                 te.reports_to,
                 te.custom_reports_to_name,
-                tt.project,
+                tt3.project,
                 tcf.overall_satisfaction_rating
             from
-                tabTask tt
+                `tabTimesheet Detail` ttd
+            join
+            	tabTimesheet tt
+            on
+            	tt.name = ttd.parent
+            join
+            	tabTask tt3
+            on
+            	tt3.name = ttd.task
             join
                 `tabCustomer Feedback` tcf
-                on tt.project = tcf.project
+            on
+            	tt3.project = tcf.project
             join
                 tabEmployee te
-                on te.name = tt.assigned_to
+            on
+            	te.name = tt3.assigned_to
             where
                 tcf.status = 'Completed'
                 and te.reports_to != ""
-                and te.reports_to is not null
+                and tt.docstatus < 2
+                and te.reports_to is not null {condition}
         ) cbf_task_employee
-
         group by
-            cbf_task_employee.reports_to
+            cbf_task_employee.reports_to;
     """,
+        condition_dict,
         as_dict=True,
     )
 
