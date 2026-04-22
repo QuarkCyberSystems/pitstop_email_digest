@@ -116,6 +116,7 @@ def update_columns(filters, columns):
                 "fieldtype": "Float",
                 "width": 150,
                 "hidden": 1,
+                "options": 6,
             },
             {
                 "label": "RO Count (CFB)",

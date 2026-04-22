@@ -89,11 +89,11 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			fieldtype: "Select",
 			options: [
 				"",
-				"below_85",
-				"between_85_and_100",
-				"between_100_and_115",
-				"between_115_and_125",
-				"above_125",
+				{ label: __("Below 85"), value: "below_85" },
+				{ label: __("Between 85 and 100"), value: "between_85_and_100" },
+				{ label: __("Between 100 and 115"), value: "between_100_and_115" },
+				{ label: __("Between 115 and 125"), value: "between_115_and_125" },
+				{ label: __("Abouve 125"), value: "above_125" },
 			],
 			reqd: 0,
 		},
@@ -138,7 +138,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			}
 		}
 
-		return default_formatter(value, row, column, data);
+		return default_formatter(value, row, column, data, { css: style });
 	},
 	get_datatable_options(options) {
 		return Object.assign(options, {
