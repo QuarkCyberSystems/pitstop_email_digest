@@ -26,6 +26,25 @@ def get_columns(filters=None):
             "width": 150,
         },
         {
+            "label": "Quotation Service Advisor",
+            "fieldname": "service_advisor",
+            "fieldtype": "Link",
+            "options": "Sales Person",
+            "width": 150,
+        },
+        {
+            "label": "Quotation Created By",
+            "fieldname": "owner",
+            "fieldtype": "Data",
+            "width": 150,
+        },
+        {
+            "label": "Quotation Status",
+            "fieldname": "quotation_status",
+            "fieldtype": "Data",
+            "width": 150,
+        },
+        {
             "label": "Quotation Net Amt.",
             "fieldname": "quotation_net",
             "fieldtype": "Currency",
@@ -38,23 +57,16 @@ def get_columns(filters=None):
             "width": 150,
         },
         {
-            "label": "Quotation Status",
-            "fieldname": "quotation_status",
-            "fieldtype": "Data",
-            "width": 150,
+            "label": "Quotation SO Net Amt.",
+            "fieldname": "quotation_so_net_amount",
+            "fieldtype": "Currency",
+            "width": 170,
         },
         {
-            "label": "Quotation Service Advisor",
-            "fieldname": "service_advisor",
-            "fieldtype": "Link",
-            "options": "Sales Person",
-            "width": 150,
-        },
-        {
-            "label": "Quotation Created By",
-            "fieldname": "owner",
-            "fieldtype": "Data",
-            "width": 150,
+            "label": "RO SO Net Amt.",
+            "fieldname": "ro_so_net_amount",
+            "fieldtype": "Currency",
+            "width": 170,
         },
         {
             "label": "Repaird Order",
@@ -122,7 +134,31 @@ def get_data(filters):
 			tp.total_billed_amount,
 			tp.gross_margin,
 			tp.per_gross_margin,
-			tq.service_advisor
+			tq.service_advisor,
+			(
+				select
+					sum(tso2.net_total)
+				from
+					`tabSales Order` tso2
+				where
+					tso2.docstatus = 1 and tso2.project = tp.name
+				group by
+					tso2.project
+			) as ro_so_net_amount,
+			(
+				select
+					sum(tsoi.net_amount)
+				from
+					`tabSales Order` tso3
+				join
+					`tabSales Order Item` tsoi
+				on
+					tsoi.parent = tso3.name
+				where
+					tso3.docstatus = 1 and tso3.project = tp.name and tsoi.quotation = tq.name
+				group by
+					tq.name
+			) as quotation_so_net_amount
 		from
 			tabQuotation tq
 		join
