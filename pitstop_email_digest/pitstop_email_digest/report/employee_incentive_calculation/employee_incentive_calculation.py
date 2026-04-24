@@ -18,10 +18,12 @@ INCENTIVE_FIELD_MAP = {
 
 
 def execute(filters=None):
+    # filters["reporting_manager"] = 28864
     if filters.get("based_on") == "Technician":
         filters["group_by_1"] = "Group by Technician/Service Bay"
-    elif filters.get("based_on") == "Team Lead":
-        filters["group_by_1"] = "Group by Team Lead/Service Bay"
+    elif filters.get("based_on") == "Reporting Manager":
+        filters["group_by_1"] = "Group by Reporting Manager/Service Bay"
+        filters["include_tasks"] = 1
 
     produtivity_report = WorkshopProductivityReport(filters).run()
     columns = produtivity_report[0]
@@ -58,8 +60,8 @@ def update_columns(filters, columns):
             "task",
             "task_type",
             "subject",
-            "team_lead",
-            "team_lead_name",
+            "reports_to",
+            "reports_to_name",
         ]:
             each_column["hidden"] = 1
 
@@ -83,24 +85,24 @@ def update_columns(filters, columns):
                 "width": 150,
             },
             {
-                "label": "Team Lead",
-                "fieldname": "team_lead",
+                "label": "Reporting Manger",
+                "fieldname": "reports_to",
                 "fieldtype": "Link",
                 "options": "Employee",
                 "width": 150,
             },
         ],
-        "Team Lead": [
+        "Reporting Manager": [
             {
-                "label": "Team Lead",
-                "fieldname": "team_lead",
+                "label": "Reporting Manger",
+                "fieldname": "reports_to",
                 "fieldtype": "Link",
                 "options": "Employee",
                 "width": 150,
             },
             {
-                "label": "Team Lead Name",
-                "fieldname": "team_lead_name",
+                "label": "Reporting Manger Name",
+                "fieldname": "reports_to_name",
                 "fieldtype": "Data",
                 "width": 150,
             },
@@ -116,11 +118,22 @@ def update_columns(filters, columns):
                 "fieldtype": "Float",
                 "width": 150,
                 "hidden": 1,
-                "options": 6,
             },
             {
                 "label": "RO Count (CFB)",
                 "fieldname": "ro_count_cfb",
+                "fieldtype": "Int",
+                "width": 150,
+            },
+            {
+                "label": "QC RO Count",
+                "fieldname": "total_qc_ro_count",
+                "fieldtype": "Int",
+                "width": 150,
+            },
+            {
+                "label": "Total RO Count",
+                "fieldname": "total_ro_count",
                 "fieldtype": "Int",
                 "width": 150,
             },
@@ -230,8 +243,8 @@ def post_process(filters, data):
     filtered_data = []
     efficiency_cap_counts = {}
     for each_data in data:
-        if filters.get("based_on") == "Team Lead":
-            if not each_data.get("team_lead"):
+        if filters.get("based_on") == "Reporting Manager":
+            if not each_data.get("reports_to"):
                 continue
 
         if not validate_efficiency_filter(filters, each_data):
@@ -282,9 +295,30 @@ def format_label(fieldname):
 
 def organize_the_group_data(data):
     filter_data_list = []
+    qc_task_types = frappe.get_all(
+        "Task Type", filters={"name": ["like", "%QC%"]}, pluck="name"
+    )
     for each_data in data:
         for each_group_rows in each_data.rows:
             totals_dict = each_group_rows.totals or {}
+
+            ro_details_dict = {"total_ro": set(), "total_qc_ro": set()}
+            if each_group_rows.rows:
+                for each_group_rows_row in each_group_rows.rows:
+                    if each_group_rows_row.get("task_type") and (
+                        each_group_rows_row.get("task_type") in qc_task_types
+                    ):
+                        ro_details_dict["total_qc_ro"].add(
+                            each_group_rows_row.get("project")
+                        )
+                    else:
+                        ro_details_dict["total_ro"].add(
+                            each_group_rows_row.get("project")
+                        )
+
+            totals_dict["total_ro_count"] = len(ro_details_dict.get("total_ro"))
+            totals_dict["total_qc_ro_count"] = len(ro_details_dict.get("total_qc_ro"))
+
             if totals_dict.get("_bold"):
                 totals_dict["_bold"] = 0
             filter_data_list.append(totals_dict.copy())
@@ -349,7 +383,7 @@ def append_customer_feedback_and_ro_count(filters, filtered_data):
     if customer_feed_back:
         for each_cfb in customer_feed_back:
             for each_fd in filtered_data:
-                if each_cfb.get("reports_to") == each_fd.get("team_lead"):
+                if each_cfb.get("reports_to") == each_fd.get("reports_to"):
                     if each_cfb.get("avg_rating"):
                         each_fd["customer_overall_rating"] = flt(
                             each_cfb.get("avg_rating"), 2
