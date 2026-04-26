@@ -29,16 +29,31 @@ def execute(filters=None):
     columns = produtivity_report[0]
     columns = update_columns(filters, columns)
     data = produtivity_report[1]
-    data = organize_the_group_data(data)
-    filtered_data, efficiency_cap_counts = post_process(filters, data)
-    filtered_data = append_customer_feedback_and_ro_count(filters, filtered_data)
+    generator = process_rows(filters, data)
+
+    efficiency_cap_counts = {}
+    filtered_data = []
+    total_data_length = 0
+    total_filtered_data_length = 0
+    for row in generator:
+        total_data_length += 1
+        if "_summary" in row:
+            efficiency_cap_counts = row["_summary"]
+            continue
+        total_filtered_data_length += 1
+        filtered_data.append(row)
 
     return (
         columns,
         filtered_data,
         None,
         None,
-        calculate_total_summary(data, efficiency_cap_counts, filtered_data, filters),
+        calculate_total_summary(
+            total_filtered_data_length,
+            efficiency_cap_counts,
+            total_filtered_data_length,
+            filters,
+        ),
     )
 
 
@@ -199,77 +214,6 @@ def get_efficiency_cap(row_data):
     return None
 
 
-def calculate_total_summary(data, efficiency_cap_counts, filtered_data, filters):
-    if filters.get("based_on") == "Team Lead":
-        total_data_length = len(filtered_data) or 0.0
-    else:
-        total_data_length = len(data) or 0.0
-
-    total_data_list = [
-        {
-            "label": frappe._("Total Count"),
-            "value": str(total_data_length),
-            "indicator": "red",
-            "datatype": "html",
-        }
-    ]
-
-    if efficiency_cap_counts:
-        # to make it in order added the INCENTIVE_FIELD_MAP keys
-        for each_ince in INCENTIVE_FIELD_MAP:
-            for each_key in efficiency_cap_counts:
-                if each_ince == each_key:
-                    percentage_calc = flt(
-                        ((efficiency_cap_counts.get(each_key) or 0) / total_data_length)
-                        * 100.0,
-                        2,
-                    )
-                    total_data_list.append(
-                        {
-                            "label": format_label("efficiency_" + each_key),
-                            "value": str(efficiency_cap_counts.get(each_key) or 0)
-                            + "("
-                            + str(percentage_calc)
-                            + "%"
-                            + ")",
-                            "indicator": "red",
-                            "datatype": "html",
-                        }
-                    )
-    return total_data_list
-
-
-def post_process(filters, data):
-    filtered_data = []
-    efficiency_cap_counts = {}
-    for each_data in data:
-        if filters.get("based_on") == "Reporting Manager":
-            if not each_data.get("reports_to"):
-                continue
-
-        if not validate_efficiency_filter(filters, each_data):
-            continue
-
-        for ince_field in INCENTIVE_FIELD_MAP:
-            if filters.get(ince_field):
-                each_data[ince_field] = filters.get(ince_field)
-
-        efficiency_cap = get_efficiency_cap(each_data)
-
-        if efficiency_cap_counts.get(efficiency_cap):
-            efficiency_cap_counts[efficiency_cap] += 1
-        else:
-            efficiency_cap_counts[efficiency_cap] = 1
-
-        if efficiency_cap:
-            calculated_incentive = compute_incentive(each_data, efficiency_cap)
-            each_data["calculated_incentive"] = calculated_incentive
-
-        filtered_data.append(each_data)
-
-    return filtered_data, efficiency_cap_counts
-
-
 def compute_incentive(data_row, incentive_field):
     get = data_row.get
     per_efficiency = min(get("per_efficiency") or 0.0, 125.0)
@@ -291,38 +235,6 @@ def format_label(fieldname):
         return f"Between {parts[1]} and {parts[3]}"
 
     return fieldname.replace("_", " ").title()
-
-
-def organize_the_group_data(data):
-    filter_data_list = []
-    qc_task_types = frappe.get_all(
-        "Task Type", filters={"name": ["like", "%QC%"]}, pluck="name"
-    )
-    for each_data in data:
-        for each_group_rows in each_data.rows:
-            totals_dict = each_group_rows.totals or {}
-
-            ro_details_dict = {"total_ro": set(), "total_qc_ro": set()}
-            if each_group_rows.rows:
-                for each_group_rows_row in each_group_rows.rows:
-                    if each_group_rows_row.get("task_type") and (
-                        each_group_rows_row.get("task_type") in qc_task_types
-                    ):
-                        ro_details_dict["total_qc_ro"].add(
-                            each_group_rows_row.get("project")
-                        )
-                    else:
-                        ro_details_dict["total_ro"].add(
-                            each_group_rows_row.get("project")
-                        )
-
-            totals_dict["total_ro_count"] = len(ro_details_dict.get("total_ro"))
-            totals_dict["total_qc_ro_count"] = len(ro_details_dict.get("total_qc_ro"))
-
-            if totals_dict.get("_bold"):
-                totals_dict["_bold"] = 0
-            filter_data_list.append(totals_dict.copy())
-    return filter_data_list
 
 
 def fetch_avg_customer_feed_back_overall(filters):
@@ -378,19 +290,111 @@ def fetch_avg_customer_feed_back_overall(filters):
     )
 
 
-def append_customer_feedback_and_ro_count(filters, filtered_data):
-    customer_feed_back = fetch_avg_customer_feed_back_overall(filters)
-    if customer_feed_back:
-        for each_cfb in customer_feed_back:
-            for each_fd in filtered_data:
-                if each_cfb.get("reports_to") == each_fd.get("reports_to"):
-                    if each_cfb.get("avg_rating"):
-                        each_fd["customer_overall_rating"] = flt(
-                            each_cfb.get("avg_rating"), 2
-                        )
-                        each_fd["customer_overall_rating_value"] = flt(
-                            each_cfb.get("avg_rating"), 2
-                        )
-                        each_fd["ro_count_cfb"] = each_cfb.get("ro_count")
-                        break
-    return filtered_data
+def process_rows(filters, data):
+    qc_task_types = set(
+        frappe.get_all("Task Type", filters={"name": ["like", "%QC%"]}, pluck="name")
+    )
+
+    if filters.get("based_on") == "Reporting Manager":
+        customer_feed_back = fetch_avg_customer_feed_back_overall(filters) or []
+        feedback_map = {d.get("reports_to"): d for d in customer_feed_back}
+
+    efficiency_cap_counts = {}
+
+    for each_data in data:
+        for each_group_rows in each_data.rows:
+            totals_dict = each_group_rows.totals or {}
+
+            ro_set, qc_ro_set = set(), set()
+
+            for row in each_group_rows.rows or []:
+                if row.get("task_type") in qc_task_types:
+                    qc_ro_set.add(row.get("project"))
+                else:
+                    ro_set.add(row.get("project"))
+
+            totals_dict["total_ro_count"] = len(ro_set)
+            totals_dict["total_qc_ro_count"] = len(qc_ro_set)
+
+            if totals_dict.get("_bold"):
+                totals_dict["_bold"] = 0
+
+            if filters.get("based_on") == "Reporting Manager":
+                reports_to = totals_dict.get("reports_to")
+                if reports_to and reports_to in feedback_map:
+                    cfb = feedback_map[reports_to]
+
+                    if cfb.get("avg_rating"):
+                        rating = flt(cfb.get("avg_rating"), 2)
+                        totals_dict["customer_overall_rating"] = rating
+                        totals_dict["customer_overall_rating_value"] = rating
+                        totals_dict["ro_count_cfb"] = cfb.get("ro_count")
+
+            # filtering
+            if filters.get("based_on") == "Reporting Manager":
+                if not totals_dict.get("reports_to"):
+                    continue
+
+            if not validate_efficiency_filter(filters, totals_dict):
+                continue
+
+            for field in INCENTIVE_FIELD_MAP:
+                if filters.get(field):
+                    totals_dict[field] = filters.get(field)
+
+            efficiency_cap = get_efficiency_cap(totals_dict)
+            efficiency_cap_counts[efficiency_cap] = (
+                efficiency_cap_counts.get(efficiency_cap, 0) + 1
+            )
+
+            if efficiency_cap:
+                totals_dict["calculated_incentive"] = compute_incentive(
+                    totals_dict, efficiency_cap
+                )
+
+            yield totals_dict
+
+    # return counts separately if needed
+    yield {"_summary": efficiency_cap_counts}
+
+
+def calculate_total_summary(
+    total_data_length, efficiency_cap_counts, total_filtered_data_length, filters
+):
+    if filters.get("based_on") == "Team Lead":
+        total_data_length = total_data_length or 0.0
+    else:
+        total_data_length = total_filtered_data_length or 0.0
+
+    total_data_list = [
+        {
+            "label": frappe._("Total Count"),
+            "value": str(total_data_length),
+            "indicator": "red",
+            "datatype": "html",
+        }
+    ]
+
+    if efficiency_cap_counts:
+        # to make it in order added the INCENTIVE_FIELD_MAP keys
+        for each_ince in INCENTIVE_FIELD_MAP:
+            for each_key in efficiency_cap_counts:
+                if each_ince == each_key:
+                    percentage_calc = flt(
+                        ((efficiency_cap_counts.get(each_key) or 0) / total_data_length)
+                        * 100.0,
+                        2,
+                    )
+                    total_data_list.append(
+                        {
+                            "label": format_label("efficiency_" + each_key),
+                            "value": str(efficiency_cap_counts.get(each_key) or 0)
+                            + "("
+                            + str(percentage_calc)
+                            + "%"
+                            + ")",
+                            "indicator": "red",
+                            "datatype": "html",
+                        }
+                    )
+    return total_data_list
