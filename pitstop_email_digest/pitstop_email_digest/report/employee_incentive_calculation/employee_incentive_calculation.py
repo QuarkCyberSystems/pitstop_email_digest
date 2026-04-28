@@ -21,8 +21,8 @@ def execute(filters=None):
     # filters["reporting_manager"] = 28864
     if filters.get("based_on") == "Technician":
         filters["group_by_1"] = "Group by Technician/Service Bay"
-    elif filters.get("based_on") == "Reporting Manager":
-        filters["group_by_1"] = "Group by Reporting Manager/Service Bay"
+    elif filters.get("based_on") == "Reporting Authority":
+        filters["group_by_1"] = "Group by Reporting Authority"
         filters["include_tasks"] = 1
 
     produtivity_report = WorkshopProductivityReport(filters).run()
@@ -107,7 +107,7 @@ def update_columns(filters, columns):
                 "width": 150,
             },
         ],
-        "Reporting Manager": [
+        "Reporting Authority": [
             {
                 "label": "Reporting Manger",
                 "fieldname": "reports_to",
@@ -147,8 +147,8 @@ def update_columns(filters, columns):
                 "width": 150,
             },
             {
-                "label": "Total RO Count",
-                "fieldname": "total_ro_count",
+                "label": "Non QC RO Count",
+                "fieldname": "total_ro_count_non_qc",
                 "fieldtype": "Int",
                 "width": 150,
             },
@@ -249,13 +249,13 @@ def fetch_avg_customer_feed_back_overall(filters):
         f"""
         select
             cbf_task_employee.reports_to,
-            cbf_task_employee.custom_reports_to_name,
+            cbf_task_employee.reports_to_name,
             count(distinct cbf_task_employee.project) as ro_count,
             round(avg(cbf_task_employee.overall_satisfaction_rating), 2) as avg_rating
         from (
             select distinct
                 te.reports_to,
-                te.custom_reports_to_name,
+                te.reports_to_name,
                 tt3.project,
                 tcf.overall_satisfaction_rating
             from
@@ -295,7 +295,7 @@ def process_rows(filters, data):
         frappe.get_all("Task Type", filters={"name": ["like", "%QC%"]}, pluck="name")
     )
 
-    if filters.get("based_on") == "Reporting Manager":
+    if filters.get("based_on") == "Reporting Authority":
         customer_feed_back = fetch_avg_customer_feed_back_overall(filters) or []
         feedback_map = {d.get("reports_to"): d for d in customer_feed_back}
 
@@ -313,13 +313,13 @@ def process_rows(filters, data):
                 else:
                     ro_set.add(row.get("project"))
 
-            totals_dict["total_ro_count"] = len(ro_set)
+            totals_dict["total_ro_count_non_qc"] = len(ro_set)
             totals_dict["total_qc_ro_count"] = len(qc_ro_set)
 
             if totals_dict.get("_bold"):
                 totals_dict["_bold"] = 0
 
-            if filters.get("based_on") == "Reporting Manager":
+            if filters.get("based_on") == "Reporting Authority":
                 reports_to = totals_dict.get("reports_to")
                 if reports_to and reports_to in feedback_map:
                     cfb = feedback_map[reports_to]
@@ -331,7 +331,7 @@ def process_rows(filters, data):
                         totals_dict["ro_count_cfb"] = cfb.get("ro_count")
 
             # filtering
-            if filters.get("based_on") == "Reporting Manager":
+            if filters.get("based_on") == "Reporting Authority":
                 if not totals_dict.get("reports_to"):
                     continue
 
