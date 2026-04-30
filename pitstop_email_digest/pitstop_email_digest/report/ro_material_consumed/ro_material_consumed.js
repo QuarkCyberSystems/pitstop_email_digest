@@ -26,6 +26,12 @@ frappe.query_reports["RO Material Consumed"] = {
 			reqd: 1,
 		},
 		{
+			fieldname: "ageing_ranges",
+			label: __("Ageing Range"),
+			fieldtype: "Data",
+			default: "30, 60, 90, 120",
+		},
+		{
 			fieldname: "ro_status",
 			label: __("RO Status"),
 			fieldtype: "Link",

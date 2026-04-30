@@ -2,12 +2,16 @@
 # For license information, please see license.txt
 
 import frappe
+from frappe.utils import getdate, today
 
 
 def execute(filters=None):
-    columns, data = [], []
+    if filters.get("ageing_ranges"):
+        filters["ageing_ranges"] = validate_age_ranges(filters)
+
     columns = get_columns(filters)
-    data = get_data(filters)
+    data = get_base_data(filters)
+    data = apply_dynamic_ageing(data, filters)
     return columns, data
 
 
@@ -39,76 +43,167 @@ def get_columns(filters):
             "options": "Branch",
             "width": 100,
         },
+    ]
+
+    buckets = get_ageing_ranges(filters)
+    for b in buckets:
+        start, end = b
+
+        if end is None:
+            label = f"{start} Above"
+            fieldname = f"{start}_above"
+        else:
+            label = f"{start} - {end} Days"
+            fieldname = f"{start}_{end}"
+
+        columns.append(
+            {
+                "label": label,
+                "fieldname": fieldname,
+                "fieldtype": "Currency",
+                "width": 100,
+            }
+        )
+
+    columns.append(
         {
-            "label": frappe._("Material Issue"),
-            "fieldname": "material_issue_amount",
-            "fieldtype": "Currency",
-            "width": 200,
-            "hidden": 0,
-        },
-        {
-            "label": frappe._("Material Receipt"),
-            "fieldname": "material_receipt_amount",
-            "fieldtype": "Currency",
-            "width": 200,
-            "hidden": 0,
-        },
-        {
-            "label": frappe._("Total"),
+            "label": "Total",
             "fieldname": "total",
             "fieldtype": "Currency",
-            "width": 200,
-            "hidden": 0,
-        },
-    ]
+            "width": 100,
+        }
+    )
+
     return columns
 
 
-def get_data(filters):
+def apply_dynamic_ageing(data, filters):
+    buckets = get_ageing_ranges(filters)
+    today_date = getdate(today())
+
+    result = {}
+
+    for row in data:
+        key = row.ro
+
+        if key not in result:
+            result[key] = {
+                "ro": row.ro,
+                "ro_status": row.ro_status,
+                "service_advisor": row.service_advisor,
+                "branch": row.branch,
+                "total": 0,
+            }
+
+            # initialize dynamic columns
+            for b in buckets:
+                start, end = b
+                if end is None:
+                    label = f"{start}_above"
+                else:
+                    label = f"{start}_{end}"
+                result[key][label] = 0
+
+        age_days = (today_date - getdate(row.posting_date)).days
+        total = row.total or 0
+
+        result[key]["total"] += total
+
+        # assign to bucket
+        for b in buckets:
+            start, end = b
+            if end is None:
+                if age_days >= start:
+                    label = f"{start}_above"
+                    result[key][label] += total
+                    break
+            else:
+                if start <= age_days <= end:
+                    label = f"{start}_{end}"
+                    result[key][label] += total
+                    break
+
+    return list(result.values())
+
+
+def get_base_data(filters):
     condition_dict, condition_values = get_condition(filters)
     return frappe.db.sql(
         f"""
-		select
-			tse2.project as ro,
-			tp.status as ro_status,
-			tp.service_advisor,
-			tp.branch,
-			sum(case when tse2.stock_entry_type = "Material Issue"
-				then abs(tsle.stock_value_difference) else 0 end) as material_issue_amount,
-			sum(case when tse2.stock_entry_type = "Material Receipt"
-				then abs(tsle.stock_value_difference) else 0 end) as material_receipt_amount,
-			sum(
-				case
-					when tse2.stock_entry_type = "Material Issue"
-					then abs(tsle.stock_value_difference)
-					else 0
-				end
-			)
-			-
-			sum(
-				case
-					when tse2.stock_entry_type = "Material Receipt"
-					then abs(tsle.stock_value_difference)
-					else 0
-				end
-			) as total
-		from
-			`tabStock Ledger Entry` tsle
-		join
-			`tabStock Entry` tse2
-			on tsle.voucher_no = tse2.name
-		join
-			tabProject tp
-			on tp.name = tse2.project
-		where
-			tse2.docstatus = 1
-			and tse2.stock_entry_type in ("Material Issue", "Material Receipt") {condition_values}
-		group by
-			tse2.project;
-	""",
+        select
+            tse2.project as ro,
+            tp.status as ro_status,
+            tp.service_advisor,
+            tp.branch,
+            tse2.posting_date,
+            sum(
+                case
+                    when tse2.stock_entry_type = "Material Issue"
+                        then abs(tsle.stock_value_difference)   -- make positive
+                    when tse2.stock_entry_type = "Material Receipt"
+                        then -abs(tsle.stock_value_difference)  -- make negative
+                    else 0
+                end
+            ) as total
+        from `tabStock Ledger Entry` tsle
+        join `tabStock Entry` tse2 on tsle.voucher_no = tse2.name
+        join tabProject tp on tp.name = tse2.project
+        where
+            tse2.docstatus = 1
+            and tse2.stock_entry_type in ("Material Issue", "Material Receipt")
+            {condition_values}
+        group by
+            tse2.project, tse2.posting_date
+        """,
         condition_dict,
         as_dict=True,
     )
+
+
+def get_ageing_ranges(filters):
+    ranges = (
+        [int(x) for x in filters.get("ageing_ranges")]
+        if filters.get("ageing_ranges")
+        else []
+    )
+    ranges.sort()
+    buckets = []
+    prev = 0
+    for r in ranges:
+        buckets.append((prev, r))
+        prev = r + 1
+    buckets.append((prev, None))
+    return buckets
+
+
+def validate_age_ranges(filters):
+    age_ranges = filters.get("ageing_ranges")
+
+    if isinstance(age_ranges, str):
+        parts = age_ranges.split(",")
+    elif isinstance(age_ranges, list):
+        parts = age_ranges
+    else:
+        frappe.throw("Invalid format for Ageing ranges")
+
+    cleaned = []
+    for p in parts:
+        try:
+            val = int(p)
+        except Exception:
+            frappe.throw(f"Invalid ageing range value: {p}")
+
+        if val <= 0:
+            frappe.throw(f"Ageing range must be greater than 0: {val}")
+
+        cleaned.append(val)
+
+    # remove duplicates + sort
+    cleaned = sorted(set(cleaned))
+    if len(cleaned) < 1:
+        frappe.throw("At least one ageing range is required")
+
+    return cleaned
 
 
 def get_condition(filters):
