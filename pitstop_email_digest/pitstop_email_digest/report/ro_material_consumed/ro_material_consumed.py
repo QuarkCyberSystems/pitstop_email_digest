@@ -20,7 +20,8 @@ def get_columns(filters):
         {
             "label": frappe._("Repair Order"),
             "fieldname": "ro",
-            "fieldtype": "Data",
+            "options": "Project",
+            "fieldtype": "Link",
             "width": 200,
         },
         {
@@ -224,4 +225,10 @@ def get_condition(filters):
     if filters.get("ro_status"):
         condition += "and tp.status = %(ro_status)s"
         condition_values_dict["ro_status"] = filters.get("ro_status")
+    if filters.get("ro"):
+        condition += "and tp.name = %(ro)s"
+        condition_values_dict["ro"] = filters.get("ro")
+    if filters.get("branch"):
+        condition += "and tp.branch = %(branch)s"
+        condition_values_dict["branch"] = filters.get("branch")
     return condition_values_dict, condition

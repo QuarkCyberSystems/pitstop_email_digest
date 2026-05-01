@@ -26,10 +26,18 @@ frappe.query_reports["RO Material Consumed"] = {
 			reqd: 1,
 		},
 		{
-			fieldname: "ageing_ranges",
-			label: __("Ageing Range"),
-			fieldtype: "Data",
-			default: "30, 60, 90, 120",
+			fieldname: "ro",
+			label: __("Repair Order"),
+			fieldtype: "Link",
+			options: "Project",
+			reqd: 0,
+		},
+		{
+			fieldname: "branch",
+			label: __("Branch"),
+			fieldtype: "Link",
+			options: "Branch",
+			reqd: 0,
 		},
 		{
 			fieldname: "ro_status",
@@ -38,6 +46,12 @@ frappe.query_reports["RO Material Consumed"] = {
 			options: "Project Status",
 			default: "Completed",
 			reqd: 0,
+		},
+		{
+			fieldname: "ageing_ranges",
+			label: __("Ageing Range"),
+			fieldtype: "Data",
+			default: "30, 60, 90, 120",
 		},
 	],
 	onload: function (report) {
