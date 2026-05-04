@@ -223,8 +223,11 @@ def get_condition(filters):
         condition += "and tsle.posting_date <= %(to_date)s"
         condition_values_dict["to_date"] = filters.get("to_date")
     if filters.get("ro_status"):
-        condition += "and tp.status = %(ro_status)s"
-        condition_values_dict["ro_status"] = filters.get("ro_status")
+        if filters.get("ro_status") == "Completed":
+            condition += "and tp.status = %(ro_status)s"
+        else:
+            condition += "and tp.status != %(ro_status)s"
+        condition_values_dict["ro_status"] = "Completed"
     if filters.get("ro"):
         condition += "and tp.name = %(ro)s"
         condition_values_dict["ro"] = filters.get("ro")

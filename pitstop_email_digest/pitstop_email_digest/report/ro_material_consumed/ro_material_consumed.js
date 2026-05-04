@@ -42,9 +42,9 @@ frappe.query_reports["RO Material Consumed"] = {
 		{
 			fieldname: "ro_status",
 			label: __("RO Status"),
-			fieldtype: "Link",
-			options: "Project Status",
-			default: "Completed",
+			fieldtype: "Select",
+			options: ["", "Completed", "Not Completed"],
+			default: "Not Completed",
 			reqd: 0,
 		},
 		{
