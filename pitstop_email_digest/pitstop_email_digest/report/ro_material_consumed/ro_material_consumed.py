@@ -133,7 +133,7 @@ def get_base_data(filters):
         f"""
         select
             tse2.project as ro,
-            tp.status as ro_status,
+            tp.project_status as ro_status,
             tp.service_advisor,
             tp.branch,
             tse2.posting_date,
@@ -224,9 +224,9 @@ def get_condition(filters):
         condition_values_dict["to_date"] = filters.get("to_date")
     if filters.get("ro_status"):
         if filters.get("ro_status") == "Completed":
-            condition += "and tp.status = %(ro_status)s"
+            condition += "and tp.project_status = %(ro_status)s"
         else:
-            condition += "and tp.status != %(ro_status)s"
+            condition += "and tp.project_status != %(ro_status)s"
         condition_values_dict["ro_status"] = "Completed"
     if filters.get("ro"):
         condition += "and tp.name = %(ro)s"
