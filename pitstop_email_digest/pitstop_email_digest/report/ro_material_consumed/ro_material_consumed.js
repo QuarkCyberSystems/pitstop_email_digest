@@ -42,9 +42,9 @@ frappe.query_reports["RO Material Consumed"] = {
 		{
 			fieldname: "ro_status",
 			label: __("RO Status"),
-			fieldtype: "Select",
-			options: ["", "Completed", "Not Completed"],
-			default: "Not Completed",
+			fieldtype: "Link",
+			options: "Project Status",
+			hidden: 1,
 			reqd: 0,
 		},
 		{
@@ -53,6 +53,17 @@ frappe.query_reports["RO Material Consumed"] = {
 			fieldtype: "Data",
 			default: "30, 60, 90, 120",
 		},
+		{
+			fieldname: "not_completed_ro_status",
+			label: __("Not Completed RO"),
+			fieldtype: "Check",
+			default: 1,
+			on_change: function () {
+				let show_status = !frappe.query_report.get_filter_value("not_completed_ro_status");
+				let ro_status_filter = frappe.query_report.get_filter("ro_status");
+				ro_status_filter.toggle(show_status);
+			},
+		},
 	],
 	onload: function (report) {
 		frappe.breadcrumbs.add({
@@ -60,5 +71,8 @@ frappe.query_reports["RO Material Consumed"] = {
 			label: __("Workshop"),
 			route: "/app/workshop",
 		});
+		let is_checked = !report.get_filter_value("not_completed_ro_status");
+		let ro_status_filter = frappe.query_report.get_filter("ro_status");
+		ro_status_filter.toggle(is_checked);
 	},
 };

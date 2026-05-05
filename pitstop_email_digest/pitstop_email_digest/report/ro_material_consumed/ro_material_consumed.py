@@ -131,31 +131,31 @@ def get_base_data(filters):
     condition_dict, condition_values = get_condition(filters)
     return frappe.db.sql(
         f"""
-        select
-            tse2.project as ro,
-            tp.project_status as ro_status,
-            tp.service_advisor,
-            tp.branch,
-            tse2.posting_date,
-            sum(
-                case
-                    when tse2.stock_entry_type = "Material Issue"
-                        then abs(tsle.stock_value_difference)   -- make positive
-                    when tse2.stock_entry_type = "Material Receipt"
-                        then -abs(tsle.stock_value_difference)  -- make negative
-                    else 0
-                end
-            ) as total
-        from `tabStock Ledger Entry` tsle
-        join `tabStock Entry` tse2 on tsle.voucher_no = tse2.name
-        join tabProject tp on tp.name = tse2.project
-        where
-            tse2.docstatus = 1
-            and tse2.stock_entry_type in ("Material Issue", "Material Receipt")
-            {condition_values}
-        group by
-            tse2.project, tse2.posting_date
-        """,
+		select
+			tse2.project as ro,
+			tp.project_status as ro_status,
+			tp.service_advisor,
+			tp.branch,
+			tse2.posting_date,
+			sum(
+				case
+					when tse2.stock_entry_type = "Material Issue"
+						then abs(tsle.stock_value_difference)   -- make positive
+					when tse2.stock_entry_type = "Material Receipt"
+						then -abs(tsle.stock_value_difference)  -- make negative
+					else 0
+				end
+			) as total
+		from `tabStock Ledger Entry` tsle
+		join `tabStock Entry` tse2 on tsle.voucher_no = tse2.name
+		join tabProject tp on tp.name = tse2.project
+		where
+			tse2.docstatus = 1
+			and tse2.stock_entry_type in ("Material Issue", "Material Receipt")
+			{condition_values}
+		group by
+			tse2.project, tse2.posting_date
+		""",
         condition_dict,
         as_dict=True,
     )
@@ -222,12 +222,15 @@ def get_condition(filters):
     if filters.get("to_date"):
         condition += "and tsle.posting_date <= %(to_date)s"
         condition_values_dict["to_date"] = filters.get("to_date")
-    if filters.get("ro_status"):
-        if filters.get("ro_status") == "Completed":
-            condition += "and tp.project_status = %(ro_status)s"
-        else:
-            condition += "and tp.project_status != %(ro_status)s"
+
+    if filters.get("not_completed_ro_status"):
+        condition += "and tp.project_status != %(ro_status)s"
         condition_values_dict["ro_status"] = "Completed"
+    else:
+        if filters.get("ro_status"):
+            condition += "and tp.project_status = %(ro_status)s"
+            condition_values_dict["ro_status"] = filters.get("ro_status")
+
     if filters.get("ro"):
         condition += "and tp.name = %(ro)s"
         condition_values_dict["ro"] = filters.get("ro")
