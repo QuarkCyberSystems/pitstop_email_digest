@@ -212,6 +212,12 @@ app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
 # 	}
 # }
 
+doc_events = {
+    "Customer": {
+        "validate": "pitstop_email_digest.pitstop_email_digest.doctype.customer.customer.cusomter_validation",
+    }
+}
+
 # Scheduled Tasks
 # ---------------
 
