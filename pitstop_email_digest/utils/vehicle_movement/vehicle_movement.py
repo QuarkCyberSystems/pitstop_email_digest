@@ -143,9 +143,28 @@ def fetch_all_category(
     params = {
         "from_date": from_date,
         "to_date": to_date,
-        "branch": branch,
         "timespan": timespan,
     }
+
+    if branch and frappe.has_permission(
+        "Branch", "read", user=frappe.session.user, doc=branch, throw=False
+    ):
+        branch_condition = "AND p.branch = %(branch)s"
+        params["branch"] = branch
+    elif branch:
+        branch_list = frappe.get_list("Branch", pluck="name")
+        if branch_list and (branch in branch_list):
+            branch_condition = "AND p.branch in %(branch)s"
+        else:
+            branch_condition = "AND (p.branch is null or p.branch = '')"
+        params["branch"] = branch_list
+    elif not branch:
+        branch_list = frappe.get_list("Branch", pluck="name")
+        if branch_list:
+            branch_condition = "AND p.branch in %(branch)s"
+        else:
+            branch_condition = "AND (p.branch is null or p.branch = '')"
+        params["branch"] = branch_list
 
     if customer_list:
         customer_condition = "AND p.customer IN %(customer_list)s"
@@ -188,8 +207,7 @@ def fetch_all_category(
         AND vgp.purpose = 'Service - Vehicle Delivery'
     WHERE
         p.project_date BETWEEN %(from_date)s AND %(to_date)s
-        AND (%(branch)s IS NULL OR p.branch = %(branch)s)
-        {customer_condition}
+        {customer_condition} {branch_condition}
     GROUP BY
         p.project_status,
         CASE
@@ -205,12 +223,28 @@ def fetch_division_group_category(
     from_date, to_date, branch=None, customer_list=None, timespan=None
 ):
     customer_condition = ""
-    params = {
-        "from_date": from_date,
-        "to_date": to_date,
-        "branch": branch,
-        "timespan": timespan,
-    }
+    branch_condition = ""
+    params = {"from_date": from_date, "to_date": to_date, "timespan": timespan}
+
+    if branch and frappe.has_permission(
+        "Branch", "read", user=frappe.session.user, doc=branch, throw=False
+    ):
+        branch_condition = "AND p.branch = %(branch)s"
+        params["branch"] = branch
+    elif branch:
+        branch_list = frappe.get_list("Branch", pluck="name")
+        if branch_list and (branch in branch_list):
+            branch_condition = "AND p.branch in %(branch)s"
+        else:
+            branch_condition = "AND (p.branch is null or p.branch = '')"
+        params["branch"] = branch_list
+    elif not branch:
+        branch_list = frappe.get_list("Branch", pluck="name")
+        if branch_list:
+            branch_condition = "AND p.branch in %(branch)s"
+        else:
+            branch_condition = "AND (p.branch is null or p.branch = '')"
+        params["branch"] = branch_list
 
     if customer_list:
         customer_condition = "AND p.customer IN %(customer_list)s"
@@ -278,8 +312,7 @@ def fetch_division_group_category(
 		AND vgp.purpose = 'Service - Vehicle Delivery'
 	WHERE
 		p.project_date BETWEEN %(from_date)s AND %(to_date)s
-		AND (%(branch)s IS NULL OR p.branch = %(branch)s)
-		{customer_condition}
+		{customer_condition} {branch_condition}
 	GROUP BY
 		category_key,
 		p.project_status,
@@ -430,7 +463,7 @@ def get_customers_list(workspace):
 
 @frappe.whitelist()
 def fetch_branch():
-    return frappe.get_all("Branch", pluck="name")
+    return frappe.get_list("Branch", pluck="name")
 
 
 @frappe.whitelist()

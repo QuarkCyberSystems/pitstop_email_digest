@@ -237,8 +237,24 @@ def get_data(filters=None):
                 & (Project.insurance_company.isnotnull())
             )
 
-    if filters and filters.get("branch"):
+    if (
+        filters
+        and filters.get("branch")
+        and frappe.has_permission(
+            "Branch",
+            "read",
+            user=frappe.session.user,
+            doc=filters.get("branch"),
+            throw=False,
+        )
+    ):
         query = query.where((Project.branch == filters.get("branch")))
+    else:
+        branch_list = frappe.get_list("Branch", pluck="name")
+        if branch_list:
+            query = query.where(Project.branch.isin(branch_list))
+        else:
+            query = query.where((Project.branch.isnull()) | (Project.branch == ""))
 
     customer_list = []
     if filters.get("workspace"):
