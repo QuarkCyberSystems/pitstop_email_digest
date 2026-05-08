@@ -127,6 +127,23 @@ def get_vehicle_movement(workspace=None, from_year=None, to_year=None):
             vehicle_out_q = vehicle_out_q.where(TVGP.customer.isin(customer_list))
             avg_delivery_q = avg_delivery_q.where(TP.customer.isin(customer_list))
 
+        # Fetch data based on the branch
+        branch_list = frappe.get_list("Branch", pluck="name")
+        if branch_list:
+            vehicle_in_q = vehicle_in_q.where(TVSR.branch.isin(branch_list))
+            vehicle_out_q = vehicle_out_q.where(TVGP.branch.isin(branch_list))
+            avg_delivery_q = avg_delivery_q.where(TP.branch.isin(branch_list))
+        else:
+            vehicle_in_q = vehicle_in_q.where(
+                (TVSR.branch.isnull()) | (TVSR.branch == "")
+            )
+            vehicle_out_q = vehicle_out_q.where(
+                (TVGP.branch.isnull()) | (TVGP.branch == "")
+            )
+            avg_delivery_q = avg_delivery_q.where(
+                (TP.branch.isnull()) | (TP.branch == "")
+            )
+
         result[freq] = {
             "number_of_vehicle_in": vehicle_in_q.run(as_dict=True)[0]["count"],
             "number_of_vehicle_out": vehicle_out_q.run(as_dict=True)[0]["count"],
