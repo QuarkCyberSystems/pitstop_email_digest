@@ -29,4 +29,11 @@ frappe.query_reports["Sales Order Unbilled"] = {
 	onload: function (report) {
 		frappe.breadcrumbs.add("Selling");
 	},
+	formatter: function (value, row, column, data, default_formatter) {
+		value = default_formatter(value, row, column, data);
+		if (column.fieldname === "balance_amount" && data && flt(data.balance_amount) > 0) {
+			value = `<span style="color:var(--red-500)">${value}</span>`;
+		}
+		return value;
+	},
 };

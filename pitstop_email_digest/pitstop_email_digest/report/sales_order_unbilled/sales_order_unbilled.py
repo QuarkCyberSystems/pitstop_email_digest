@@ -43,6 +43,12 @@ class SalesOrderUnbilled:
                 "width": 120,
             },
             {
+                "label": _("Status"),
+                "fieldname": "status",
+                "fieldtype": "Data",
+                "width": 130,
+            },
+            {
                 "label": _("Repair Order"),
                 "fieldname": "project",
                 "fieldtype": "Link",
@@ -71,17 +77,14 @@ class SalesOrderUnbilled:
 
     def get_conditions(self, prefix):
         conditions = []
+        date_field = "transaction_date" if prefix == "so" else "posting_date"
 
         if self.filters.company:
             conditions.append(f"{prefix}.company = %(company)s")
-        if self.filters.from_date and prefix not in ["so"]:
-            conditions.append(f"{prefix}.posting_date >= %(from_date)s")
-        else:
-            conditions.append(f"{prefix}.transaction_date >= %(from_date)s")
-        if self.filters.to_date and prefix not in ["so"]:
-            conditions.append(f"{prefix}.posting_date <= %(to_date)s")
-        else:
-            conditions.append(f"{prefix}.transaction_date >= %(from_date)s")
+        if self.filters.from_date:
+            conditions.append(f"{prefix}.{date_field} >= %(from_date)s")
+        if self.filters.to_date:
+            conditions.append(f"{prefix}.{date_field} <= %(to_date)s")
 
         return conditions
 
@@ -100,6 +103,7 @@ class SalesOrderUnbilled:
 			select
 				so.name as sales_order,
                 so.transaction_date,
+                so.status,
 				so.company,
 				so.project,
 				-- Sales Order Amount
