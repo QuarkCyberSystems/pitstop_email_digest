@@ -30,6 +30,12 @@ class SalesOrderUnbilled:
     def get_columns(self):
         return [
             {
+                "label": _("Order Date"),
+                "fieldname": "transaction_date",
+                "fieldtype": "Date",
+                "width": 120,
+            },
+            {
                 "label": _("Sales Order"),
                 "fieldname": "sales_order",
                 "fieldtype": "Link",
@@ -93,6 +99,7 @@ class SalesOrderUnbilled:
             f"""
 			select
 				so.name as sales_order,
+                so.transaction_date,
 				so.company,
 				so.project,
 				-- Sales Order Amount
