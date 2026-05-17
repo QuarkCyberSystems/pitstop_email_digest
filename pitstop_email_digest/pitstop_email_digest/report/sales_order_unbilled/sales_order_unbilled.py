@@ -47,6 +47,7 @@ class SalesOrderUnbilled:
                 "fieldname": "status",
                 "fieldtype": "Data",
                 "width": 130,
+                "hidden": 1,
             },
             {
                 "label": _("Repair Order"),
