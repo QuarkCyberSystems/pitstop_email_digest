@@ -1,0 +1,254 @@
+// Copyright (c) 2016, Frappe Technologies Pvt. Ltd. and contributors
+// For license information, please see license.txt
+/* eslint-disable */
+
+frappe.query_reports["Sales Analytics"] = {
+	filters: [
+		{
+			fieldname: "tree_type",
+			label: __("Tree Type"),
+			fieldtype: "Select",
+			options: [
+				"Customer",
+				"Customer Group",
+				"Item",
+				"Item Group",
+				"Brand",
+				"Territory",
+				"Sales Person",
+				"Branch",
+				"Service Advisor",
+			],
+			default: "Customer",
+			reqd: 1,
+		},
+		{
+			fieldname: "doctype",
+			label: __("Based On"),
+			fieldtype: "Select",
+			options: ["Sales Order", "Delivery Note", "Sales Invoice"],
+			default: "Sales Invoice",
+			reqd: 1,
+		},
+		{
+			fieldname: "value_field",
+			label: __("Amount Or Qty"),
+			fieldtype: "Select",
+			options: ["Net Amount", "Amount", "Stock Qty", "Contents Qty", "Transaction Qty"],
+			default: "Net Amount",
+			reqd: 1,
+		},
+		{
+			fieldname: "from_date",
+			label: __("From Date"),
+			fieldtype: "Date",
+			default: frappe.defaults.get_user_default("year_start_date"),
+			reqd: 1,
+		},
+		{
+			fieldname: "to_date",
+			label: __("To Date"),
+			fieldtype: "Date",
+			default: frappe.defaults.get_user_default("year_end_date"),
+			reqd: 1,
+		},
+		{
+			fieldname: "range",
+			label: __("Range"),
+			fieldtype: "Select",
+			options: [
+				{ value: "Weekly", label: __("Weekly") },
+				{ value: "Monthly", label: __("Monthly") },
+				{ value: "Quarterly", label: __("Quarterly") },
+				{ value: "Yearly", label: __("Yearly") },
+			],
+			default: "Monthly",
+			reqd: 1,
+		},
+		{
+			fieldname: "company",
+			label: __("Company"),
+			fieldtype: "Link",
+			options: "Company",
+			default: frappe.defaults.get_user_default("Company"),
+			bold: 1,
+		},
+		{
+			fieldname: "transaction_type",
+			label: __("Transaction Type"),
+			fieldtype: "Link",
+			options: "Transaction Type",
+		},
+		{
+			fieldname: "customer",
+			label: __("Customer"),
+			fieldtype: "Link",
+			options: "Customer",
+			get_query: function () {
+				return {
+					query: "erpnext.controllers.queries.customer_query",
+				};
+			},
+		},
+		{
+			fieldname: "customer_group",
+			label: __("Customer Group"),
+			fieldtype: "Link",
+			options: "Customer Group",
+		},
+		{
+			fieldname: "item_code",
+			label: __("Item"),
+			fieldtype: "Link",
+			options: "Item",
+			get_query: function () {
+				return {
+					query: "erpnext.controllers.queries.item_query",
+					filters: { include_disabled: 1, include_templates: 1 },
+				};
+			},
+		},
+		{
+			fieldname: "item_group",
+			label: __("Item Group"),
+			fieldtype: "Link",
+			options: "Item Group",
+		},
+		{
+			fieldname: "brand",
+			label: __("Brand"),
+			fieldtype: "Link",
+			options: "Brand",
+		},
+		{
+			fieldname: "warehouse",
+			label: __("Warehouse"),
+			fieldtype: "Link",
+			options: "Warehouse",
+			get_query: function () {
+				return {
+					filters: { company: frappe.query_report.get_filter_value("company") },
+				};
+			},
+		},
+		{
+			fieldname: "applies_to_item",
+			label: __("Applies to Item"),
+			fieldtype: "Link",
+			options: "Item",
+			get_query: function () {
+				return {
+					query: "erpnext.controllers.queries.item_query",
+					filters: { include_disabled: 1, include_templates: 1 },
+				};
+			},
+		},
+		{
+			fieldname: "territory",
+			label: __("Territory"),
+			fieldtype: "Link",
+			options: "Territory",
+		},
+		{
+			fieldname: "service_advisor",
+			label: __("Service Advisor"),
+			fieldtype: "Link",
+			options: "Sales Person",
+			get_query: () => {
+				return { filters: { is_group: 0 } };
+			},
+		},
+		{
+			fieldname: "sales_person",
+			label: __("Sales Person"),
+			fieldtype: "Link",
+			options: "Sales Person",
+			get_query: () => {
+				return { filters: { is_group: 0 } };
+			},
+		},
+		{
+			fieldname: "account_manager",
+			label: __("Account Manager"),
+			fieldtype: "Link",
+			options: "Sales Person",
+			hidden: 1,
+		},
+		{
+			fieldname: "cost_center",
+			label: __("Cost Center"),
+			fieldtype: "Link",
+			options: "Cost Center",
+			get_query: () => {
+				return { filters: { company: frappe.query_report.get_filter_value("company") } };
+			},
+		},
+		{
+			fieldname: "branch",
+			label: __("Branch"),
+			fieldtype: "Link",
+			options: "Branch",
+		},
+		{
+			fieldname: "project",
+			label: __("Project"),
+			fieldtype: "MultiSelectList",
+			get_data: function (txt) {
+				return frappe.db.get_link_options("Project", txt, {
+					company: frappe.query_report.get_filter_value("company"),
+				});
+			},
+		},
+		{
+			fieldname: "has_project",
+			label: __("Project") + " " + __("Entries Only"),
+			fieldtype: "Check",
+		},
+	],
+	after_datatable_render: function (datatable_obj) {
+		datatable_obj.rowmanager.checkRow(0, 1);
+	},
+	get_datatable_options(options) {
+		return Object.assign(options, {
+			checkboxColumn: true,
+			events: {
+				onCheckRow: function (data) {
+					const raw_data = frappe.query_report.chart.data;
+
+					let period_columns = [];
+					$.each(frappe.query_report.columns || [], function (i, column) {
+						if (column.period_column) {
+							period_columns.push(i + 2);
+						}
+					});
+
+					const datasets = [];
+
+					let checked_rows = frappe.query_report.datatable.rowmanager
+						.getCheckedRows()
+						.map((i) => frappe.query_report.datatable.datamanager.getRow(i));
+					for (let row of checked_rows) {
+						let row_name = row[2].content;
+						let row_values = period_columns.map((i) => row[i].content);
+
+						datasets.push({
+							name: row_name,
+							values: row_values,
+						});
+					}
+
+					const new_data = {
+						labels: raw_data.labels,
+						datasets: datasets,
+					};
+					const new_options = Object.assign({}, frappe.query_report.chart_options, {
+						data: new_data,
+					});
+					frappe.query_report.render_chart(new_options);
+
+					frappe.query_report.raw_chart_data = new_data;
+				},
+			},
+		});
+	},
+};
