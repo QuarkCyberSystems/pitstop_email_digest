@@ -43,12 +43,16 @@ VOUCHER_CONFIG = {
         "item_doctype": "Sales Order Item",
         "party_field": "customer",
         "party_label": "Customer",
+        "party_name_field": "customer_name",
+        "party_name_label": "Customer Name",
     },
     "Purchase Order": {
         "order_doctype": "Purchase Order",
         "item_doctype": "Purchase Order Item",
         "party_field": "supplier",
         "party_label": "Supplier",
+        "party_name_field": "supplier_name",
+        "party_name_label": "Supplier Name",
     },
 }
 
@@ -90,6 +94,13 @@ class OrderItems:
             {
                 "label": _(self.config["party_label"]),
                 "fieldname": "party",
+                "fieldtype": "Data",
+                "width": 130,
+                "hidden": 0,
+            },
+            {
+                "label": _(self.config["party_name_label"]),
+                "fieldname": "party_name",
                 "fieldtype": "Data",
                 "width": 130,
                 "hidden": 0,
@@ -176,6 +187,7 @@ class OrderItems:
         order_doctype = self.config["order_doctype"]
         item_doctype = self.config["item_doctype"]
         party_field = self.config["party_field"]
+        party_name_field = self.config["party_name_field"]
 
         return frappe.db.sql(
             f"""
@@ -183,6 +195,7 @@ class OrderItems:
 				o.transaction_date,
 				o.name as order_no,
 				o.{party_field} as party,
+                o.{party_name_field} as party_name,
 				o.project as repair_order,
 				o.branch as branch,
 				oi.item_code,
@@ -221,5 +234,12 @@ class OrderItems:
             conditions.append("o.branch = %(branch)s")
         if self.filters.item_code:
             conditions.append("oi.item_code = %(item_code)s")
+
+        # Apply the party filter that matches the selected voucher type:
+        # `customer` for Sales Order, `supplier` for Purchase Order.
+        party_field = self.config["party_field"]
+        party_value = self.filters.get(party_field)
+        if party_value:
+            conditions.append(f"o.{party_field} = %({party_field})s")
 
         return conditions
