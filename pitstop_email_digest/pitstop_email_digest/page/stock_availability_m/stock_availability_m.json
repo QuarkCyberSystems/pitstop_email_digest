@@ -1,0 +1,26 @@
+{
+ "content": null,
+ "creation": "2026-05-20 11:18:09.786876",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-05-20 18:41:47.539027",
+ "modified_by": "Administrator",
+ "module": "Pitstop Email Digest",
+ "name": "stock-availability-m",
+ "owner": "Administrator",
+ "page_name": "stock-availability-m",
+ "roles": [
+  {
+   "role": "Parts Pricing Controller"
+  },
+  {
+   "role": "Stock User"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Stock Availability Monitor"
+}

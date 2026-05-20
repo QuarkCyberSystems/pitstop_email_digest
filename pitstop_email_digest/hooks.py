@@ -218,6 +218,11 @@ doc_events = {
     }
 }
 
+# Get Items All Conditions
+set_sle_item_conditions = [
+    "pitstop_email_digest.overrides.sle.sle_items.get_sle_item_conditions"
+]
+
 # Scheduled Tasks
 # ---------------
 
