@@ -1,7 +1,7 @@
-frappe.pages["stock-availability-m"].on_page_load = function (wrapper) {
+frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
-		title: "Stock Availability Monitor",
+		title: "Stock Availability",
 		single_column: true,
 	});
 
@@ -170,7 +170,7 @@ frappe.pages["stock-availability-m"].on_page_load = function (wrapper) {
 			.html(state_row(TXN_COLUMNS, __("Loading stock transactions..."), { loading: true }));
 
 		frappe.call({
-			method: "pitstop_email_digest.pitstop_email_digest.page.stock_availability_m.stock_availability_m.get_items_balance",
+			method: "pitstop_email_digest.pitstop_email_digest.page.stock_availability.stock_availability.get_items_balance",
 			args: filters,
 			callback: (r) => {
 				const rows = r && r.message && r.message.rows ? r.message.rows : [];
@@ -184,7 +184,7 @@ frappe.pages["stock-availability-m"].on_page_load = function (wrapper) {
 		});
 
 		frappe.call({
-			method: "pitstop_email_digest.pitstop_email_digest.page.stock_availability_m.stock_availability_m.get_items_stock_transaction",
+			method: "pitstop_email_digest.pitstop_email_digest.page.stock_availability.stock_availability.get_items_stock_transaction",
 			args: filters,
 			callback: (r) => {
 				const rows = r && r.message && r.message.rows ? r.message.rows : [];
