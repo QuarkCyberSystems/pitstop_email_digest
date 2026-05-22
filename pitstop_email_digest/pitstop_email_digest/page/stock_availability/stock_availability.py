@@ -13,7 +13,8 @@ def get_items_balance(voucher_type, voucher_no, from_date, to_date):
         "to_date": to_date,
     }
     columns, rows = StockBalanceReport(filters).run()
-    return {"columns": columns, "rows": rows}
+    items_dict = get_items_from_voucher(voucher_type, voucher_no, item_name=True)
+    return {"columns": columns, "rows": rows, "items_dict": items_dict}
 
 
 @frappe.whitelist()

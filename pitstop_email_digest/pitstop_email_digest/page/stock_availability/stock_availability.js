@@ -9,13 +9,22 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 
 	const LOADING_GIF = "/assets/pitstop_email_digest/gifs/gears_gif.gif";
 
-	const COLUMNS = [
+	const ITEM_COLUMNS = [
 		{ fieldname: "item_code", label: __("Item Code"), fieldtype: "Data" },
 		{ fieldname: "item_name", label: __("Item Name"), fieldtype: "Data" },
+	];
+	const REQUIRED_COLUMNS = [
+		{ fieldname: "req_uom", label: __("UOM"), fieldtype: "Data" },
+		{ fieldname: "req_qty", label: __("Qty"), fieldtype: "Float" },
+		{ fieldname: "req_stock_uom", label: __("Stock UOM"), fieldtype: "Data" },
+		{ fieldname: "req_stock_qty", label: __("Stock Qty"), fieldtype: "Float" },
+	];
+	const BALANCE_COLUMNS = [
 		{ fieldname: "warehouse", label: __("Warehouse"), fieldtype: "Data" },
 		{ fieldname: "uom", label: __("UOM"), fieldtype: "Data" },
 		{ fieldname: "bal_qty", label: __("Balance Qty"), fieldtype: "Float" },
 	];
+	const COLUMNS = [...ITEM_COLUMNS, ...REQUIRED_COLUMNS, ...BALANCE_COLUMNS];
 
 	const TXN_COLUMNS = [
 		{ fieldname: "item_code", label: __("Item Code"), fieldtype: "Data" },
@@ -103,6 +112,24 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 			</tr>
 		</thead>`;
 
+	const th_cell = (label, attrs = "") => `
+		<th ${attrs} class="px-3 py-2 text-left text-xs font-bold tracking-wide whitespace-nowrap border border-gray-200">
+			${frappe.utils.escape_html(label)}
+		</th>`;
+
+	const build_grouped_thead = () => `
+		<thead class="bg-gray-100 sticky top-0">
+			<tr>
+				${ITEM_COLUMNS.map((c) => th_cell(c.label, 'rowspan="2"')).join("")}
+				${th_cell(__("Required"), `colspan="${REQUIRED_COLUMNS.length}"`)}
+				${th_cell(__("Available"), `colspan="${BALANCE_COLUMNS.length}"`)}
+			</tr>
+			<tr>
+				${REQUIRED_COLUMNS.map((c) => th_cell(c.label)).join("")}
+				${BALANCE_COLUMNS.map((c) => th_cell(c.label)).join("")}
+			</tr>
+		</thead>`;
+
 	$(page.body).append(`
 		<div id="stock-avail-container" class="p-4 space-y-3">
 			<h3 class="text-base font-semibold text-gray-800 border-b border-gray-200 pb-2">
@@ -110,7 +137,7 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 			</h3>
 			<div id="stock-avail-table-wrap" class="inline-block overflow-x-auto rounded-lg border border-gray-200 shadow-sm bg-white max-w-full">
 				<table class="w-auto text-sm" style="border-collapse: collapse;">
-					${build_thead(COLUMNS)}
+					${build_grouped_thead()}
 					<tbody id="stock-avail-tbody">${state_row(COLUMNS, __("Select filters to load data."))}</tbody>
 				</table>
 			</div>
@@ -174,7 +201,8 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 			args: filters,
 			callback: (r) => {
 				const rows = r && r.message && r.message.rows ? r.message.rows : [];
-				render_rows(rows);
+				const items_dict = (r && r.message && r.message.items_dict) || [];
+				render_rows(rows, items_dict);
 			},
 			error: () => {
 				$(wrapper)
@@ -198,7 +226,7 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 		});
 	}
 
-	function render_rows(rows) {
+	function render_rows(rows, items_dict) {
 		const $tbody = $(wrapper).find("#stock-avail-tbody");
 
 		if (!rows.length) {
@@ -215,7 +243,90 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 			return ac.localeCompare(bc);
 		});
 
-		$tbody.html(build_grouped_rows(sorted_rows, COLUMNS));
+		const required_by_item = build_required_by_item(items_dict);
+		$tbody.html(build_availability_rows(sorted_rows, required_by_item));
+	}
+
+	function build_required_by_item(items_dict) {
+		const map = {};
+		(items_dict || []).forEach((it) => {
+			const ic = it.item_code;
+			if (!ic) return;
+			if (!map[ic]) {
+				map[ic] = {
+					req_uom: it.uom,
+					req_qty: 0,
+					req_stock_uom: it.stock_uom,
+					req_stock_qty: 0,
+				};
+			}
+			map[ic].req_qty += flt(it.qty);
+			map[ic].req_stock_qty += flt(it.stock_qty);
+		});
+		return map;
+	}
+
+	function build_availability_rows(sorted_rows, required_by_item) {
+		const group_bg = ["#ffffff", "#eff6ff"];
+		const groups = [];
+		const group_index = {};
+		sorted_rows.forEach((row) => {
+			const ic = row.item_code;
+			if (!(ic in group_index)) {
+				group_index[ic] = groups.length;
+				groups.push({ item_code: ic, rows: [] });
+			}
+			groups[group_index[ic]].rows.push(row);
+		});
+
+		const td_style_base = "padding: 8px 12px; border-bottom: 1px solid #d1d5db; white-space: nowrap;";
+
+		return groups
+			.map((group, gi) => {
+				const bg = group_bg[gi % group_bg.length];
+				const required = required_by_item[group.item_code] || {};
+				const rowspan = group.rows.length;
+				const top_border = gi > 0 ? "border-top: 2px solid #1f2937;" : "";
+
+				return group.rows
+					.map((row, ri) => {
+						const td_style = `${td_style_base} ${ri === 0 ? top_border : ""}`;
+						const merged_td_style = `${td_style} vertical-align: top;`;
+						const cells = [];
+
+						if (ri === 0) {
+							ITEM_COLUMNS.forEach((c) => {
+								cells.push(
+									`<td rowspan="${rowspan}" style="${merged_td_style}">${format_cell(
+										row,
+										c
+									)}</td>`
+								);
+							});
+							REQUIRED_COLUMNS.forEach((c) => {
+								cells.push(
+									`<td rowspan="${rowspan}" style="${merged_td_style}">${format_cell(
+										required,
+										c
+									)}</td>`
+								);
+							});
+						}
+
+						BALANCE_COLUMNS.forEach((c) => {
+							cells.push(`<td style="${td_style}">${format_cell(row, c)}</td>`);
+						});
+
+						return `<tr style="background-color: ${bg};">${cells.join("")}</tr>`;
+					})
+					.join("");
+			})
+			.join("");
+	}
+
+	function flt(v) {
+		const n = Number(v);
+		return isNaN(n) ? 0 : n;
 	}
 
 	function render_txn_rows(rows) {

@@ -16,7 +16,7 @@ def get_items_from_voucher(voucher_type, voucher_no, item_name=False):
         return frappe.db.get_all(
             f"{voucher_type} Item",
             {"parent": voucher_no},
-            ["item_code", "item_name"],
+            ["item_code", "item_name", "uom", "qty", "stock_uom", "stock_qty"],
         )
     return frappe.db.get_all(
         f"{voucher_type} Item",
