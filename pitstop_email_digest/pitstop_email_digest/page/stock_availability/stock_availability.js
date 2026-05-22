@@ -104,7 +104,7 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 				${columns
 					.map(
 						(c) => `
-					<th class="px-3 py-2 text-left text-xs font-bold tracking-wide whitespace-nowrap">
+					<th class="px-3 py-2 text-center text-xs font-bold tracking-wide whitespace-nowrap">
 						${frappe.utils.escape_html(c.label)}
 					</th>`
 					)
@@ -113,7 +113,7 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 		</thead>`;
 
 	const th_cell = (label, attrs = "") => `
-		<th ${attrs} class="px-3 py-2 text-left text-xs font-bold tracking-wide whitespace-nowrap border border-gray-200">
+		<th ${attrs} class="px-3 py-2 text-center text-xs font-bold tracking-wide whitespace-nowrap border border-gray-200">
 			${frappe.utils.escape_html(label)}
 		</th>`;
 
