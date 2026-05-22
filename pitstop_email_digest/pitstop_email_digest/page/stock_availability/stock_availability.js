@@ -135,7 +135,7 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 			<h3 class="text-base font-semibold text-gray-800 border-b border-gray-200 pb-2">
 				${__("Stock Availability")}
 			</h3>
-			<div id="stock-avail-table-wrap" class="inline-block overflow-x-auto rounded-lg border border-gray-200 shadow-sm bg-white max-w-full">
+			<div id="stock-avail-table-wrap" class="inline-block overflow-hidden overflow-x-auto rounded-lg border border-gray-200 shadow-sm bg-white max-w-full">
 				<table class="w-auto text-sm" style="border-collapse: collapse;">
 					${build_grouped_thead()}
 					<tbody id="stock-avail-tbody">${state_row(COLUMNS, __("Select filters to load data."))}</tbody>
@@ -145,7 +145,7 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 			<h3 class="text-base font-semibold text-gray-800 border-b border-gray-200 pb-2 pt-4">
 				${__("Stock Transaction")}
 			</h3>
-			<div id="stock-txn-table-wrap" class="inline-block overflow-x-auto rounded-lg border border-gray-200 shadow-sm bg-white max-w-full">
+			<div id="stock-txn-table-wrap" class="inline-block overflow-hidden overflow-x-auto rounded-lg border border-gray-200 shadow-sm bg-white max-w-full">
 				<table class="w-auto text-sm" style="border-collapse: collapse;">
 					${build_thead(TXN_COLUMNS)}
 					<tbody id="stock-txn-tbody">${state_row(
