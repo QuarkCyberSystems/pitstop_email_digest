@@ -9,10 +9,7 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 
 	const LOADING_GIF = "/assets/pitstop_email_digest/gifs/gears_gif.gif";
 
-	const ITEM_COLUMNS = [
-		{ fieldname: "item_code", label: __("Item Code"), fieldtype: "Data" },
-		{ fieldname: "item_name", label: __("Item Name"), fieldtype: "Data" },
-	];
+	const ITEM_COLUMNS = [{ fieldname: "item_code", label: __("Item Code"), fieldtype: "Data" }];
 	const REQUIRED_COLUMNS = [
 		{ fieldname: "req_uom", label: __("UOM"), fieldtype: "Data" },
 		{ fieldname: "req_qty", label: __("Qty"), fieldtype: "Float" },
@@ -28,7 +25,6 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 
 	const TXN_COLUMNS = [
 		{ fieldname: "item_code", label: __("Item Code"), fieldtype: "Data" },
-		{ fieldname: "item_name", label: __("Item Name"), fieldtype: "Data" },
 		{ fieldname: "last_in_warehouse", label: __("Last In Warehouse"), fieldtype: "Data" },
 		{ fieldname: "last_out_warehouse", label: __("Last Out Warehouse"), fieldtype: "Data" },
 	];
@@ -229,12 +225,28 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 	function render_rows(rows, items_dict) {
 		const $tbody = $(wrapper).find("#stock-avail-tbody");
 
-		if (!rows.length) {
+		const required_by_item = build_required_by_item(items_dict);
+
+		// Get all item codes from required items that have no availability data
+		const items_with_data = new Set(rows.map((r) => r.item_code));
+		const unavailable_items = (items_dict || [])
+			.filter((it) => it.item_code && !items_with_data.has(it.item_code))
+			.map((it) => ({
+				item_code: it.item_code,
+				item_name: it.item_name || "",
+				warehouse: "Not Available",
+				uom: it.stock_uom || "",
+				bal_qty: null,
+			}));
+
+		const all_rows = [...rows, ...unavailable_items];
+
+		if (!all_rows.length) {
 			$tbody.html(state_row(COLUMNS, __("No Data")));
 			return;
 		}
 
-		const sorted_rows = rows.slice().sort((a, b) => {
+		const sorted_rows = all_rows.slice().sort((a, b) => {
 			const ac = (a.item_code || "").toString();
 			const bc = (b.item_code || "").toString();
 			if (ac === bc) {
@@ -243,7 +255,6 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 			return ac.localeCompare(bc);
 		});
 
-		const required_by_item = build_required_by_item(items_dict);
 		$tbody.html(build_availability_rows(sorted_rows, required_by_item));
 	}
 
@@ -280,6 +291,7 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 		});
 
 		const td_style_base = "padding: 8px 12px; border-bottom: 1px solid #d1d5db; white-space: nowrap;";
+		const highlight_color = "#f6e4cd";
 
 		return groups
 			.map((group, gi) => {
@@ -293,6 +305,18 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 						const td_style = `${td_style_base} ${ri === 0 ? top_border : ""}`;
 						const merged_td_style = `${td_style} vertical-align: top;`;
 						const cells = [];
+						const is_not_available = row.warehouse === "Not Available";
+						const bal_qty = flt(row.bal_qty);
+						const req_stock_qty = flt(required.req_stock_qty);
+						const is_insufficient = bal_qty < req_stock_qty;
+						const is_sufficient = req_stock_qty <= bal_qty;
+
+						let balance_bg = "";
+						if (is_insufficient || is_not_available) {
+							balance_bg = `background-color: ${highlight_color};`;
+						} else if (is_sufficient) {
+							balance_bg = `background-color: #d3ffd6;`;
+						}
 
 						if (ri === 0) {
 							ITEM_COLUMNS.forEach((c) => {
@@ -313,9 +337,22 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 							});
 						}
 
-						BALANCE_COLUMNS.forEach((c) => {
-							cells.push(`<td style="${td_style}">${format_cell(row, c)}</td>`);
-						});
+						if (is_not_available && ri === 0) {
+							cells.push(
+								`<td colspan="${
+									BALANCE_COLUMNS.length
+								}" style="${merged_td_style} text-align: center; ${balance_bg}">${format_cell(
+									row,
+									BALANCE_COLUMNS[0]
+								)}</td>`
+							);
+						} else if (!is_not_available) {
+							BALANCE_COLUMNS.forEach((c) => {
+								cells.push(
+									`<td style="${td_style} ${balance_bg}">${format_cell(row, c)}</td>`
+								);
+							});
+						}
 
 						return `<tr style="background-color: ${bg};">${cells.join("")}</tr>`;
 					})
@@ -370,6 +407,12 @@ frappe.pages["stock-availability"].on_page_load = function (wrapper) {
 
 	function format_cell(row, column) {
 		let value = row[column.fieldname];
+
+		// Show "Not Available" for warehouse when it's the placeholder value
+		if (column.fieldname === "warehouse" && value === "Not Available") {
+			return `<span class="text-orange-500 font-semibold">${frappe.utils.escape_html(value)}</span>`;
+		}
+
 		if (value === null || value === undefined || value === "") return "";
 
 		const ft = column.fieldtype;

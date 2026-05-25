@@ -30,7 +30,6 @@ def get_items_stock_transaction(voucher_type, voucher_no, from_date, to_date):
             {
                 "item_code": item_code_dict.get("item_code"),
                 "actual_qty": [">", 0],
-                "posting_date": ["between", [from_date, to_date]],
                 "is_cancelled": 0,
             },
             "warehouse",
@@ -41,7 +40,6 @@ def get_items_stock_transaction(voucher_type, voucher_no, from_date, to_date):
             {
                 "item_code": item_code_dict.get("item_code"),
                 "actual_qty": ["<", 0],
-                "posting_date": ["between", [from_date, to_date]],
                 "is_cancelled": 0,
             },
             "warehouse",
