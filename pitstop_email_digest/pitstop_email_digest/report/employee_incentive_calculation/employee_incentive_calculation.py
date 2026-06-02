@@ -20,7 +20,7 @@ INCENTIVE_FIELD_MAP = {
 def execute(filters=None):
     # filters["reporting_manager"] = 28864
     if filters.get("based_on") == "Technician":
-        filters["group_by_1"] = "Group by Technician/Service Bay"
+        filters["group_by_1"] = "Group by Technician/Bay/Equipment"
     elif filters.get("based_on") == "Reporting Authority":
         filters["group_by_1"] = "Group by Reporting Authority"
         filters["include_tasks"] = 1
