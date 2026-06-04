@@ -64,6 +64,7 @@ frappe.query_reports["Aged Pending Purchase Orders"] = {
 				}
 			);
 		});
+		frappe.breadcrumbs.add("Buying");
 	},
 
 	get_datatable_options(options) {
