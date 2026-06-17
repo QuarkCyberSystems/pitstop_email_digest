@@ -1,36 +1,6 @@
 <template>
 	<div class="p-2 space-y-4">
-		<div class="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-			<div class="flex flex-col md:flex-row gap-4">
-				<div class="w-48">
-					<label class="block mb-1 text-sm font-medium text-gray-700 px-3"> From Date </label>
-					<input
-						v-model="fromDate"
-						type="date"
-						class="w-full rounded-md border border-gray-300 px-3 py-2"
-					/>
-				</div>
-
-				<div class="w-48">
-					<label class="block mb-1 text-sm font-medium text-gray-700 px-3"> To Date </label>
-					<input
-						v-model="toDate"
-						type="date"
-						class="w-full rounded-md border border-gray-300 px-3 py-2"
-					/>
-				</div>
-
-				<div class="flex items-end px-5">
-					<button
-						@click="loadItems"
-						style="background-color: black"
-						class="rounded-md px-4 py-2 text-white hover:bg-gray-900"
-					>
-						Refresh
-					</button>
-				</div>
-			</div>
-		</div>
+		<CFFilters v-model:fromDate="fromDate" v-model:toDate="toDate" @refresh="loadItems" />
 
 		<div class="flex flex-col md:flex-row gap-4 py-4">
 			<div v-if="loading" class="w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
@@ -43,18 +13,10 @@
 					</div>
 				</div>
 			</div>
-
-			<div v-else class="w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-				<h4 class="mb-4 text-lg font-semibold text-gray-800">Customer Feedback Response Table</h4>
-
-				<div class="flex flex-col lg:flex-row gap-4">
-					<div class="lg:w-1/3 px-3">
-						<LeftTable :items="items" />
-					</div>
-
-					<div class="lg:w-1/2 px-4">
-						<CFRScatter :items="items" />
-					</div>
+			<div v-else>
+				<CFResponse :items="items" />
+				<div class="py-4">
+					<CFComplaints :items="items" />
 				</div>
 			</div>
 		</div>
@@ -63,8 +25,9 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import LeftTable from "./LeftTable.vue";
-import CFRScatter from "./CFRScatter.vue";
+import CFResponse from "./CFResponse.vue";
+import CFFilters from "./CFFilters.vue";
+import CFComplaints from "./CFComplaints.vue";
 
 const items = ref({});
 
