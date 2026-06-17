@@ -4,13 +4,17 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-06-16 15:57:55.543989",
+ "modified": "2026-06-17 17:38:57.427618",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "cfb-analysis",
  "owner": "Administrator",
  "page_name": "cfb-analysis",
- "roles": [],
+ "roles": [
+  {
+   "role": "CRM Manager"
+  }
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,

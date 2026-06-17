@@ -5,6 +5,8 @@ frappe.pages["cfb-analysis"].on_page_load = function (wrapper) {
 		single_column: true,
 	});
 
+	frappe.breadcrumbs.add("CRM");
+
 	frappe.require("cfb_analysis.bundle.js").then(() => {
 		new frappe.ui.VuePage({ wrapper: page.body, page });
 	});

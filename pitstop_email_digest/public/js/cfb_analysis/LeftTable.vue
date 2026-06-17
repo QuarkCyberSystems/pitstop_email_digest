@@ -1,45 +1,110 @@
 <template>
-	<aside class="md:w-1/3 bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-		<h3 class="text-base font-semibold text-gray-800 border-b border-gray-200 pb-2 mb-3">
-			{{ __("Items") }}
-		</h3>
-		<input v-model="query" type="text" class="form-control mb-3" :placeholder="__('Search...')" />
-		<ul class="space-y-1">
-			<li
-				v-for="item in filteredItems"
-				:key="item.id"
-				@click="$emit('select', item.id)"
-				:class="[
-					'px-3 py-2 rounded cursor-pointer text-sm',
-					selectedId === item.id
-						? 'bg-blue-100 text-blue-800 font-semibold'
-						: 'hover:bg-gray-100 text-gray-700',
-				]"
-			>
-				{{ item.name }}
-			</li>
-			<li v-if="!filteredItems.length" class="px-3 py-2 text-sm text-gray-400">
-				{{ __("No results") }}
-			</li>
-		</ul>
-	</aside>
+	<div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+		<table class="min-w-full divide-y divide-gray-200">
+			<thead class="bg-gray-100">
+				<tr>
+					<th class="px-3 py-2 text-left text-3xl font-bold tracking-wider text-gray-900">
+						Branch
+					</th>
+					<th class="px-3 py-2 text-right text-xs font-bold tracking-wider text-gray-900">
+						Feedback
+					</th>
+					<th class="px-3 py-2 text-right text-xs font-bold tracking-wider text-gray-900">
+						Customer Responded
+					</th>
+					<th class="px-3 py-2 text-right text-xs font-bold tracking-wider text-gray-900">
+						Response Rate (%)
+					</th>
+					<th class="px-3 py-2 text-right text-xs font-bold tracking-wider text-gray-900">
+						CSI (%)
+					</th>
+					<th class="px-3 py-2 text-right text-xs font-bold tracking-wider text-gray-900">
+						Satisfied
+					</th>
+					<th class="px-3 py-2 text-right text-xs font-bold tracking-wider text-gray-900">
+						Neutral
+					</th>
+					<th class="px-3 py-2 text-right text-xs font-bold tracking-wider text-gray-900">
+						Dissatisfied
+					</th>
+				</tr>
+			</thead>
+
+			<tbody class="divide-y divide-gray-100 bg-white">
+				<tr
+					v-for="(data, branch) in items"
+					:key="branch"
+					class="cursor-pointer transition-colors hover:bg-gray-50"
+				>
+					<td class="px-3 py-3 text-sm font-medium text-gray-900">
+						{{ branch }}
+					</td>
+					<td class="px-3 py-3 text-right text-sm text-gray-600">
+						<span
+							class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+						>
+							{{ data.feedback_count }}
+						</span>
+					</td>
+					<td class="px-3 py-3 text-right text-sm text-gray-600">
+						<span
+							class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+						>
+							{{ data.customer_respond_count }}
+						</span>
+					</td>
+					<td class="px-3 py-3 text-right text-sm text-gray-600">
+						<span
+							class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+						>
+							{{ Math.floor((data.customer_respond_count / data.feedback_count) * 100) }}
+						</span>
+					</td>
+					<td class="px-3 py-3 text-right text-sm text-gray-600">
+						<span
+							class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+						>
+							{{ data.customer_satisfaction_index }}
+						</span>
+					</td>
+					<td class="px-3 py-3 text-right text-sm text-gray-600">
+						<span
+							class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+						>
+							{{ data.satisfied_count }}
+						</span>
+					</td>
+					<td class="px-3 py-3 text-right text-sm text-gray-600">
+						<span
+							class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+						>
+							{{ data.neutral_count }}
+						</span>
+					</td>
+					<td class="px-3 py-3 text-right text-sm text-gray-600">
+						<span
+							class="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+						>
+							{{ data.dissatisfied_count }}
+						</span>
+					</td>
+				</tr>
+
+				<tr v-if="Object.keys(items).length === 0">
+					<td colspan="2" class="px-4 py-8 text-center text-sm text-gray-500">
+						No feedback data found
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
-
-const props = defineProps({
-	items: { type: Array, required: true },
-	selectedId: { type: [Number, String, null], default: null },
+defineProps({
+	items: {
+		type: Object,
+		default: () => ({}),
+	},
 });
-defineEmits(["select"]);
-
-const query = ref("");
-const filteredItems = computed(() => {
-	const q = query.value.trim().toLowerCase();
-	if (!q) return props.items;
-	return props.items.filter((it) => it.name.toLowerCase().includes(q));
-});
-
-const __ = window.__ || ((s) => s);
 </script>
