@@ -78,9 +78,7 @@ fixtures = [
             [
                 "name",
                 "in",
-                [
-                    "Company-branch_monthly_revenue_target",
-                ],
+                ["Company-branch_monthly_revenue_target", "Item-is_extended_warranty"],
             ]
         ],
     },
@@ -215,7 +213,8 @@ app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
 doc_events = {
     "Customer": {
         "validate": "pitstop_email_digest.pitstop_email_digest.doctype.customer.customer.cusomter_validation",
-    }
+    },
+    "Item": {"validate": "pitstop_email_digest.overrides.item.item.item_validation"},
 }
 
 # Get Items All Conditions

@@ -1,0 +1,81 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-18 16:42:15.167917",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "warranty_item",
+  "supplier",
+  "unearned_revenue_percentage",
+  "extended_warranty_cos",
+  "extended_warranty_liability",
+  "default"
+ ],
+ "fields": [
+  {
+   "fieldname": "warranty_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Warranty Item",
+   "link_filters": "[[\"Item\",\"is_extended_warranty\",\"=\",1]]",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Supplier",
+   "options": "Supplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "unearned_revenue_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Unearned Revenue Percentage",
+   "reqd": 1
+  },
+  {
+   "fieldname": "extended_warranty_cos",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Extended Warranty CoS",
+   "link_filters": "[[\"Account\",\"root_type\",\"=\",\"Income\"],[\"Account\",\"report_type\",\"=\",\"Profit and Loss\"]]",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "fieldname": "extended_warranty_liability",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Extended Warranty Liability",
+   "link_filters": "[[\"Account\",\"root_type\",\"=\",\"Liability\"],[\"Account\",\"report_type\",\"=\",\"Balance Sheet\"]]",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "default",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Default"
+  }
+ ],
+ "grid_page_length": 500,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-18 17:10:10.840493",
+ "modified_by": "Administrator",
+ "module": "Pitstop Email Digest",
+ "name": "Extended Warranty Configure Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
