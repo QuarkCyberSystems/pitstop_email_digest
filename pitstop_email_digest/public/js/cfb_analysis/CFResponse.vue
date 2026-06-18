@@ -4,7 +4,7 @@
 
 		<div class="flex flex-col lg:flex-row gap-4">
 			<div class="lg:w-1/3 px-3">
-				<LeftTable :items="items" />
+				<CFRTable :items="items" />
 			</div>
 
 			<div class="lg:w-1/2 px-4">
@@ -15,7 +15,7 @@
 </template>
 
 <script setup>
-import LeftTable from "./LeftTable.vue";
+import CFRTable from "./CFRTable.vue";
 import CFRScatter from "./CFRScatter.vue";
 defineProps({
 	items: {
