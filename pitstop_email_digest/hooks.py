@@ -197,7 +197,7 @@ app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
 # Override standard doctype classes
 
 # override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
+# 	"IbisQueryBuilder": "pitstop_email_digest.overrides.ibis_query_builder.ibis_query_builder_hooks.IbisQueryBuilderPitstopEmailDigest"
 # }
 
 # Document Events
