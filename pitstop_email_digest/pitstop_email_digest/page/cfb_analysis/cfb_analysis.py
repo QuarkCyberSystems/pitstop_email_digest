@@ -30,6 +30,8 @@ def process_customer_feed_back(customer_feed_back_data):
                 "satisfied_count": 0,
                 "neutral_count": 0,
                 "dissatisfied_count": 0,
+                "complain_count": 0,
+                "complain_pending_count": 0,
             }
 
         entry = branch_dict[branch]
@@ -46,6 +48,11 @@ def process_customer_feed_back(customer_feed_back_data):
             entry["neutral_count"] += 1
         elif feedback_status == "Dissatisfied":
             entry["dissatisfied_count"] += 1
+
+        if row.get("feedback_type") == "Complain":
+            entry["complain_count"] += 1
+            if feedback_status != "Complaint Resolved":
+                entry["complain_pending_count"] += 1
 
     # Compute CSI once per branch after all counts are settled
     for branch, entry in branch_dict.items():
