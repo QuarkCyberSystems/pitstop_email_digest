@@ -3,7 +3,7 @@
 		<h4 class="mb-4 text-lg font-semibold text-gray-800">Customer Feedback Complaints Table</h4>
 
 		<div class="flex flex-col lg:flex-row gap-4">
-			<div class="lg:w-1/3 px-3">
+			<div class="lg:w-1/3 px-3" ref="tableWrapper">
 				<CFCTable :items="items" />
 			</div>
 

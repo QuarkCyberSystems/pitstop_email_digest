@@ -1,7 +1,10 @@
 <template>
-	<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+	<div
+		class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+		:style="{ width: '100%', height: height + 'px' }"
+	>
 		<h4 class="mb-3 text-lg font-semibold">Customer Feedback Response Scatter Points</h4>
-		<div ref="chartRef" style="width: 100%; height: 400px"></div>
+		<div ref="chartRef" :style="{ width: '100%', height: props.height + 'px' }"></div>
 	</div>
 </template>
 
@@ -14,6 +17,7 @@ const props = defineProps({
 		type: Object,
 		default: () => ({}),
 	},
+	height: { type: Number, default: 400 },
 });
 
 const chartRef = ref(null);
@@ -65,6 +69,12 @@ function updateChart() {
 	const data = buildChartData(props.items);
 
 	chart.setOption({
+		grid: {
+			top: 20,
+			right: 20,
+			bottom: 50,
+			left: 60,
+		},
 		tooltip: {
 			trigger: "item",
 			formatter: (params) => {
@@ -133,6 +143,17 @@ onBeforeUnmount(() => {
 	resizeObserver?.disconnect();
 	chart?.dispose();
 });
+
+watch(
+	() => props.height,
+	async (newHeight) => {
+		await nextTick(); // wait for :style binding to apply new height
+		chart?.resize({
+			width: chartRef.value?.offsetWidth,
+			height: newHeight - 100,
+		});
+	}
+);
 
 watch(() => props.items, updateChart, { deep: true });
 </script>
