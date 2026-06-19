@@ -8,7 +8,7 @@
 			</div>
 
 			<div class="lg:w-1/2 px-4">
-				<CFRScatter :items="items" />
+				<CFRScatter v-if="Object.keys(items).length" :items="items" />
 			</div>
 		</div>
 	</div>
