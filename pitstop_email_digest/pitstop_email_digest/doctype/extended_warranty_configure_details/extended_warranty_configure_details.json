@@ -7,11 +7,13 @@
  "engine": "InnoDB",
  "field_order": [
   "warranty_item",
-  "supplier",
+  "extended_warranty_supplier",
+  "extended_warranty_supplier_name",
   "unearned_revenue_percentage",
   "extended_warranty_cos",
   "extended_warranty_liability",
-  "default"
+  "default",
+  "force"
  ],
  "fields": [
   {
@@ -24,14 +26,7 @@
    "reqd": 1
   },
   {
-   "fieldname": "supplier",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Supplier",
-   "options": "Supplier",
-   "reqd": 1
-  },
-  {
+   "columns": 2,
    "fieldname": "unearned_revenue_percentage",
    "fieldtype": "Percent",
    "in_list_view": 1,
@@ -39,6 +34,7 @@
    "reqd": 1
   },
   {
+   "columns": 2,
    "fieldname": "extended_warranty_cos",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -48,6 +44,7 @@
    "reqd": 1
   },
   {
+   "columns": 2,
    "fieldname": "extended_warranty_liability",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -62,13 +59,37 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Default"
+  },
+  {
+   "columns": 2,
+   "fieldname": "extended_warranty_supplier",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Supplier",
+   "options": "Supplier",
+   "reqd": 1
+  },
+  {
+   "columns": 3,
+   "fetch_from": "extended_warranty_supplier.supplier_name",
+   "fieldname": "extended_warranty_supplier_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Supplier Name",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "force",
+   "fieldtype": "Check",
+   "label": "Force"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-18 17:10:10.840493",
+ "modified": "2026-06-23 11:02:41.315194",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Extended Warranty Configure Details",

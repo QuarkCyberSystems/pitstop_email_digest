@@ -78,7 +78,22 @@ fixtures = [
             [
                 "name",
                 "in",
-                ["Company-branch_monthly_revenue_target", "Item-is_extended_warranty"],
+                [
+                    # Company
+                    "Company-branch_monthly_revenue_target",
+                    # Item
+                    "Item-is_extended_warranty",
+                    # Sales Invoice Item
+                    "Sales Invoice Item-is_extended_warranty",
+                    "Sales Invoice Item-unearned_revenue_percentage",
+                    "Sales Invoice Item-extended_warranty_supplier",
+                    "Sales Invoice Item-extended_warranty_supplier_name",
+                    "Sales Invoice Item-extended_warranty_cos",
+                    "Sales Invoice Item-extended_warranty_liability",
+                    "Sales Invoice Item-extended_warranty_section",
+                    # Journal Entry
+                    "Journal Entry-extended_warranty_voucher",
+                ],
             ]
         ],
     },
@@ -108,7 +123,7 @@ app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {"Sales Invoice": "overrides/sales_invoice/sales_invoice_hooks.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -194,9 +209,9 @@ app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"IbisQueryBuilder": "pitstop_email_digest.overrides.ibis_query_builder.ibis_query_builder_hooks.IbisQueryBuilderPitstopEmailDigest"
-# }
+override_doctype_class = {
+    "Sales Invoice": "pitstop_email_digest.overrides.sales_invoice.sales_invoice_hooks.SalesInvoicePitstopEmailDigest",
+}
 
 # Document Events
 # ---------------
