@@ -215,7 +215,10 @@ app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
 doc_events = {
     "Customer": {
         "validate": "pitstop_email_digest.pitstop_email_digest.doctype.customer.customer.cusomter_validation",
-    }
+    },
+    "Material Request": {
+        "on_cancel": "pitstop_email_digest.overrides.material_request.material_request_hooks.on_cancel"
+    },
 }
 
 # Get Items All Conditions
