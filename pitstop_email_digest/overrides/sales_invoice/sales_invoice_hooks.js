@@ -33,7 +33,6 @@ pitstop_email_digest.SalesInvoicePitstopEmailDigest = class SalesInvoicePitstopE
 				supplier: row.extended_warranty_supplier,
 			},
 			callback: function (r) {
-				console.log(r.message);
 				if (r.message && r.message.is_extended_warranty) {
 					// used object to avoide the refetch based on set value
 					Object.assign(row, r.message);

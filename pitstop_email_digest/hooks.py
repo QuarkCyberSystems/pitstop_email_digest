@@ -211,6 +211,7 @@ doctype_js = {"Sales Invoice": "overrides/sales_invoice/sales_invoice_hooks.js"}
 
 override_doctype_class = {
     "Sales Invoice": "pitstop_email_digest.overrides.sales_invoice.sales_invoice_hooks.SalesInvoicePitstopEmailDigest",
+    "Journal Entry": "pitstop_email_digest.overrides.journal_entry.journal_entry_hooks.JournalEntryPitstopEmailDigest",
 }
 
 # Document Events
