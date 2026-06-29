@@ -1895,7 +1895,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 12:30:01.506828",
+  "modified": "2026-06-29 14:55:11.772010",
   "module": "HR",
   "name": "HR",
   "number_cards": [],
@@ -1952,6 +1952,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Bodyshop Manager Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:55.818294",
+    "parent": "HR",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "After Sales - GM Role"
    }
   ],
   "sequence_id": 170.0,
@@ -2752,7 +2759,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 11:03:24.150513",
+  "modified": "2026-06-29 14:55:48.762036",
   "module": "CRM",
   "name": "CRM",
   "number_cards": [],
@@ -2809,6 +2816,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Finance Manager Assistant"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.102428",
+    "parent": "CRM",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "After Sales - GM Role"
    }
   ],
   "sequence_id": 9.0,
@@ -3946,7 +3960,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 12:29:11.316638",
+  "modified": "2026-06-29 14:55:23.935506",
   "module": "Selling",
   "name": "Selling",
   "number_cards": [],
@@ -4010,6 +4024,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Bodyshop Manager Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.456761",
+    "parent": "Selling",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "After Sales - GM Role"
    }
   ],
   "sequence_id": 110.0,
@@ -7618,7 +7639,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 12:29:24.200144",
+  "modified": "2026-06-29 14:55:35.036797",
   "module": "Buying",
   "name": "Buying",
   "number_cards": [],
@@ -7668,6 +7689,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Bodyshop Manager Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.825385",
+    "parent": "Buying",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "After Sales - GM Role"
    }
   ],
   "sequence_id": 120.0,
