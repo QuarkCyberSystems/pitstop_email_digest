@@ -1895,7 +1895,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 11:04:15.931148",
+  "modified": "2026-06-29 12:30:01.506828",
   "module": "HR",
   "name": "HR",
   "number_cards": [],
@@ -1945,6 +1945,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Finance Manager Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:55.818294",
+    "parent": "HR",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Bodyshop Manager Role"
    }
   ],
   "sequence_id": 170.0,
@@ -3939,7 +3946,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 11:03:37.754266",
+  "modified": "2026-06-29 12:29:11.316638",
   "module": "Selling",
   "name": "Selling",
   "number_cards": [],
@@ -3996,6 +4003,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Finance Manager Assistant"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.456761",
+    "parent": "Selling",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Bodyshop Manager Role"
    }
   ],
   "sequence_id": 110.0,
@@ -7604,7 +7618,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 11:03:45.530543",
+  "modified": "2026-06-29 12:29:24.200144",
   "module": "Buying",
   "name": "Buying",
   "number_cards": [],
@@ -7647,6 +7661,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Finance Manager Assistant"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.825385",
+    "parent": "Buying",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Bodyshop Manager Role"
    }
   ],
   "sequence_id": 120.0,
@@ -9345,7 +9366,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 11:03:54.331045",
+  "modified": "2026-06-29 12:29:41.194563",
   "module": "Stock",
   "name": "Stock",
   "number_cards": [],
@@ -9416,6 +9437,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Finance Manager Assistant"
+   },
+   {
+    "creation": "2022-11-16 04:31:57.035484",
+    "parent": "Stock",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Bodyshop Manager Role"
    }
   ],
   "sequence_id": 130.0,

@@ -94,6 +94,7 @@ fixtures = [
                     "Finance Manager Role",
                     "Management Role",
                     "Finance Manager Assistant",
+                    "Bodyshop Manager Role",
                 ],
             ]
         ],
