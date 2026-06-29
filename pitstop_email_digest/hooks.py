@@ -84,6 +84,30 @@ fixtures = [
             ]
         ],
     },
+    {
+        "dt": "Role",
+        "filters": [
+            [
+                "name",
+                "in",
+                [
+                    "Finance Manager Role",
+                    "Management Role",
+                    "Finance Manager Assistant",
+                ],
+            ]
+        ],
+    },
+    {
+        "dt": "Workspace",
+        "filters": [
+            [
+                "name",
+                "in",
+                ["CRM", "Accounting", "Selling", "Buying", "Stock", "Assets", "HR"],
+            ]
+        ],
+    },
 ]
 
 
