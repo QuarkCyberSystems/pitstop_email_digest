@@ -3960,7 +3960,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-30 11:44:18.071439",
+  "modified": "2026-06-30 12:16:50.949818",
   "module": "Selling",
   "name": "Selling",
   "number_cards": [],
@@ -4038,6 +4038,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Head Cashier Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.456761",
+    "parent": "Selling",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Cashier Role"
    }
   ],
   "sequence_id": 110.0,
@@ -7653,7 +7660,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-30 11:44:27.925779",
+  "modified": "2026-06-30 12:17:09.937232",
   "module": "Buying",
   "name": "Buying",
   "number_cards": [],
@@ -7717,6 +7724,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Head Cashier Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.825385",
+    "parent": "Buying",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Cashier Role"
    }
   ],
   "sequence_id": 120.0,

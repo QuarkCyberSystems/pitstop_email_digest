@@ -88,5 +88,20 @@
   "restrict_to_domain": null,
   "role_name": "Head Cashier Role",
   "two_factor_auth": 0
+ },
+ {
+  "bypass_two_factor_auth": 0,
+  "creation": "2026-06-30 12:14:05.676032",
+  "desk_access": 1,
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Role",
+  "home_page": null,
+  "is_custom": 0,
+  "modified": "2026-06-30 12:14:05.676032",
+  "name": "Cashier Role",
+  "restrict_to_domain": null,
+  "role_name": "Cashier Role",
+  "two_factor_auth": 0
  }
 ]
