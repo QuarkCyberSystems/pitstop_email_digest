@@ -3960,7 +3960,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 14:55:23.935506",
+  "modified": "2026-06-30 11:44:18.071439",
   "module": "Selling",
   "name": "Selling",
   "number_cards": [],
@@ -4031,6 +4031,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "After Sales - GM Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.456761",
+    "parent": "Selling",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Head Cashier Role"
    }
   ],
   "sequence_id": 110.0,
@@ -6399,7 +6406,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 11:03:30.655220",
+  "modified": "2026-06-30 11:44:07.238761",
   "module": "Accounts",
   "name": "Accounting",
   "number_cards": [],
@@ -6449,6 +6456,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Finance Manager Assistant"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.606346",
+    "parent": "Accounting",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Head Cashier Role"
    }
   ],
   "sequence_id": 100.0,
@@ -7639,7 +7653,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 14:55:35.036797",
+  "modified": "2026-06-30 11:44:27.925779",
   "module": "Buying",
   "name": "Buying",
   "number_cards": [],
@@ -7696,6 +7710,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "After Sales - GM Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.825385",
+    "parent": "Buying",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Head Cashier Role"
    }
   ],
   "sequence_id": 120.0,
