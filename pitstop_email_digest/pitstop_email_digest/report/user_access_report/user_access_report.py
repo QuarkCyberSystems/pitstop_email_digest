@@ -91,6 +91,12 @@ def get_column(filters):
             "fieldtype": "Check",
             "width": 85,
         },
+        {
+            "label": _("Delete Permission"),
+            "fieldname": "delete_perm",
+            "fieldtype": "Check",
+            "width": 85,
+        },
     ]
     return columns
 
@@ -195,36 +201,40 @@ def get_conditions_and_values(filters):
     doc_permission_condition = ""
     has_role_condition = ""
     if filters.get("user"):
-        condition += "and u.name = %(user)s"
+        condition += " and u.name = %(user)s"
         condition_values_dict["user"] = filters.get("user")
 
     if filters.get("doctype"):
-        doc_permission_condition += "and dp.parent = %(doctype)s"
+        doc_permission_condition += " and dp.parent = %(doctype)s"
         condition_values_dict["doctype"] = filters.get("doctype")
 
     if filters.get("submit_permission"):
-        doc_permission_condition += "and dp.`submit` = %(submit_permission)s"
+        doc_permission_condition += " and dp.`submit` = %(submit_permission)s"
         condition_values_dict["submit_permission"] = filters.get("submit_permission")
 
     if filters.get("cancel_permission"):
-        doc_permission_condition += "and dp.`cancel` = %(cancel_permission)s"
+        doc_permission_condition += " and dp.`cancel` = %(cancel_permission)s"
         condition_values_dict["cancel_permission"] = filters.get("cancel_permission")
 
     if filters.get("amend_permission"):
-        doc_permission_condition += "and dp.`amend` = %(amend_permission)s"
+        doc_permission_condition += " and dp.`amend` = %(amend_permission)s"
         condition_values_dict["amend_permission"] = filters.get("amend_permission")
 
     if filters.get("write_permission"):
-        doc_permission_condition += "and dp.`write` = %(write_permission)s"
+        doc_permission_condition += " and dp.`write` = %(write_permission)s"
         condition_values_dict["write_permission"] = filters.get("write_permission")
 
     if filters.get("read_permission"):
-        doc_permission_condition += "and dp.`read` = %(read_permission)s"
+        doc_permission_condition += " and dp.`read` = %(read_permission)s"
         condition_values_dict["read_permission"] = filters.get("read_permission")
 
     if filters.get("create_permission"):
-        doc_permission_condition += "and dp.`create` = %(create_permission)s"
+        doc_permission_condition += " and dp.`create` = %(create_permission)s"
         condition_values_dict["create_permission"] = filters.get("create_permission")
+
+    if filters.get("delete_permission"):
+        doc_permission_condition += " and dp.`delete` = %(delete_permission)s"
+        condition_values_dict["delete_permission"] = filters.get("delete_permission")
 
     if filters.get("role"):
         has_role_condition += "and hr.role = %(role)s"

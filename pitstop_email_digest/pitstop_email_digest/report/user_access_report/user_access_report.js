@@ -49,6 +49,12 @@ frappe.query_reports["User Access Report"] = {
 			reqd: 0,
 		},
 		{
+			fieldname: "delete_permission",
+			label: __("Delete"),
+			fieldtype: "Check",
+			reqd: 0,
+		},
+		{
 			fieldname: "write_permission",
 			label: __("Write"),
 			fieldtype: "Check",

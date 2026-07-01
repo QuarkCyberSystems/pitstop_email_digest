@@ -3960,7 +3960,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-30 12:16:50.949818",
+  "modified": "2026-07-01 14:30:08.882237",
   "module": "Selling",
   "name": "Selling",
   "number_cards": [],
@@ -4045,6 +4045,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Cashier Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.456761",
+    "parent": "Selling",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Parts Manager Role"
    }
   ],
   "sequence_id": 110.0,
@@ -7660,7 +7667,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-30 12:17:09.937232",
+  "modified": "2026-07-01 14:29:56.393335",
   "module": "Buying",
   "name": "Buying",
   "number_cards": [],
@@ -7731,6 +7738,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Cashier Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.825385",
+    "parent": "Buying",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Parts Manager Role"
    }
   ],
   "sequence_id": 120.0,
@@ -9429,7 +9443,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 12:29:41.194563",
+  "modified": "2026-07-01 14:30:21.419983",
   "module": "Stock",
   "name": "Stock",
   "number_cards": [],
@@ -9507,6 +9521,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Bodyshop Manager Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:57.035484",
+    "parent": "Stock",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Parts Manager Role"
    }
   ],
   "sequence_id": 130.0,
