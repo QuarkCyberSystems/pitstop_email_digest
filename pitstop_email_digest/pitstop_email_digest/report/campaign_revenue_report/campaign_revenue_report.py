@@ -130,7 +130,7 @@ def get_data(filters):
 			tsi.vehicle_chassis_no,
 			tsi.project,
 			sum(tsii.base_amount_before_discount) as total_before_discount,
-			sum(tsii.discount_amount) as discount_amount,
+			sum(tsii.base_total_discount) as discount_amount,
 			sum(tsii.base_amount) as total_after_discount,
 			tax_table.total_taxes_and_charges,
 			tsi.discount_amount as additional_discount,
