@@ -45,7 +45,7 @@ def get_column(filters):
             "fieldname": "sales_invoice",
             "fieldtype": "Link",
             "options": "Sales Invoice",
-            "width": 80,
+            "width": 150,
         },
         {
             "label": _("Customer"),
