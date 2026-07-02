@@ -111,24 +111,6 @@ def get_column(filters):
             "fieldtype": "Currency",
             "width": 200,
         },
-        {
-            "label": _("Total Taxes And Charges"),
-            "fieldname": "total_taxes_and_charges",
-            "fieldtype": "Currency",
-            "width": 200,
-        },
-        {
-            "label": _("Additional Discount Amount"),
-            "fieldname": "additional_discount",
-            "fieldtype": "Currency",
-            "width": 200,
-        },
-        {
-            "label": _("Grand Total"),
-            "fieldname": "grand_total",
-            "fieldtype": "Currency",
-            "width": 200,
-        },
     ]
     return columns
 
@@ -177,10 +159,7 @@ def get_data(filters):
 			tsi.project,
 			sum(tsii.base_amount_before_discount) as total_before_discount,
 			sum(tsii.base_total_discount) as discount_amount,
-			sum(tsii.base_amount) as total_after_discount,
-			tax_table.total_taxes_and_charges,
-			tsi.discount_amount as additional_discount,
-			tsi.grand_total
+			sum(tsii.base_net_amount) as total_after_discount
 		from
 			tabOpportunity to2
 		join
@@ -206,7 +185,7 @@ def get_data(filters):
 		on
 			tax_table.parent = tsi.name
 		where
-			tsi.docstatus=1 {conditions}
+			tsi.docstatus=1  {conditions}
 		group by
 			tsi.name;
 	""".format(conditions=conditions),
