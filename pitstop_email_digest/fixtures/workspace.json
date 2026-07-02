@@ -6420,7 +6420,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-30 11:44:07.238761",
+  "modified": "2026-07-02 10:24:03.504151",
   "module": "Accounts",
   "name": "Accounting",
   "number_cards": [],
@@ -6477,6 +6477,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Head Cashier Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.606346",
+    "parent": "Accounting",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Cashier Role"
    }
   ],
   "sequence_id": 100.0,
