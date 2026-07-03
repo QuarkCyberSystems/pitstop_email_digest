@@ -35,6 +35,13 @@ def get_column(filters):
             "width": 200,
         },
         {
+            "label": _("Repair Order"),
+            "fieldname": "project",
+            "fieldtype": "Link",
+            "options": "Project",
+            "width": 200,
+        },
+        {
             "label": _("PDI/NON-PDI"),
             "fieldname": "pdi_non_pdi",
             "fieldtype": "Data",
@@ -81,33 +88,26 @@ def get_column(filters):
             "width": 200,
         },
         {
-            "label": _("Repair Order"),
-            "fieldname": "project",
-            "fieldtype": "Link",
-            "options": "Project",
-            "width": 200,
-        },
-        {
             "label": _("Chassis Number"),
             "fieldname": "vehicle_chassis_no",
             "fieldtype": "Data",
             "width": 200,
         },
         {
-            "label": _("Net Total Before Discount"),
-            "fieldname": "total_before_discount",
+            "label": _("Total Net Amount"),
+            "fieldname": "net_total_after_discount",
             "fieldtype": "Currency",
             "width": 200,
         },
         {
-            "label": _("Discount"),
-            "fieldname": "discount_amount",
+            "label": _("Total Taxes And Charges"),
+            "fieldname": "total_taxes_and_charges",
             "fieldtype": "Currency",
             "width": 200,
         },
         {
-            "label": _("Net Total After Discount"),
-            "fieldname": "total_after_discount",
+            "label": _("Total Amount"),
+            "fieldname": "total_amount",
             "fieldtype": "Currency",
             "width": 200,
         },
@@ -156,10 +156,10 @@ def get_data(filters):
 			tsi.bill_to_name,
 			tsi.customer_group as bill_to_group,
 			tsi.vehicle_chassis_no,
-			tsi.project,
-			sum(tsii.base_amount_before_discount) as total_before_discount,
-			sum(tsii.base_total_discount) as discount_amount,
-			sum(tsii.base_net_amount) as total_after_discount
+			tsii.project,
+            sum(tsii.base_net_amount) as net_total_after_discount,
+            sum(tsii.base_item_taxes) as total_taxes_and_charges,
+            sum(tsii.base_net_amount) + sum(tsii.base_item_taxes) AS total_amount
 		from
 			tabOpportunity to2
 		join
@@ -174,20 +174,10 @@ def get_data(filters):
 			`tabSales Invoice` tsi
 		on
 			tsi.name = tsii.parent
-		left join (
-					SELECT
-						parent,
-						SUM(tax_amount) AS total_taxes_and_charges
-					FROM `tabSales Taxes and Charges`
-					WHERE charge_type != 'Actual'
-					GROUP BY parent
-				) AS tax_table
-		on
-			tax_table.parent = tsi.name
 		where
 			tsi.docstatus=1  {conditions}
 		group by
-			tsi.name;
+			tsi.name, tsii.project;
 	""".format(conditions=conditions),
         as_dict=True,
     )
