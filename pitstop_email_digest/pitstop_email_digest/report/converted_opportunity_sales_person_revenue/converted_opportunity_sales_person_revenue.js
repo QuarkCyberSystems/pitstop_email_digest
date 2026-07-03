@@ -1,7 +1,7 @@
 // Copyright (c) 2026, QCS and contributors
 // For license information, please see license.txt
 
-frappe.query_reports["Opportunity Sales Person Revnue"] = {
+frappe.query_reports["Converted Opportunity Sales Person Revenue"] = {
 	filters: [
 		{
 			fieldname: "from_date",

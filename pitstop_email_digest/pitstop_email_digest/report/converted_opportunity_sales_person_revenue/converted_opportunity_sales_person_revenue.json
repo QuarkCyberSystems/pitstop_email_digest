@@ -9,14 +9,14 @@
  "filters": [],
  "idx": 0,
  "is_standard": "Yes",
- "modified": "2026-07-02 11:52:27.839239",
+ "modified": "2026-07-02 12:55:27.839239",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
- "name": "Opportunity Sales Person Revnue",
+ "name": "Converted Opportunity Sales Person Revenue",
  "owner": "Administrator",
  "prepared_report": 0,
  "ref_doctype": "Sales Invoice",
- "report_name": "Opportunity Sales Person Revnue",
+ "report_name": "Converted Opportunity Sales Person Revenue",
  "report_type": "Script Report",
  "roles": [
   {
