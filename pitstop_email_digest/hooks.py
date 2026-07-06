@@ -78,9 +78,7 @@ fixtures = [
             [
                 "name",
                 "in",
-                [
-                    "Company-branch_monthly_revenue_target",
-                ],
+                ["Company-branch_monthly_revenue_target", "Project-job_type"],
             ]
         ],
     },
