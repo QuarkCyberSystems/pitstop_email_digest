@@ -4,6 +4,14 @@
 frappe.query_reports["Converted Opportunity Sales Person Revenue"] = {
 	filters: [
 		{
+			fieldname: "company",
+			label: __("Company"),
+			fieldtype: "Link",
+			options: "Company",
+			reqd: 1,
+			default: frappe.defaults.get_user_default("Company"),
+		},
+		{
 			fieldname: "from_date",
 			label: __("From Date"),
 			fieldtype: "Date",
@@ -30,6 +38,19 @@ frappe.query_reports["Converted Opportunity Sales Person Revenue"] = {
 			fieldtype: "Link",
 			options: "Sales Person",
 			reqd: 0,
+		},
+		{
+			fieldname: "cost_center",
+			label: __("Cost Center"),
+			fieldtype: "Link",
+			options: "Cost Center",
+			reqd: 0,
+			get_query: function () {
+				var company_selected = frappe.query_report.get_filter_value("company");
+				return {
+					filters: { is_group: 0, company: company_selected },
+				};
+			},
 		},
 		{
 			fieldname: "pdi_non_pdi",

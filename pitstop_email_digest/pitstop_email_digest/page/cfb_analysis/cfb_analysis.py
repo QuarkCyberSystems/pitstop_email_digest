@@ -64,6 +64,7 @@ def process_customer_feed_back(customer_feed_back_data):
 
 
 def get_rating_percentage(customer_feed_back_data, branch):
+    percentage = 0
     fieldname = "timeliness_rating"
     four_above = [
         flt(row.get(fieldname))
