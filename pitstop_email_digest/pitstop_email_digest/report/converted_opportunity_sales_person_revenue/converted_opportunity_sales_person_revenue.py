@@ -48,6 +48,12 @@ def get_column(filters):
             "width": 150,
         },
         {
+            "label": _("Job Type"),
+            "fieldname": "job_type",
+            "fieldtype": "Data",
+            "width": 150,
+        },
+        {
             "label": _("Sales Invoice"),
             "fieldname": "sales_invoice",
             "fieldtype": "Link",
@@ -138,6 +144,7 @@ def get_data(filters):
             to2.opportunity_type,
             to2.sales_person,
             tp.custom_pdi__non_pdi as pdi_non_pdi,
+            tp.job_type,
 			tsi.name as sales_invoice,
             tsi.posting_date as posting_date,
 			tsi.customer,
