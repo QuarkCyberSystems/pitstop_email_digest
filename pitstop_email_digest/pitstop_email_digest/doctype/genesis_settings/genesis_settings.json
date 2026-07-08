@@ -1,0 +1,107 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-08 10:38:26.340837",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "oauth20_section",
+  "token_name",
+  "client_id",
+  "client_secret",
+  "column_break_krfd",
+  "grant_type",
+  "token_url",
+  "client_authentication",
+  "genesis_oauth_cache_key",
+  "campaign_details_section",
+  "campaign_details"
+ ],
+ "fields": [
+  {
+   "fieldname": "oauth20_section",
+   "fieldtype": "Section Break",
+   "label": "OAuth2.0"
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret"
+  },
+  {
+   "fieldname": "column_break_krfd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "client_credentials",
+   "fieldname": "grant_type",
+   "fieldtype": "Select",
+   "label": "Grant Type",
+   "options": "client_credentials"
+  },
+  {
+   "default": "Send As Basic Auth Header",
+   "fieldname": "client_authentication",
+   "fieldtype": "Select",
+   "label": "Client Authentication",
+   "options": "Send As Basic Auth Header"
+  },
+  {
+   "fieldname": "token_name",
+   "fieldtype": "Data",
+   "label": "Token Name"
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Data",
+   "label": "Client ID"
+  },
+  {
+   "fieldname": "token_url",
+   "fieldtype": "Data",
+   "label": "Token URL"
+  },
+  {
+   "fieldname": "genesis_oauth_cache_key",
+   "fieldtype": "Data",
+   "label": "Cache Key"
+  },
+  {
+   "fieldname": "campaign_details_section",
+   "fieldtype": "Section Break",
+   "label": "Campaign Details"
+  },
+  {
+   "fieldname": "campaign_details",
+   "fieldtype": "Table",
+   "label": "Campaign Details",
+   "options": "Campaign Details"
+  }
+ ],
+ "grid_page_length": 500,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-08 14:29:08.228822",
+ "modified_by": "Administrator",
+ "module": "Pitstop Email Digest",
+ "name": "Genesis Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

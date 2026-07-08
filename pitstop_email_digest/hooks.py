@@ -246,6 +246,9 @@ doc_events = {
     "Material Request": {
         "on_cancel": "pitstop_email_digest.overrides.material_request.material_request_hooks.on_cancel"
     },
+    "Customer Feedback": {
+        "after_insert": "pitstop_email_digest.overrides.customer_feedback.customer_feedback_hooks.after_insert"
+    },
 }
 
 # Get Items All Conditions
