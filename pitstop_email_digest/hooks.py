@@ -249,6 +249,9 @@ doc_events = {
     "Customer Feedback": {
         "after_insert": "pitstop_email_digest.overrides.customer_feedback.customer_feedback_hooks.after_insert"
     },
+    "Lead": {
+        "after_insert": "pitstop_email_digest.overrides.lead.lead_hooks.after_insert"
+    },
 }
 
 # Get Items All Conditions

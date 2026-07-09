@@ -6,6 +6,7 @@
  "engine": "InnoDB",
  "field_order": [
   "oauth20_section",
+  "enable",
   "token_name",
   "client_id",
   "client_secret",
@@ -76,13 +77,19 @@
    "fieldtype": "Table",
    "label": "Campaign Details",
    "options": "Campaign Details"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable",
+   "fieldtype": "Check",
+   "label": "Enable"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-08 14:29:08.228822",
+ "modified": "2026-07-09 09:57:45.456655",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Genesis Settings",

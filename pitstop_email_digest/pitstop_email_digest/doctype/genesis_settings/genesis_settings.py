@@ -60,7 +60,7 @@ class GenesisSettings(Document):
         gl.flags.ignore_permissions = True
         gl.save()
 
-    def send_quotation_to_vendor(
+    def send_to_genesis(
         self, url, payload, reference_doctype, reference_name, campaign_name
     ):
         try:
@@ -71,6 +71,7 @@ class GenesisSettings(Document):
                 title="Genesis OAuth token fetch failed",
             )
             return
+
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",

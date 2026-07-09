@@ -26,7 +26,7 @@ def after_insert(doc, method=None):
         campaign_name = campaign[0].campaign_name
         field_map = json.loads(field_map) if field_map else {}
         if campaign_url:
-            payload = build_cfb_payload(doc, field_map)
+            payload = build_lead_payload(doc, field_map)
             frappe.enqueue_doc(
                 "Genesis Settings",
                 "Genesis Settings",
@@ -38,17 +38,10 @@ def after_insert(doc, method=None):
                 reference_name=doc.name,
                 campaign_name=campaign_name,
             )
-            # settings.send_to_genesis(
-            #     url=campaign_url,
-            #     payload=payload,
-            #     reference_doctype=doc.doctype,
-            #     reference_name=doc.name,
-            #     campaign_name=campaign_name,
-            # )
     return campaign
 
 
-def build_cfb_payload(doc, field_map=None):
+def build_lead_payload(doc, field_map=None):
     field_map = field_map or {}
     doc_dict = doc.as_dict()
     updated_dict = {}
