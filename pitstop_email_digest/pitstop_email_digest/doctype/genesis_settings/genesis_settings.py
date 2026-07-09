@@ -165,6 +165,7 @@ class GenesisSettings(Document):
                 reference_doctype=doc.doctype,
                 reference_name=doc.name,
                 campaign_name=campaign_name,
+                enqueue_after_commit=True,
             )
             # sometime the mac and ssl worker and bench ssl are not same
             # self.send_to_genesis(
