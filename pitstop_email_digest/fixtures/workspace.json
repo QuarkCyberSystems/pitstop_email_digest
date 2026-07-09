@@ -1895,7 +1895,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-06-29 14:55:11.772010",
+  "modified": "2026-07-09 16:55:00.582017",
   "module": "HR",
   "name": "HR",
   "number_cards": [],
@@ -1959,6 +1959,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "After Sales - GM Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:55.818294",
+    "parent": "HR",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Finance Manager Assistant"
    }
   ],
   "sequence_id": 170.0,
