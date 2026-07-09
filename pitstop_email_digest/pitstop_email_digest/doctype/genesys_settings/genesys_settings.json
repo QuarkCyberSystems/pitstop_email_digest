@@ -14,7 +14,7 @@
   "grant_type",
   "token_url",
   "client_authentication",
-  "genesis_oauth_cache_key",
+  "genesys_oauth_cache_key",
   "campaign_details_section",
   "campaign_details"
  ],
@@ -63,11 +63,6 @@
    "label": "Token URL"
   },
   {
-   "fieldname": "genesis_oauth_cache_key",
-   "fieldtype": "Data",
-   "label": "Cache Key"
-  },
-  {
    "fieldname": "campaign_details_section",
    "fieldtype": "Section Break",
    "label": "Campaign Details"
@@ -83,16 +78,21 @@
    "fieldname": "enable",
    "fieldtype": "Check",
    "label": "Enable"
+  },
+  {
+   "fieldname": "genesys_oauth_cache_key",
+   "fieldtype": "Data",
+   "label": "Cache Key"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-09 09:57:45.456655",
+ "modified": "2026-07-09 15:38:09.336131",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
- "name": "Genesis Settings",
+ "name": "Genesys Settings",
  "owner": "Administrator",
  "permissions": [
   {

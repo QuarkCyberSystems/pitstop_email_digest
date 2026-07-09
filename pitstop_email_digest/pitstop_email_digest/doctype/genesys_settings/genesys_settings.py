@@ -8,10 +8,10 @@ import requests
 from frappe.model.document import Document
 
 
-class GenesisSettings(Document):
+class GenesysSettings(Document):
     # pitstop_email_digest/integrations/vendor_api.py
     def get_access_token(self):
-        CACHE_KEY = self.genesis_oauth_cache_key
+        CACHE_KEY = self.genesys_oauth_cache_key
         cached = frappe.cache().get_value(CACHE_KEY)
         if cached:
             return cached
@@ -38,7 +38,7 @@ class GenesisSettings(Document):
 
         return access_token
 
-    def create_genesis_log(
+    def create_genesys_log(
         self,
         reference_doctype,
         reference_name,
@@ -48,7 +48,7 @@ class GenesisSettings(Document):
         campaign_url,
         trace_back=None,
     ):
-        gl = frappe.new_doc("Genesis Log")
+        gl = frappe.new_doc("Genesys Log")
         gl.reference_doctype = reference_doctype
         gl.reference_name = reference_name
         gl.status = status
@@ -60,7 +60,7 @@ class GenesisSettings(Document):
         gl.flags.ignore_permissions = True
         gl.save()
 
-    def send_to_genesis(
+    def send_to_genesys(
         self, url, payload, reference_doctype, reference_name, campaign_name
     ):
         try:
@@ -68,7 +68,7 @@ class GenesisSettings(Document):
         except requests.RequestException as e:
             frappe.log_error(
                 message=frappe.get_traceback() + str(e),
-                title="Genesis OAuth token fetch failed",
+                title="Genesys OAuth token fetch failed",
             )
             return
 
@@ -86,7 +86,7 @@ class GenesisSettings(Document):
 
         # if token expired mid-flight, refresh once and retry
         if resp.status_code == 401:
-            frappe.cache().delete_value(self.genesis_oauth_cache_key)
+            frappe.cache().delete_value(self.genesys_oauth_cache_key)
             token = self.get_access_token()
             headers["Authorization"] = f"Bearer {token}"
             resp = requests.post(
@@ -97,7 +97,7 @@ class GenesisSettings(Document):
             )
 
         if not resp.ok:
-            self.create_genesis_log(
+            self.create_genesys_log(
                 reference_doctype=reference_doctype,
                 reference_name=reference_name,
                 payload=[{"data": payload}],
@@ -107,7 +107,7 @@ class GenesisSettings(Document):
                 trace_back=resp.text,
             )
         else:
-            self.create_genesis_log(
+            self.create_genesys_log(
                 reference_doctype=reference_doctype,
                 reference_name=reference_name,
                 payload=[{"data": payload}],
@@ -120,7 +120,7 @@ class GenesisSettings(Document):
         campaign = frappe.get_all(
             "Campaign Details",
             filters={
-                "parent": "Genesis Settings",
+                "parent": "Genesys Settings",
                 "parentfield": "campaign_details",
                 "campaign_doctype": doc.doctype,
             },
@@ -156,9 +156,9 @@ class GenesisSettings(Document):
         if campaign_url:
             payload = self.build_payload(doc, field_map)
             frappe.enqueue_doc(
-                "Genesis Settings",
-                "Genesis Settings",
-                "send_to_genesis",
+                "Genesys Settings",
+                "Genesys Settings",
+                "send_to_genesys",
                 queue="short",
                 url=campaign_url,
                 payload=payload,
@@ -168,7 +168,7 @@ class GenesisSettings(Document):
                 enqueue_after_commit=True,
             )
             # sometime the mac and ssl worker and bench ssl are not same
-            # self.send_to_genesis(
+            # self.send_to_genesys(
             # 	url=campaign_url,
             # 	payload=payload,
             # 	reference_doctype=doc.doctype,

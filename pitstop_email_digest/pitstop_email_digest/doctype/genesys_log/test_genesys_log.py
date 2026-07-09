@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestGenesisLog(FrappeTestCase):
+class TestGenesysLog(FrappeTestCase):
     pass

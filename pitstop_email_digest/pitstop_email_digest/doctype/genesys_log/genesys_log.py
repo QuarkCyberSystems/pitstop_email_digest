@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class GenesisLog(Document):
+class GenesysLog(Document):
     pass

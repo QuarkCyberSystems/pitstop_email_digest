@@ -2,7 +2,7 @@ import frappe
 
 
 def after_insert(doc, method=None):
-    settings = frappe.get_single("Genesis Settings")
+    settings = frappe.get_single("Genesys Settings")
 
     if not settings.enable:
         return
