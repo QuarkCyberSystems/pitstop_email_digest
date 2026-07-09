@@ -68,6 +68,6 @@ frappe.query_reports["Converted Opportunity Sales Person Revenue"] = {
 		},
 	],
 	onload: function (report) {
-		frappe.breadcrumbs.add("Accounts");
+		frappe.breadcrumbs.add("CRM");
 	},
 };
