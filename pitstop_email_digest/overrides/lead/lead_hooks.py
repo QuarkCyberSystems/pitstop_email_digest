@@ -1,13 +1,5 @@
-import frappe
+from ...utils.send_data_vendor.send_data_genesys import send_data_genesys
 
 
 def after_insert(doc, method=None):
-    settings = frappe.get_single("Genesys Settings")
-
-    if not settings.enable:
-        return
-
-    campaign = settings.get_campaign_details(doc)
-
-    if campaign:
-        settings.send_campaign(campaign, doc)
+    send_data_genesys(doc)

@@ -79,7 +79,7 @@ class GenesysSettings(Document):
 
         resp = requests.post(
             url,
-            data=json.dumps([{"data": payload}]),
+            data=frappe.as_json([{"data": payload}]),
             headers=headers,
             timeout=15,
         )
@@ -91,7 +91,7 @@ class GenesysSettings(Document):
             headers["Authorization"] = f"Bearer {token}"
             resp = requests.post(
                 url,
-                data=json.dumps([{"data": payload}]),
+                data=frappe.as_json([{"data": payload}]),
                 headers=headers,
                 timeout=15,
             )
@@ -116,22 +116,29 @@ class GenesysSettings(Document):
                 campaign_name=campaign_name,
             )
 
-    def get_campaign_details(self, doc):
+    def get_campaign_details(self, doc, campaign_name=None):
+        filters = {
+            "parent": "Genesys Settings",
+            "parentfield": "campaign_details",
+            "campaign_doctype": doc.doctype,
+        }
+
+        if campaign_name:
+            filters["campaign_name"] = campaign_name
+
         campaign = frappe.get_all(
             "Campaign Details",
-            filters={
-                "parent": "Genesys Settings",
-                "parentfield": "campaign_details",
-                "campaign_doctype": doc.doctype,
-            },
+            filters=filters,
             fields=["campaign_url", "field_map", "campaign_name"],
             limit_page_length=1,
         )
         return campaign
 
-    def build_payload(self, doc, field_map=None):
+    def build_payload(self, doc, field_map=None, extra_key_args=None):
         field_map = field_map or {}
         doc_dict = doc.as_dict()
+        if extra_key_args:
+            doc_dict.update(extra_key_args)
         updated_dict = {}
         free_counter = 0
 
@@ -148,13 +155,15 @@ class GenesysSettings(Document):
 
         return updated_dict
 
-    def send_campaign(self, campaign, doc):
+    def send_campaign(self, campaign, doc, extra_key_args=None):
         campaign_url = campaign[0].campaign_url
         field_map = campaign[0].field_map
         campaign_name = campaign[0].campaign_name
         field_map = json.loads(field_map) if field_map else {}
         if campaign_url:
-            payload = self.build_payload(doc, field_map)
+            payload = self.build_payload(
+                doc=doc, field_map=field_map, extra_key_args=extra_key_args
+            )
             frappe.enqueue_doc(
                 "Genesys Settings",
                 "Genesys Settings",

@@ -252,6 +252,13 @@ doc_events = {
     "Lead": {
         "after_insert": "pitstop_email_digest.overrides.lead.lead_hooks.after_insert"
     },
+    "Appointment": {
+        "notify_appointment_missed": "pitstop_email_digest.overrides.appointment.appointment_hooks.notify_appointment_missed",
+        "notify_appointment_reminder": "pitstop_email_digest.overrides.appointment.appointment_hooks.notify_appointment_reminder",
+    },
+    "Maintenance Schedule": {
+        "notify_maintenance_remainder_in_advance": "pitstop_email_digest.overrides.maintenance_schedule.maintenance_schedule_hooks.notify_maintenance_remainder_in_advance"
+    },
 }
 
 # Get Items All Conditions
