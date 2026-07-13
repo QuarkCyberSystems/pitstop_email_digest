@@ -9,6 +9,19 @@ from frappe.model.document import Document
 
 
 class GenesysSettings(Document):
+    def validate(self):
+        self.validate_field_map_json()
+
+    def validate_field_map_json(self):
+        for each_field_map in self.campaign_details:
+            if each_field_map.field_map:
+                try:
+                    json.loads(each_field_map.field_map)
+                except Exception as e:
+                    frappe.throw(
+                        f"the field map JSON is NOT correct please correct it. at row {each_field_map.idx} error:{str(e)}"
+                    )
+
     # pitstop_email_digest/integrations/vendor_api.py
     def get_access_token(self):
         CACHE_KEY = self.genesys_oauth_cache_key

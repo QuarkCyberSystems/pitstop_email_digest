@@ -259,6 +259,9 @@ doc_events = {
     "Maintenance Schedule": {
         "notify_maintenance_remainder_in_advance": "pitstop_email_digest.overrides.maintenance_schedule.maintenance_schedule_hooks.notify_maintenance_remainder_in_advance"
     },
+    "Service Maintenance Contract": {
+        "notify_smc_expire": "pitstop_email_digest.overrides.service_maintenance_contract.service_maintenance_contract_hooks.notify_service_maintenance_contract_expire"
+    },
 }
 
 # Get Items All Conditions
