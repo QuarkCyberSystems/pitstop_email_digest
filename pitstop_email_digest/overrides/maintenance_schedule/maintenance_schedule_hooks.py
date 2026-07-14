@@ -3,7 +3,7 @@ import frappe
 from ...utils.send_data_vendor.send_data_genesys import send_data_genesys
 
 
-def notify_maintenance_remainder_in_advance(doc, handler=None, scheduler_doc=None):
+def notify_maintenance_opportunity(doc, handler=None, scheduler_doc=None):
     extra_key_args = {}
     if scheduler_doc:
         if scheduler_doc.get("reference_doctype") and scheduler_doc.get(
