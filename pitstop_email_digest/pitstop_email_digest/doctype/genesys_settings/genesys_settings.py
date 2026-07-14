@@ -56,6 +56,7 @@ class GenesysSettings(Document):
         reference_doctype,
         reference_name,
         payload,
+        response,
         status,
         campaign_name,
         campaign_url,
@@ -68,6 +69,7 @@ class GenesysSettings(Document):
         gl.campaign_name = campaign_name
         gl.campaign_url = campaign_url
         gl.payload = json.dumps(payload, indent=4, default=str)
+        gl.response = response
         if trace_back:
             gl.trace_back = trace_back
         gl.flags.ignore_permissions = True
@@ -114,6 +116,7 @@ class GenesysSettings(Document):
                 reference_doctype=reference_doctype,
                 reference_name=reference_name,
                 payload=[{"data": payload}],
+                response=resp.text,
                 status="Failed",
                 campaign_url=url,
                 campaign_name=campaign_name,
@@ -124,6 +127,7 @@ class GenesysSettings(Document):
                 reference_doctype=reference_doctype,
                 reference_name=reference_name,
                 payload=[{"data": payload}],
+                response=resp.text,
                 status="Success",
                 campaign_url=url,
                 campaign_name=campaign_name,

@@ -11,6 +11,7 @@
   "trace_back",
   "column_break_lfoy",
   "payload",
+  "response",
   "campaign_name",
   "campaign_url"
  ],
@@ -20,6 +21,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Reference Doctype",
+   "no_copy": 1,
    "options": "DocType",
    "read_only": 1
   },
@@ -28,6 +30,7 @@
    "fieldtype": "Dynamic Link",
    "in_list_view": 1,
    "label": "Reference Name",
+   "no_copy": 1,
    "options": "reference_doctype",
    "read_only": 1
   },
@@ -36,6 +39,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Status",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -46,12 +50,14 @@
    "fieldname": "payload",
    "fieldtype": "Code",
    "label": "Payload",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "trace_back",
    "fieldtype": "Code",
    "label": "Trace Back",
+   "no_copy": 1,
    "read_only": 1
   },
   {
@@ -59,19 +65,28 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Campaign Name",
+   "no_copy": 1,
    "read_only": 1
   },
   {
    "fieldname": "campaign_url",
    "fieldtype": "Data",
    "label": "Campaign URL",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "response",
+   "fieldtype": "Code",
+   "label": "Response",
+   "no_copy": 1,
    "read_only": 1
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-09 12:55:08.973316",
+ "modified": "2026-07-14 11:00:12.017352",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Genesys Log",

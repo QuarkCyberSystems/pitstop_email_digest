@@ -262,6 +262,9 @@ doc_events = {
     "Service Maintenance Contract": {
         "notify_smc_expire": "pitstop_email_digest.overrides.service_maintenance_contract.service_maintenance_contract_hooks.notify_service_maintenance_contract_expire"
     },
+    "Opportunity": {
+        "notify_recall_lost_opportunity": "pitstop_email_digest.overrides.opportunity.opportunity_hooks.notify_recall_lost_opportunity"
+    },
 }
 
 # Get Items All Conditions
