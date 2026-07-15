@@ -17,7 +17,7 @@ def sign_up(
             add_user_permission(
                 "Customer", result["customer_id"], email, ignore_permissions=True
             )
-            return {"success": True, "message": "User created successfully"}
+            return user_created
     else:
         return {"success": False, "message": _("Customer Not Exists")}
 
@@ -62,7 +62,7 @@ def create_user(full_name, email, mobile_no, password, **kwargs):
         default_role = frappe.get_single_value("Portal Settings", "default_role")
         if default_role:
             user.add_roles(default_role)
-    return True
+    return {"success": True, "message": _("User created successfully")}
 
 
 def check_customer(email, mobile_no, **kwargs):

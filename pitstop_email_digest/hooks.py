@@ -260,7 +260,7 @@ doc_events = {
         "notify_maintenance_opportunity": "pitstop_email_digest.overrides.maintenance_schedule.maintenance_schedule_hooks.notify_maintenance_opportunity"
     },
     "Service Maintenance Contract": {
-        "notify_smc_expire": "pitstop_email_digest.overrides.service_maintenance_contract.service_maintenance_contract_hooks.notify_service_maintenance_contract_expire"
+        "notify_smc_near_expiry": "pitstop_email_digest.overrides.service_maintenance_contract.service_maintenance_contract_hooks.notify_smc_near_expiry"
     },
     "Opportunity": {
         "notify_recall_lost_opportunity": "pitstop_email_digest.overrides.opportunity.opportunity_hooks.notify_recall_lost_opportunity"
