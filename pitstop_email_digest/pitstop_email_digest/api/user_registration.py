@@ -1,3 +1,5 @@
+from typing import Any
+
 import frappe
 from frappe import _
 from frappe.permissions import add_user_permission
@@ -7,7 +9,7 @@ from frappe.utils import cint, escape_html
 @frappe.whitelist(allow_guest=True)
 def sign_up(
     email: str, full_name: str, password: str, mobile_no: str
-) -> tuple[int, str]:
+) -> dict[str, Any]:
     result = check_customer(email=email, mobile_no=mobile_no, password=password)
     if result and result.get("customer_id"):
         user_created = create_user(full_name, email, mobile_no, password)
