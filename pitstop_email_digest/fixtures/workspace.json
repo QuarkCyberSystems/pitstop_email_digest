@@ -3967,7 +3967,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-07-01 14:30:08.882237",
+  "modified": "2026-07-15 18:34:23.144316",
   "module": "Selling",
   "name": "Selling",
   "number_cards": [],
@@ -4059,6 +4059,13 @@
     "parentfield": "roles",
     "parenttype": "Workspace",
     "role": "Parts Manager Role"
+   },
+   {
+    "creation": "2022-11-16 04:31:56.456761",
+    "parent": "Selling",
+    "parentfield": "roles",
+    "parenttype": "Workspace",
+    "role": "Sales Executive"
    }
   ],
   "sequence_id": 110.0,
