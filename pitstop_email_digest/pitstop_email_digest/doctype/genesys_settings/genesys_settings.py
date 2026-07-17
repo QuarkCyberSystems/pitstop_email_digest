@@ -160,12 +160,12 @@ class GenesysSettings(Document):
         free_counter = 0
 
         for each_key, mapped_key in field_map.items():
-            updated_dict[mapped_key] = doc_dict.get(each_key) or "N/A"
+            updated_dict[mapped_key] = doc_dict.get(each_key) or "NA"
 
         for each_key, value in doc_dict.items():
             if each_key not in field_map:
                 free_counter += 1
-                updated_dict[f"free{free_counter}"] = value or "N/A"
+                updated_dict[f"free{free_counter}"] = "NA"
                 # Contact lists do not support more than 10 extra data columns.
                 if free_counter >= 10:
                     break
