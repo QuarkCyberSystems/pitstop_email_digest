@@ -11,16 +11,43 @@ from frappe.model.document import Document
 class GenesysSettings(Document):
     def validate(self):
         self.validate_field_map_json()
+        self.validate_filters()
+
+    def validate_json_string(self, string: str, row_idx: int, error_field: str) -> None:
+        try:
+            json.loads(string)
+        except (TypeError, ValueError, json.JSONDecodeError) as e:
+            frappe.throw(
+                f"Invalid JSON in {error_field} at row {row_idx}: {e}",
+                title="Invalid JSON",
+            )
 
     def validate_field_map_json(self):
-        for each_field_map in self.campaign_details:
-            if each_field_map.field_map:
-                try:
-                    json.loads(each_field_map.field_map)
-                except Exception as e:
-                    frappe.throw(
-                        f"the field map JSON is NOT correct please correct it. at row {each_field_map.idx} error:{str(e)}"
-                    )
+        for each_campaign_details in self.campaign_details:
+            if each_campaign_details.field_map:
+                self.validate_json_string(
+                    each_campaign_details.field_map,
+                    each_campaign_details.idx,
+                    "Field Map",
+                )
+
+    def validate_filters(self):
+        for each_campaign_details in self.campaign_details:
+            if each_campaign_details.campaign_doctype and each_campaign_details.filters:
+                self.validate_json_string(
+                    each_campaign_details.filters, each_campaign_details.idx, "Filters"
+                )
+                filter_dict = json.loads(each_campaign_details.filters)
+                for each_key in filter_dict:
+                    if frappe.get_meta(
+                        each_campaign_details.campaign_doctype
+                    ).has_field(each_key):
+                        continue
+                    else:
+                        frappe.throw(
+                            f"the filter {frappe.bold(each_key)} not available in the {frappe.bold(each_campaign_details.campaign_doctype)}",
+                            title="Invalid Filter",
+                        )
 
     # pitstop_email_digest/integrations/vendor_api.py
     def get_access_token(self):
@@ -146,7 +173,7 @@ class GenesysSettings(Document):
         campaign = frappe.get_all(
             "Campaign Details",
             filters=filters,
-            fields=["campaign_url", "field_map", "campaign_name"],
+            fields=["campaign_url", "field_map", "campaign_name", "filters"],
             limit_page_length=1,
         )
         return campaign
