@@ -2,6 +2,7 @@
 # For license information, please see license.txt
 
 import json
+from typing import Optional
 
 import frappe
 import requests
@@ -13,14 +14,22 @@ class GenesysSettings(Document):
         self.validate_field_map_json()
         self.validate_filters()
 
-    def validate_json_string(self, string: str, row_idx: int, error_field: str) -> None:
+    def validate_json_string(
+        self,
+        string: str,
+        row_idx: Optional[int] = None,
+        error_field: Optional[str] = None,
+    ) -> None:
         try:
             json.loads(string)
         except (TypeError, ValueError, json.JSONDecodeError) as e:
-            frappe.throw(
-                f"Invalid JSON in {error_field} at row {row_idx}: {e}",
-                title="Invalid JSON",
-            )
+            message = f"Invalid JSON: {e}"
+            if row_idx is not None and error_field is not None:
+                message = f"Invalid JSON in {error_field} at row {row_idx}: {e}"
+            elif error_field is not None:
+                message = f"Invalid JSON in {error_field}: {e}"
+
+            frappe.throw(message, title="Invalid JSON")
 
     def validate_field_map_json(self):
         for each_campaign_details in self.campaign_details:
