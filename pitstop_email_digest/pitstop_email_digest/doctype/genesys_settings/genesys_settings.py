@@ -7,6 +7,7 @@ from typing import Optional
 import frappe
 import requests
 from frappe.model.document import Document
+from frappe.utils import validate_json_string
 
 
 class GenesysSettings(Document):
@@ -28,24 +29,31 @@ class GenesysSettings(Document):
                 message = f"Invalid JSON in {error_field} at row {row_idx}: {e}"
             elif error_field is not None:
                 message = f"Invalid JSON in {error_field}: {e}"
-
             frappe.throw(message, title="Invalid JSON")
 
     def validate_field_map_json(self):
         for each_campaign_details in self.campaign_details:
             if each_campaign_details.field_map:
-                self.validate_json_string(
-                    each_campaign_details.field_map,
-                    each_campaign_details.idx,
-                    "Field Map",
-                )
+                try:
+                    validate_json_string(each_campaign_details.field_map)
+                except:
+                    self.validate_json_string(
+                        each_campaign_details.field_map,
+                        each_campaign_details.idx,
+                        "Field Map",
+                    )
 
     def validate_filters(self):
         for each_campaign_details in self.campaign_details:
             if each_campaign_details.campaign_doctype and each_campaign_details.filters:
-                self.validate_json_string(
-                    each_campaign_details.filters, each_campaign_details.idx, "Filters"
-                )
+                try:
+                    validate_json_string(each_campaign_details.filters)
+                except:
+                    self.validate_json_string(
+                        each_campaign_details.filters,
+                        each_campaign_details.idx,
+                        "Filters",
+                    )
                 filter_dict = json.loads(each_campaign_details.filters)
                 for each_key in filter_dict:
                     if frappe.get_meta(
