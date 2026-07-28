@@ -55,10 +55,9 @@ class GenesysSettings(Document):
                         "Filters",
                     )
                 filter_dict = json.loads(each_campaign_details.filters)
+                meta_doc_data = frappe.get_meta(each_campaign_details.campaign_doctype)
                 for each_key in filter_dict:
-                    if frappe.get_meta(
-                        each_campaign_details.campaign_doctype
-                    ).has_field(each_key):
+                    if meta_doc_data.has_field(each_key) or (each_key in meta_doc_data.get_valid_columns()):
                         continue
                     else:
                         frappe.throw(
