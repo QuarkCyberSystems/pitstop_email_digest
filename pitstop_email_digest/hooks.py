@@ -78,7 +78,14 @@ fixtures = [
             [
                 "name",
                 "in",
-                ["Company-branch_monthly_revenue_target", "Project-job_type"],
+                [
+                    "Company-branch_monthly_revenue_target",
+                    "Project-job_type",
+                    "Asset-master_asset_section",
+                    "Asset-master_asset",
+                    "Asset-column_break_master_asset",
+                    "Asset-purchase_order",
+                ],
             ]
         ],
     },
@@ -137,7 +144,7 @@ app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {"Asset": "public/js/asset.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -177,7 +184,7 @@ app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
 # ------------
 
 # before_install = "pitstop_email_digest.install.before_install"
-# after_install = "pitstop_email_digest.install.after_install"
+after_install = "pitstop_email_digest.pitstop_email_digest.setup.master_asset.create_asset_custom_fields"
 
 # Uninstallation
 # ------------
@@ -264,6 +271,15 @@ doc_events = {
     },
     "Opportunity": {
         "notify_recall_lost_opportunity": "pitstop_email_digest.overrides.opportunity.opportunity_hooks.notify_recall_lost_opportunity"
+    },
+    "Asset": {
+        "validate": "pitstop_email_digest.overrides.asset.asset_hooks.validate",
+        "before_update_after_submit": "pitstop_email_digest.overrides.asset.asset_hooks.validate",
+        "on_update": "pitstop_email_digest.overrides.asset.asset_hooks.on_update",
+        "on_update_after_submit": "pitstop_email_digest.overrides.asset.asset_hooks.on_update",
+        "on_submit": "pitstop_email_digest.overrides.asset.asset_hooks.on_submit",
+        "on_cancel": "pitstop_email_digest.overrides.asset.asset_hooks.on_cancel",
+        "on_trash": "pitstop_email_digest.overrides.asset.asset_hooks.on_trash",
     },
 }
 
