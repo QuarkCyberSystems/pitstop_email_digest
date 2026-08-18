@@ -1,6 +1,13 @@
 // Copyright (c) 2025, QCS and contributors
 // For license information, please see license.txt
 
+const group_by_options_user_access = [
+	"",
+	{ label: __("Group By Role Profile"), value: "Group By Role Profile" },
+	{ label: __("Group By Role"), value: "Group By Role" },
+	{ label: __("Group By Doctype"), value: "Group By Doctype" },
+];
+
 frappe.query_reports["User Access Report"] = {
 	filters: [
 		{
@@ -64,6 +71,20 @@ frappe.query_reports["User Access Report"] = {
 			fieldname: "read_permission",
 			label: __("Read"),
 			fieldtype: "Check",
+			reqd: 0,
+		},
+		{
+			fieldname: "group_by_1",
+			label: __("Group By Level 1"),
+			fieldtype: "Select",
+			options: group_by_options_user_access,
+			reqd: 0,
+		},
+		{
+			fieldname: "group_by_2",
+			label: __("Group By Level 2"),
+			fieldtype: "Select",
+			options: group_by_options_user_access,
 			reqd: 0,
 		},
 	],

@@ -3,14 +3,58 @@
 
 import frappe
 from frappe import _
+from frappe.desk.query_report import group_report_data
+
+GROUP_BY_FIELD_MAP = {
+    "Group By Role Profile": "role_profile_name",
+    "Group By Role": "user_role",
+    "Group By Doctype": "doctype",
+}
+
+PERMISSION_FIELDS = [
+    "if_owner",
+    "read_perm",
+    "write_perm",
+    "create_perm",
+    "submit_perm",
+    "cancel_perm",
+    "amend_perm",
+    "delete_perm",
+]
 
 
 def execute(filters=None):
-    columns, data = [], []
+    filters = frappe._dict(filters or {})
     columns = get_column(filters)
     data = get_data(filters)
+
+    group_by = [None]
+    for i in range(2):
+        group_field = GROUP_BY_FIELD_MAP.get(filters.get("group_by_" + str(i + 1)))
+        if group_field and group_field not in group_by:
+            group_by.append(group_field)
+
+    if len(group_by) > 1:
+        data = group_report_data(
+            data,
+            group_by,
+            calculate_totals=calculate_group_totals,
+        )
+        return columns, data
+
     data = post_process(data)
     return columns, data
+
+
+def calculate_group_totals(data, group_field, group_value, grouped_by):
+    totals = frappe._dict()
+    for f, g in grouped_by.items():
+        totals[f] = g
+
+    for f in PERMISSION_FIELDS:
+        totals[f] = 1 if any(row.get(f) for row in data) else 0
+
+    return totals
 
 
 def get_column(filters):
