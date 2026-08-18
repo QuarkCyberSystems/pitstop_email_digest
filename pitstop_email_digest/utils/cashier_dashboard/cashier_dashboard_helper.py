@@ -170,11 +170,14 @@ def generate_summary_data_payment_data(cashiers_data):
                 "pos_profile": each_message_summary_data.get("pos_profile"),
                 "total_no_of_transactions": each_message_summary_data.get(
                     "total_no_of_transactions"
-                ),
-                "total_collected": each_message_summary_data.get("total_collected"),
+                )
+                or 0,
+                "total_collected": each_message_summary_data.get("total_collected")
+                or 0,
                 "total_amount_pos_close_collected": each_message_summary_data.get(
                     "total_amount_pos_close_collected"
-                ),
+                )
+                or 0,
                 "status": each_message_summary_data.get("status"),
             }
             branch_summary_data_array.append(pos_profile_found)
