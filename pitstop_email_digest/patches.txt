@@ -4,3 +4,5 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+pitstop_email_digest.pitstop_email_digest.patches.v1_0.create_master_asset_custom_fields
+pitstop_email_digest.pitstop_email_digest.patches.v1_0.backfill_master_asset_from_po
