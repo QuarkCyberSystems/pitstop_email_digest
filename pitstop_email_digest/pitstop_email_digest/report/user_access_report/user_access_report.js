@@ -75,14 +75,7 @@ frappe.query_reports["User Access Report"] = {
 		},
 		{
 			fieldname: "group_by_1",
-			label: __("Group By Level 1"),
-			fieldtype: "Select",
-			options: group_by_options_user_access,
-			reqd: 0,
-		},
-		{
-			fieldname: "group_by_2",
-			label: __("Group By Level 2"),
+			label: __("Group By"),
 			fieldtype: "Select",
 			options: group_by_options_user_access,
 			reqd: 0,

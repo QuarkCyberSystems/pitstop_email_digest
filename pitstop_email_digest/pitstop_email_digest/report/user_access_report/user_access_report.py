@@ -28,16 +28,11 @@ def execute(filters=None):
     columns = get_column(filters)
     data = get_data(filters)
 
-    group_by = [None]
-    for i in range(2):
-        group_field = GROUP_BY_FIELD_MAP.get(filters.get("group_by_" + str(i + 1)))
-        if group_field and group_field not in group_by:
-            group_by.append(group_field)
-
-    if len(group_by) > 1:
+    group_field = GROUP_BY_FIELD_MAP.get(filters.get("group_by_1"))
+    if group_field:
         data = group_report_data(
             data,
-            group_by,
+            [None, group_field],
             calculate_totals=calculate_group_totals,
         )
         return columns, data
