@@ -31,6 +31,8 @@ class MasterAsset(Document):
 
     def before_save(self):
         self.recompute_summary()
+        if not self.title:
+            self.title = self.name
 
     def onload(self):
         self.set_onload("linked_assets", self.get_linked_assets())

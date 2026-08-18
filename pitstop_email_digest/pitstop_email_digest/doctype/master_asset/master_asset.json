@@ -1,12 +1,13 @@
 {
  "actions": [],
- "autoname": "MAS-ASST-.#####",
+ "autoname": "MAS-ASS-.#####",
  "creation": "2026-08-17 00:00:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
   "details_section",
+  "title",
   "company",
   "supplier",
   "status",
@@ -28,6 +29,11 @@
    "fieldname": "details_section",
    "fieldtype": "Section Break",
    "label": "Master Asset Details"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title"
   },
   {
    "fieldname": "company",
@@ -135,7 +141,7 @@
    "link_fieldname": "master_asset"
   }
  ],
- "modified": "2026-08-17 18:19:10.584374",
+ "modified": "2026-08-18 16:28:00.496712",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Master Asset",
@@ -178,5 +184,6 @@
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
+ "title_field": "title",
  "track_changes": 1
 }
