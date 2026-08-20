@@ -7,6 +7,17 @@ from automotive.automotive.report.workshop_productivity.workshop_productivity im
 )
 from frappe.utils.data import flt
 
+from .html_generator_employee_incentive_calculation import (
+    generate_ladder_html,
+    generate_weightage_table,
+    rate_based_generate_ladder_html,
+)
+from .util_employee_incentive_calculation import (
+    get_ladder_result,
+    get_rate_ladder_result,
+    get_weightage_amount,
+)
+
 INCENTIVE_FIELD_MAP = {
     "base_incentive": (0, 0),
     "below_85": (None, 85.0),
@@ -14,6 +25,54 @@ INCENTIVE_FIELD_MAP = {
     "between_100_and_115": (100.0, 115.0),
     "between_115_and_125": (115.0, 125.0),
     "above_125": (125.0, None),
+}
+
+BASED_ON_TEMPLATE_DATA = {
+    "Technician": {
+        "weightages": {"sold_hrs": 50, "efficiency": 25, "productivity": 25},
+        "sold_hrs_ladder": {
+            80: 0,
+            85: 80,
+            90: 85,
+            95: 90,
+            100: 95,
+            105: 100,
+            115: 105,
+            125: 115,
+        },
+        "efficiency_ladder": {
+            90: 0,
+            95: 90,
+            100: 95,
+            105: 100,
+            110: 105,
+            115: 110,
+            120: 115,
+            125: 120,
+        },
+        "productivity_ladder": {
+            85: 0,
+            90: 85,
+            95: 90,
+            100: 95,
+            105: 100,
+            110: 105,
+            115: 110,
+            125: 115,
+        },
+    },
+    "Reporting Authority": {
+        "weightages": {
+            "efficiency": 30,
+            "proficiency": 30,
+            "qc_ro": 20,
+            "customer_feedback": 20,
+        },
+        "efficiency_ladder": {85: 0, 125: 85},
+        "proficiency_ladder": {85: 0, 125: 85},
+        "qc_ro_ladder": {10: 0, 125: 10},
+        "cfb_rate_ladder": {4.5: 0, 4.6: 100.0},
+    },
 }
 
 
@@ -31,29 +90,173 @@ def execute(filters=None):
     data = produtivity_report[1]
     generator = process_rows(filters, data)
 
-    efficiency_cap_counts = {}
     filtered_data = []
     total_data_length = 0
     total_filtered_data_length = 0
     for row in generator:
         total_data_length += 1
         if "_summary" in row:
-            efficiency_cap_counts = row["_summary"]
             continue
         total_filtered_data_length += 1
         filtered_data.append(row)
 
+    summary_html = ""
+    based_on_html_table = generate_weightage_table(
+        filters.get("based_on"),
+        filters.get("base_incentive"),
+    )
+
+    sold_hrs_ladder_html_table = generate_ladder_html(
+        filters.get("based_on"), "sold_hrs_ladder", "Sold Hrs %"
+    )
+
+    efficiency_ladder_html_table = generate_ladder_html(
+        filters.get("based_on"), "efficiency_ladder", "Efficiency %"
+    )
+
+    productivity_ladder_html_table = generate_ladder_html(
+        filters.get("based_on"), "productivity_ladder", "Productivity %"
+    )
+
+    proficiency_ladder_html_table = generate_ladder_html(
+        filters.get("based_on"), "proficiency_ladder", "Proficiency %"
+    )
+
+    qc_ro_ladder_html_table = generate_ladder_html(
+        filters.get("based_on"), "qc_ro_ladder", "QC RO %"
+    )
+    cfb_rate_ladder_html_table = rate_based_generate_ladder_html(
+        filters.get("based_on"), "cfb_rate_ladder", "QC RO %"
+    )
+
+    summary_html = ""
+
+    if (
+        based_on_html_table
+        or sold_hrs_ladder_html_table
+        or efficiency_ladder_html_table
+        or productivity_ladder_html_table
+        or proficiency_ladder_html_table
+        or qc_ro_ladder_html_table
+        or cfb_rate_ladder_html_table
+    ):
+        summary_html = """
+        <table style="
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Arial, sans-serif;
+        ">
+            <tr>
+        """
+
+        # Left side - Weightage table
+        if based_on_html_table:
+            summary_html += f"""
+                <td style="
+                    width: 25%;
+                    vertical-align: top;
+                    padding: 5px;
+                ">
+                    {based_on_html_table}
+                </td>
+            """
+
+        # Right side - Ladder tables
+        if (
+            sold_hrs_ladder_html_table
+            or efficiency_ladder_html_table
+            or productivity_ladder_html_table
+            or proficiency_ladder_html_table
+            or qc_ro_ladder_html_table
+            or cfb_rate_ladder_html_table
+        ):
+            summary_html += """
+                <td style="
+                    width: 75%;
+                    vertical-align: top;
+                    padding: 5px;
+                ">
+            """
+
+            # Sold Hrs Ladder
+            if sold_hrs_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                        margin-bottom: 10px;
+                    ">
+                        {sold_hrs_ladder_html_table}
+                    </div>
+                """
+
+            # Efficiency Ladder
+            if efficiency_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                        margin-bottom: 10px;
+                    ">
+                        {efficiency_ladder_html_table}
+                    </div>
+                """
+
+            # Productivity Ladder
+            if productivity_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                    ">
+                        {productivity_ladder_html_table}
+                    </div>
+                """
+
+            # Prficiency Ladder
+            if proficiency_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                        margin-bottom: 10px;
+                    ">
+                        {proficiency_ladder_html_table}
+                    </div>
+                """
+
+            # QC RO Ladder
+            if qc_ro_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                        margin-bottom: 10px;
+                    ">
+                        {qc_ro_ladder_html_table}
+                    </div>
+                """
+
+            # CFB Rate Ladder
+            if cfb_rate_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                    ">
+                        {cfb_rate_ladder_html_table}
+                    </div>
+                """
+
+            summary_html += """
+                </td>
+            """
+
+        summary_html += """
+            </tr>
+        </table>
+        """
+
     return (
         columns,
         filtered_data,
+        summary_html,
         None,
         None,
-        calculate_total_summary(
-            total_filtered_data_length,
-            efficiency_cap_counts,
-            total_filtered_data_length,
-            filters,
-        ),
     )
 
 
@@ -159,17 +362,44 @@ def update_columns(filters, columns):
 
     columns[:0] = employee_columns
 
-    incentive_columns = [
-        {
-            "label": format_label(field),
-            "fieldname": field,
-            "fieldtype": "Float",
-            "width": 150,
-        }
-        for field in INCENTIVE_FIELD_MAP
-    ]
+    incentive_columns = []
+    if BASED_ON_TEMPLATE_DATA.get(based_on):
+        if BASED_ON_TEMPLATE_DATA.get(based_on).get("weightages"):
+            incentive_columns = [
+                {
+                    "label": format_label(field) + " Amt",
+                    "fieldname": field + "_amt",
+                    "fieldtype": "Float",
+                    "width": 150,
+                }
+                for field in BASED_ON_TEMPLATE_DATA.get(based_on).get("weightages")
+            ]
 
-    columns.extend(incentive_columns)
+    columns.extend(
+        [
+            {
+                "label": "Sold Hrs. %",
+                "fieldname": "sold_hrs_percentage",
+                "fieldtype": "Float",
+                "width": 100,
+            }
+        ]
+    )
+
+    if based_on == "Reporting Authority":
+        columns.extend(
+            [
+                {
+                    "label": "QC RO %",
+                    "fieldname": "total_qc_ro_percentage",
+                    "fieldtype": "Float",
+                    "width": 100,
+                }
+            ]
+        )
+
+    if incentive_columns:
+        columns.extend(incentive_columns)
 
     columns.append(
         {
@@ -214,12 +444,11 @@ def get_efficiency_cap(row_data):
     return None
 
 
-def compute_incentive(data_row, incentive_field):
-    get = data_row.get
-    per_efficiency = min(get("per_efficiency") or 0.0, 125.0)
-    base_incentive = get("base_incentive") or 0.0
-    incentive_value = get(incentive_field) or 0.0
-    return flt((per_efficiency * incentive_value * base_incentive) / 100.0, 2)
+def compute_incentive(data_row, field_list=[]):
+    total_amount = 0
+    for each_field in field_list:
+        total_amount += data_row.get(each_field) or 0
+    return flt(total_amount, 2)
 
 
 def format_label(fieldname):
@@ -302,6 +531,15 @@ def process_rows(filters, data):
     efficiency_cap_counts = {}
 
     for each_data in data:
+        # calculate sold_hours_percentage
+        if each_data.get("sold_time") and each_data.get("available_hours"):
+            each_data["sold_hrs_percentage"] = flt(
+                (each_data.get("sold_time") / each_data.get("available_hours")) * 100.0,
+                3,
+            )
+        else:
+            each_data["sold_hrs_percentage"] = 0.0
+
         for each_group_rows in each_data.rows:
             totals_dict = each_group_rows.totals or {}
 
@@ -313,13 +551,140 @@ def process_rows(filters, data):
                 else:
                     ro_set.add(row.get("project"))
 
+            # Sold Hours Section
+            if totals_dict.get("sold_time") and totals_dict.get("available_hours"):
+                totals_dict["sold_hrs_percentage"] = flt(
+                    (totals_dict.get("sold_time") / totals_dict.get("available_hours"))
+                    * 100.0,
+                    3,
+                )
+            else:
+                totals_dict["sold_hrs_percentage"] = 0.0
+
+            sold_hrs_ladder_result = get_ladder_result(
+                based_on=filters.get("based_on"),
+                sold_hrs_percentage=totals_dict.get("sold_hrs_percentage"),
+                ladder_field="sold_hrs_ladder",
+                top_cap=125.0,
+            )
+
+            if sold_hrs_ladder_result:
+                sold_hrs_weightage_amount = (
+                    get_weightage_amount(
+                        based_on=filters.get("based_on"),
+                        base_incentive=filters.get("base_incentive"),
+                        field_name="sold_hrs",
+                    )
+                    or 0
+                )
+                totals_dict["sold_hrs_amt"] = flt(
+                    sold_hrs_weightage_amount * (sold_hrs_ladder_result / 100.0), 3
+                )
+            else:
+                totals_dict["sold_hrs_amt"] = 0
+
+            # Efficiency Section
+            efficiency_ladder_result = get_ladder_result(
+                based_on=filters.get("based_on"),
+                sold_hrs_percentage=totals_dict.get("per_efficiency"),
+                ladder_field="efficiency_ladder",
+                top_cap=125.0,
+            )
+            if efficiency_ladder_result:
+                efficiency_weightage_amount = (
+                    get_weightage_amount(
+                        based_on=filters.get("based_on"),
+                        base_incentive=filters.get("base_incentive"),
+                        field_name="efficiency",
+                    )
+                    or 0
+                )
+                totals_dict["efficiency_amt"] = flt(
+                    efficiency_weightage_amount * (efficiency_ladder_result / 100.0), 3
+                )
+            else:
+                totals_dict["efficiency_amt"] = 0
+
+            # Productivity Section
+            productivity_ladder_result = get_ladder_result(
+                based_on=filters.get("based_on"),
+                sold_hrs_percentage=totals_dict.get("per_productivity"),
+                ladder_field="productivity_ladder",
+                top_cap=125.0,
+            )
+            if productivity_ladder_result:
+                productivity_weightage_amount = (
+                    get_weightage_amount(
+                        based_on=filters.get("based_on"),
+                        base_incentive=filters.get("base_incentive"),
+                        field_name="productivity",
+                    )
+                    or 0
+                )
+                totals_dict["productivity_amt"] = flt(
+                    productivity_weightage_amount
+                    * (productivity_ladder_result / 100.0),
+                    3,
+                )
+            else:
+                totals_dict["productivity_amt"] = 0
+
+            # Proficiency Section
+            proficiency_ladder_result = get_ladder_result(
+                based_on=filters.get("based_on"),
+                sold_hrs_percentage=totals_dict.get("per_proficiency"),
+                ladder_field="proficiency_ladder",
+                top_cap=125.0,
+            )
+            if proficiency_ladder_result:
+                proficiency_weightage_amount = (
+                    get_weightage_amount(
+                        based_on=filters.get("based_on"),
+                        base_incentive=filters.get("base_incentive"),
+                        field_name="proficiency",
+                    )
+                    or 0
+                )
+                totals_dict["proficiency_amt"] = flt(
+                    proficiency_weightage_amount * (proficiency_ladder_result / 100.0),
+                    3,
+                )
+            else:
+                totals_dict["proficiency_amt"] = 0
+
             totals_dict["total_ro_count_non_qc"] = len(ro_set)
             totals_dict["total_qc_ro_count"] = len(qc_ro_set)
+            totals_dict["total_qc_ro_percentage"] = flt(
+                (len(qc_ro_set) / (len(ro_set) + len(qc_ro_set))) * 100.0, 3
+            )
+
+            # QC_RO Section
+            qc_ro_ladder_result = get_ladder_result(
+                based_on=filters.get("based_on"),
+                sold_hrs_percentage=totals_dict.get("total_qc_ro_percentage"),
+                ladder_field="qc_ro_ladder",
+                top_cap=125.0,
+            )
+            if qc_ro_ladder_result:
+                qc_ro_weightage_amount = (
+                    get_weightage_amount(
+                        based_on=filters.get("based_on"),
+                        base_incentive=filters.get("base_incentive"),
+                        field_name="qc_ro",
+                    )
+                    or 0
+                )
+                totals_dict["qc_ro_amt"] = flt(
+                    qc_ro_weightage_amount * (qc_ro_ladder_result / 100.0), 3
+                )
+            else:
+                totals_dict["qc_ro_amt"] = 0
 
             if totals_dict.get("_bold"):
                 totals_dict["_bold"] = 0
 
             if filters.get("based_on") == "Reporting Authority":
+                totals_dict["customer_feedback_amt"] = 0
                 reports_to = totals_dict.get("reports_to")
                 if reports_to and reports_to in feedback_map:
                     cfb = feedback_map[reports_to]
@@ -328,7 +693,32 @@ def process_rows(filters, data):
                         rating = flt(cfb.get("avg_rating"), 2)
                         totals_dict["customer_overall_rating"] = rating
                         totals_dict["customer_overall_rating_value"] = rating
+                        rating_out_of_five = flt((rating / 2) * 10.0, 2)
                         totals_dict["ro_count_cfb"] = cfb.get("ro_count")
+
+                        # CFB Section cfb_rate_ladder
+                        cfb_rate_ladder_result = get_rate_ladder_result(
+                            based_on=filters.get("based_on"),
+                            percentage=rating_out_of_five,
+                            ladder_field="cfb_rate_ladder",
+                            top_cap=5.0,
+                        )
+                        if cfb_rate_ladder_result:
+                            customer_feedback_weightage_amount = (
+                                get_weightage_amount(
+                                    based_on=filters.get("based_on"),
+                                    base_incentive=filters.get("base_incentive"),
+                                    field_name="customer_feedback",
+                                )
+                                or 0
+                            )
+                            totals_dict["customer_feedback_amt"] = flt(
+                                customer_feedback_weightage_amount
+                                * (cfb_rate_ladder_result / 100.0),
+                                3,
+                            )
+                        else:
+                            totals_dict["customer_feedback_amt"] = 0
 
             # filtering
             if filters.get("based_on") == "Reporting Authority":
@@ -349,52 +739,11 @@ def process_rows(filters, data):
 
             if efficiency_cap:
                 totals_dict["calculated_incentive"] = compute_incentive(
-                    totals_dict, efficiency_cap
+                    totals_dict,
+                    field_list=["productivity_amt", "efficiency_amt", "sold_hrs_amt"],
                 )
 
             yield totals_dict
 
     # return counts separately if needed
     yield {"_summary": efficiency_cap_counts}
-
-
-def calculate_total_summary(
-    total_data_length, efficiency_cap_counts, total_filtered_data_length, filters
-):
-    if filters.get("based_on") == "Team Lead":
-        total_data_length = total_data_length or 0.0
-    else:
-        total_data_length = total_filtered_data_length or 0.0
-
-    total_data_list = [
-        {
-            "label": frappe._("Total Count"),
-            "value": str(total_data_length),
-            "indicator": "red",
-            "datatype": "html",
-        }
-    ]
-
-    if efficiency_cap_counts:
-        # to make it in order added the INCENTIVE_FIELD_MAP keys
-        for each_ince in INCENTIVE_FIELD_MAP:
-            for each_key in efficiency_cap_counts:
-                if each_ince == each_key:
-                    percentage_calc = flt(
-                        ((efficiency_cap_counts.get(each_key) or 0) / total_data_length)
-                        * 100.0,
-                        2,
-                    )
-                    total_data_list.append(
-                        {
-                            "label": format_label("efficiency_" + each_key),
-                            "value": str(efficiency_cap_counts.get(each_key) or 0)
-                            + "("
-                            + str(percentage_calc)
-                            + "%"
-                            + ")",
-                            "indicator": "red",
-                            "datatype": "html",
-                        }
-                    )
-    return total_data_list
