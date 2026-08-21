@@ -444,11 +444,14 @@ def get_efficiency_cap(row_data):
     return None
 
 
-def compute_incentive(data_row, field_list=[]):
+def compute_incentive(data_row, based_on):
     total_amount = 0
-    for each_field in field_list:
-        total_amount += data_row.get(each_field) or 0
-    return flt(total_amount, 2)
+    if BASED_ON_TEMPLATE_DATA.get(based_on):
+        weightages = BASED_ON_TEMPLATE_DATA.get(based_on).get("weightages", {})
+        field_list = [key + "_amt" for key in weightages]
+        for each_field in field_list:
+            total_amount += data_row.get(each_field) or 0
+        return flt(total_amount, 2)
 
 
 def format_label(fieldname):
@@ -740,7 +743,7 @@ def process_rows(filters, data):
             if efficiency_cap:
                 totals_dict["calculated_incentive"] = compute_incentive(
                     totals_dict,
-                    field_list=["productivity_amt", "efficiency_amt", "sold_hrs_amt"],
+                    filters.get("based_on"),
                 )
 
             yield totals_dict
