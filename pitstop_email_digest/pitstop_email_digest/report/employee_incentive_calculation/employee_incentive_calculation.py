@@ -70,7 +70,7 @@ BASED_ON_TEMPLATE_DATA = {
         },
         "efficiency_ladder": {85: 0, 125: 85},
         "proficiency_ladder": {85: 0, 125: 85},
-        "qc_ro_ladder": {10: 0, 125: 10},
+        "qc_ro_ladder": {9.9: 0, 10: 100.0},
         "cfb_rate_ladder": {4.5: 0, 4.6: 100.0},
     },
 }
@@ -122,11 +122,11 @@ def execute(filters=None):
         filters.get("based_on"), "proficiency_ladder", "Proficiency %"
     )
 
-    qc_ro_ladder_html_table = generate_ladder_html(
-        filters.get("based_on"), "qc_ro_ladder", "QC RO %"
+    qc_ro_ladder_html_table = rate_based_generate_ladder_html(
+        filters.get("based_on"), "qc_ro_ladder", "QC RO", "%"
     )
     cfb_rate_ladder_html_table = rate_based_generate_ladder_html(
-        filters.get("based_on"), "cfb_rate_ladder", "QC RO %"
+        filters.get("based_on"), "cfb_rate_ladder", "Customer Feedback Rate"
     )
 
     summary_html = ""
@@ -662,11 +662,11 @@ def process_rows(filters, data):
             )
 
             # QC_RO Section
-            qc_ro_ladder_result = get_ladder_result(
+            qc_ro_ladder_result = get_rate_ladder_result(
                 based_on=filters.get("based_on"),
-                sold_hrs_percentage=totals_dict.get("total_qc_ro_percentage"),
+                percentage=totals_dict.get("total_qc_ro_percentage"),
                 ladder_field="qc_ro_ladder",
-                top_cap=125.0,
+                top_cap=10.0,
             )
             if qc_ro_ladder_result:
                 qc_ro_weightage_amount = (

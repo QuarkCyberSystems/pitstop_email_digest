@@ -132,7 +132,7 @@ def generate_ladder_html(based_on, ladder_field, header):
     return html
 
 
-def rate_based_generate_ladder_html(based_on, ladder_field, header):
+def rate_based_generate_ladder_html(based_on, ladder_field, header, symbol=""):
     from .employee_incentive_calculation import BASED_ON_TEMPLATE_DATA
 
     if not BASED_ON_TEMPLATE_DATA.get(based_on):
@@ -172,14 +172,14 @@ def rate_based_generate_ladder_html(based_on, ladder_field, header):
         <tbody>
             <tr>
                 <td style="border: 1px solid #ddd; padding: 8px;">
-                    <strong>{header}</strong>
+                    <strong>{header}{symbol}</strong>
                 </td>
     """
 
     for label in range_labels:
         html += f"""
                 <td style="border: 1px solid #ddd; padding: 8px;">
-                    {label}
+                    {label}{symbol}
                 </td>
         """
 
