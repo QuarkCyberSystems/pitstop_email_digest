@@ -126,7 +126,10 @@ fixtures = [
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/pitstop_email_digest/css/pitstop_email_digest.css"
+boot_session = "pitstop_email_digest.boot.boot.boot_session"
+update_website_context = ["pitstop_email_digest.boot.boot.update_website_context"]
 app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
+app_include_js = "/assets/pitstop_email_digest/js/env_banner.js"
 # app_include_js = "/assets/pitstop_email_digest/js/pitstop_email_digest.js"
 
 # include js, css files in header of web template
