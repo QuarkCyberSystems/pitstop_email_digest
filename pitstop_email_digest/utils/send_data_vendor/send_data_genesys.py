@@ -1,6 +1,7 @@
 import json
 
 import frappe
+from frappe.utils import evaluate_filters
 
 
 def send_data_genesys(doc, campaing_name=None, extra_key_args=None):
@@ -15,9 +16,6 @@ def send_data_genesys(doc, campaing_name=None, extra_key_args=None):
         send_campaign = True
         if campaign[0].filters:
             fitlers_dict = json.loads(campaign[0].filters)
-            for each_key in fitlers_dict:
-                if doc.get(each_key) != fitlers_dict.get(each_key):
-                    send_campaign = False
-                    break
+            send_campaign = evaluate_filters(doc, fitlers_dict)
         if send_campaign:
             settings.send_campaign(campaign, doc, extra_key_args)
