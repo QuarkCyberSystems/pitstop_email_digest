@@ -81,10 +81,7 @@ fixtures = [
                 [
                     "Company-branch_monthly_revenue_target",
                     "Project-job_type",
-                    "Asset-master_asset_section",
-                    "Asset-master_asset",
-                    "Asset-column_break_master_asset",
-                    "Asset-purchase_order",
+                    "Customer Feedback-brand",
                 ],
             ]
         ],
