@@ -53,6 +53,31 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			reqd: 0,
 		},
 	],
+	get_datatable_options(options) {
+		return Object.assign(options, {
+			hooks: {
+				columnTotal: function (values, column, type) {
+					if (
+						in_list(
+							[
+								"sold_hrs_percentage",
+								"customer_overall_rating",
+								"total_qc_ro_percentage",
+								"wip_average_age",
+								"per_productivity",
+								"per_efficiency",
+							],
+							column.column.fieldname
+						)
+					) {
+						return "";
+					} else {
+						return frappe.utils.report_column_total(values, column, type);
+					}
+				},
+			},
+		});
+	},
 	onload: function (report) {
 		frappe.breadcrumbs.add("HR");
 
