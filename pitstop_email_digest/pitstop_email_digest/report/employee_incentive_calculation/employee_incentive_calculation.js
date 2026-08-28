@@ -66,6 +66,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 								"wip_average_age",
 								"per_productivity",
 								"per_efficiency",
+								"per_proficiency",
 							],
 							column.column.fieldname
 						)
