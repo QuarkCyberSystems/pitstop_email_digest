@@ -34,7 +34,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			fieldname: "based_on",
 			label: __("Based On"),
 			fieldtype: "Select",
-			options: ["Technician", "Reporting Authority"], // "Reporting Manager"
+			options: ["Technician", "Reporting Authority", "Service Advisor"], // "Reporting Manager"
 			default: "Technician",
 			reqd: 1,
 			on_change: function () {
@@ -53,6 +53,32 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			reqd: 0,
 		},
 	],
+	get_datatable_options(options) {
+		return Object.assign(options, {
+			hooks: {
+				columnTotal: function (values, column, type) {
+					if (
+						in_list(
+							[
+								"sold_hrs_percentage",
+								"customer_overall_rating",
+								"total_qc_ro_percentage",
+								"wip_average_age",
+								"per_productivity",
+								"per_efficiency",
+								"per_proficiency",
+							],
+							column.column.fieldname
+						)
+					) {
+						return "";
+					} else {
+						return frappe.utils.report_column_total(values, column, type);
+					}
+				},
+			},
+		});
+	},
 	onload: function (report) {
 		frappe.breadcrumbs.add("HR");
 

@@ -5,6 +5,10 @@ import frappe
 from automotive.automotive.report.workshop_productivity.workshop_productivity import (
     WorkshopProductivityReport,
 )
+from automotive.automotive.report.workshop_turnover.workshop_turnover import (
+    WorkshopTurnoverReport,
+)
+from frappe.utils import getdate
 from frappe.utils.data import flt
 
 from .html_generator_employee_incentive_calculation import (
@@ -13,19 +17,12 @@ from .html_generator_employee_incentive_calculation import (
     rate_based_generate_ladder_html,
 )
 from .util_employee_incentive_calculation import (
+    compute_incentive,
     get_ladder_result,
     get_rate_ladder_result,
     get_weightage_amount,
+    service_advisor_process_rows,
 )
-
-INCENTIVE_FIELD_MAP = {
-    "base_incentive": (0, 0),
-    "below_85": (None, 85.0),
-    "between_85_and_100": (85.0, 100.0),
-    "between_100_and_115": (100.0, 115.0),
-    "between_115_and_125": (115.0, 125.0),
-    "above_125": (125.0, None),
-}
 
 BASED_ON_TEMPLATE_DATA = {
     "Technician": {
@@ -91,31 +88,43 @@ BASED_ON_TEMPLATE_DATA = {
         "qc_ro_ladder": {9.9: 0, 10: 100.0},
         "cfb_rate_ladder": {4.5: 0, 4.6: 100.0},
     },
+    "Service Advisor": {
+        "weightages": {"revenue": 45, "customer_feedback": 35, "wip_ageing": 20},
+        "revenue_ladder": {"Target Revenue": 100.0},
+        "wip_ageing_ladder": {45: 100.0, 46: 0.0},
+        "cfb_rate_ladder": {4.5: 0, 4.6: 100.0},
+    },
 }
 
 
 def execute(filters=None):
-    # filters["reporting_manager"] = 28864
+    workshop_turnover_report_data = []
+    data = []
+    columns = []
     if filters.get("based_on") == "Technician":
         filters["group_by_1"] = "Group by Technician/Bay/Equipment"
     elif filters.get("based_on") == "Reporting Authority":
         filters["group_by_1"] = "Group by Reporting Authority"
         filters["include_tasks"] = 1
+    elif filters.get("based_on") == "Service Advisor":
+        filters["group_by_1"] = "Group by Service Advisor"
+        filters["include_tasks"] = 1
+        workshop_turnover_report = WorkshopTurnoverReport(filters).run()
+        workshop_turnover_report_data = workshop_turnover_report[1]
+        columns = update_columns(filters, columns)
 
-    produtivity_report = WorkshopProductivityReport(filters).run()
-    columns = produtivity_report[0]
-    columns = update_columns(filters, columns)
-    data = produtivity_report[1]
-    generator = process_rows(filters, data)
+    # Productivity Report
+    if filters.get("based_on") != "Service Advisor":
+        produtivity_report = WorkshopProductivityReport(filters).run()
+        productivity_columns = produtivity_report[0]
+        columns = update_columns(filters, productivity_columns)
+        data = produtivity_report[1]
+    generator = process_rows(filters, data, workshop_turnover_report_data)
 
     filtered_data = []
-    total_data_length = 0
-    total_filtered_data_length = 0
     for row in generator:
-        total_data_length += 1
         if "_summary" in row:
             continue
-        total_filtered_data_length += 1
         filtered_data.append(row)
 
     summary_html = ""
@@ -143,8 +152,17 @@ def execute(filters=None):
     qc_ro_ladder_html_table = rate_based_generate_ladder_html(
         filters.get("based_on"), "qc_ro_ladder", "QC RO", "%"
     )
+
+    revenue_ladder_html_table = rate_based_generate_ladder_html(
+        filters.get("based_on"), "revenue_ladder", "Revenue"
+    )
+
     cfb_rate_ladder_html_table = rate_based_generate_ladder_html(
         filters.get("based_on"), "cfb_rate_ladder", "Customer Feedback Rate"
+    )
+
+    wip_ageing_ladder_html_table = rate_based_generate_ladder_html(
+        filters.get("based_on"), "wip_ageing_ladder", "Average WIP Ageing"
     )
 
     summary_html = ""
@@ -157,6 +175,8 @@ def execute(filters=None):
         or proficiency_ladder_html_table
         or qc_ro_ladder_html_table
         or cfb_rate_ladder_html_table
+        or wip_ageing_ladder_html_table
+        or revenue_ladder_html_table
     ):
         summary_html = """
         <table style="
@@ -187,6 +207,8 @@ def execute(filters=None):
             or proficiency_ladder_html_table
             or qc_ro_ladder_html_table
             or cfb_rate_ladder_html_table
+            or wip_ageing_ladder_html_table
+            or revenue_ladder_html_table
         ):
             summary_html += """
                 <td style="
@@ -249,14 +271,36 @@ def execute(filters=None):
                         {qc_ro_ladder_html_table}
                     </div>
                 """
+            # revenue_ladder_html_table
+            # Revenue Ladder
+            if revenue_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                        margin-bottom: 10px;
+                    ">
+                        {revenue_ladder_html_table}
+                    </div>
+                """
 
             # CFB Rate Ladder
             if cfb_rate_ladder_html_table:
                 summary_html += f"""
                     <div style="
                         width: 100%;
+                        margin-bottom: 10px;
                     ">
                         {cfb_rate_ladder_html_table}
+                    </div>
+                """
+
+            # CFB Rate Ladder
+            if wip_ageing_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                    ">
+                        {wip_ageing_ladder_html_table}
                     </div>
                 """
 
@@ -298,6 +342,7 @@ def update_columns(filters, columns):
             "subject",
             "reports_to",
             "reports_to_name",
+            "service_advisor",
         ]:
             each_column["hidden"] = 1
 
@@ -374,6 +419,45 @@ def update_columns(filters, columns):
                 "width": 150,
             },
         ],
+        "Service Advisor": [
+            {
+                "label": frappe._("Service Advisor"),
+                "fieldname": "service_advisor",
+                "fieldtype": "Link",
+                "options": "Sales Person",
+                "width": 150,
+            },
+            {
+                "label": "Avg. CFB",
+                "fieldname": "customer_overall_rating",
+                "fieldtype": "Rating",
+                "width": 200,
+            },
+            {
+                "label": "Sales Amount",
+                "fieldname": "total_sales_amount",
+                "fieldtype": "Currency",
+                "width": 100,
+            },
+            {
+                "label": "Target Revenue",
+                "fieldname": "sa_target_revenue",
+                "fieldtype": "Currency",
+                "width": 100,
+            },
+            {
+                "label": "WIP RO Count",
+                "fieldname": "wip_ro_count",
+                "fieldtype": "Int",
+                "width": 100,
+            },
+            {
+                "label": "WIP Average Age",
+                "fieldname": "wip_average_age",
+                "fieldtype": "Float",
+                "width": 100,
+            },
+        ],
     }
 
     employee_columns = columns_map.get(based_on, [])
@@ -393,16 +477,17 @@ def update_columns(filters, columns):
                 for field in BASED_ON_TEMPLATE_DATA.get(based_on).get("weightages")
             ]
 
-    columns.extend(
-        [
-            {
-                "label": "Sold Hrs. %",
-                "fieldname": "sold_hrs_percentage",
-                "fieldtype": "Float",
-                "width": 100,
-            }
-        ]
-    )
+    if based_on in ["Reporting Authority", "Technician"]:
+        columns.extend(
+            [
+                {
+                    "label": "Sold Hrs. %",
+                    "fieldname": "sold_hrs_percentage",
+                    "fieldtype": "Float",
+                    "width": 100,
+                }
+            ]
+        )
 
     if based_on == "Reporting Authority":
         columns.extend(
@@ -428,48 +513,6 @@ def update_columns(filters, columns):
         }
     )
     return columns
-
-
-def validate_efficiency_filter(filters, each_data):
-    filter_type = filters.get("efficiency_filter")
-    if not filter_type:
-        return True
-
-    if not filters.get(filter_type):
-        return False
-
-    efficiency = each_data.get("per_efficiency") or 0
-
-    min_val, max_val = INCENTIVE_FIELD_MAP.get(filter_type, (None, None))
-
-    if min_val is not None and efficiency < min_val:
-        return False
-
-    if max_val is not None and efficiency >= max_val:
-        return False
-
-    return True
-
-
-def get_efficiency_cap(row_data):
-    efficiency = row_data.get("per_efficiency") or 0
-    for key, (min_val, max_val) in INCENTIVE_FIELD_MAP.items():
-        if min_val is not None and efficiency < min_val:
-            continue
-        if max_val is not None and efficiency >= max_val:
-            continue
-        return key
-    return None
-
-
-def compute_incentive(data_row, based_on):
-    total_amount = 0
-    if BASED_ON_TEMPLATE_DATA.get(based_on):
-        weightages = BASED_ON_TEMPLATE_DATA.get(based_on).get("weightages", {})
-        field_list = [key + "_amt" for key in weightages]
-        for each_field in field_list:
-            total_amount += data_row.get(each_field) or 0
-        return flt(total_amount, 2)
 
 
 def format_label(fieldname):
@@ -504,8 +547,8 @@ def fetch_avg_customer_feed_back_overall(filters):
             round(avg(cbf_task_employee.overall_satisfaction_rating), 2) as avg_rating
         from (
             select distinct
-                te.reports_to,
-                te.reports_to_name,
+                tt3.reports_to,
+                tt3.reports_to_name,
                 tt3.project,
                 tcf.overall_satisfaction_rating
             from
@@ -522,15 +565,11 @@ def fetch_avg_customer_feed_back_overall(filters):
                 `tabCustomer Feedback` tcf
             on
             	tt3.project = tcf.project
-            join
-                tabEmployee te
-            on
-            	te.name = tt3.assigned_to
             where
                 tcf.status = 'Completed'
-                and te.reports_to != ""
+                and tt3.reports_to != ""
                 and tt.docstatus < 2
-                and te.reports_to is not null {condition}
+                and tt3.reports_to is not null {condition}
         ) cbf_task_employee
         group by
             cbf_task_employee.reports_to;
@@ -540,16 +579,135 @@ def fetch_avg_customer_feed_back_overall(filters):
     )
 
 
-def process_rows(filters, data):
+def fetch_avg_customer_feed_back_overall_service_advisor(filters):
+    condition_dict = {
+        "from_dt": filters.get("from_date"),
+        "to_dt": filters.get("to_date"),
+    }
+
+    return frappe.db.sql(
+        """
+        select
+            cbf_task_sa.service_advisor,
+            count(distinct cbf_task_sa.project) as ro_count,
+            round(avg(cbf_task_sa.overall_satisfaction_rating), 2) as avg_rating
+        from (
+            select distinct
+                p.service_advisor,
+                p.name as project,
+                tcf.overall_satisfaction_rating
+            from
+                `tabSales Invoice` si
+            join
+                `tabSales Invoice Item` sii
+            on
+                sii.parent = si.name
+            join
+                `tabProject` p
+            on
+                p.name = sii.project
+            join
+                `tabCustomer Feedback` tcf
+            on
+                p.name = tcf.project
+            where
+                tcf.status = 'Completed'
+                and p.service_advisor != ""
+                and p.service_advisor is not null
+                and si.docstatus = 1
+                and si.posting_date between %(from_dt)s and %(to_dt)s
+                and sii.project is not null
+                and sii.project != ""
+        ) cbf_task_sa
+        group by
+            cbf_task_sa.service_advisor;
+    """,
+        condition_dict,
+        as_dict=True,
+    )
+
+
+def fetch_target_sa(filters):
+    to_date = getdate(filters.get("to_date") or getdate())
+    year = to_date.year
+    month_field = to_date.strftime("%B").lower()
+
+    rows = frappe.db.sql(
+        f"""
+        select
+            td.service_advisor,
+            td.{month_field} as target_amount
+        from
+            `tabTarget Details` td
+        where
+            td.parent = 'Target Settings'
+            and td.parenttype = 'Target Settings'
+            and td.parentfield = 'service_advisor_targets'
+            and td.year = %(year)s
+            and td.service_advisor is not null
+            and td.service_advisor != ''
+        """,
+        {"year": year},
+        as_dict=True,
+    )
+
+    return {row.get("service_advisor"): flt(row.get("target_amount")) for row in rows}
+
+
+def fetch_wip_average_age_service_advisor(filters):
+    as_of = getdate(filters.get("to_date") or getdate())
+
+    return frappe.db.sql(
+        """
+        select
+            p.service_advisor,
+            count(p.name) as ro_count,
+            round(avg(datediff(%(as_of)s, date(p.project_date))), 2) as average_wip_age
+        from
+            `tabProject` p
+        where
+            p.status != 'Cancelled'
+            and p.project_status != 'Completed'
+            and p.service_advisor is not null
+            and p.service_advisor != ''
+            and p.project_date <= %(as_of)s
+        group by
+            p.service_advisor;
+        """,
+        {"as_of": as_of},
+        as_dict=True,
+    )
+
+
+def process_rows(filters, data, workshop_turnover_report_data=None):
     qc_task_types = set(
         frappe.get_all("Task Type", filters={"name": ["like", "%QC%"]}, pluck="name")
     )
 
     if filters.get("based_on") == "Reporting Authority":
         customer_feed_back = fetch_avg_customer_feed_back_overall(filters) or []
-        feedback_map = {d.get("reports_to"): d for d in customer_feed_back}
+        reporting_authority_feedback_map = {
+            d.get("reports_to"): d for d in customer_feed_back
+        }
 
-    efficiency_cap_counts = {}
+    if filters.get("based_on") == "Service Advisor":
+        customer_feed_back = (
+            fetch_avg_customer_feed_back_overall_service_advisor(filters) or []
+        )
+        service_advisor_feedback_map = {
+            d.get("service_advisor"): d for d in customer_feed_back
+        }
+        wip_average_age_sa = fetch_wip_average_age_service_advisor(filters) or []
+        target_sa = fetch_target_sa(filters)
+
+        if workshop_turnover_report_data:
+            yield from service_advisor_process_rows(
+                filters,
+                workshop_turnover_report_data,
+                service_advisor_feedback_map,
+                wip_average_age_sa,
+                target_sa,
+            )
 
     for each_data in data:
         # calculate sold_hours_percentage
@@ -707,8 +865,8 @@ def process_rows(filters, data):
             if filters.get("based_on") == "Reporting Authority":
                 totals_dict["customer_feedback_amt"] = 0
                 reports_to = totals_dict.get("reports_to")
-                if reports_to and reports_to in feedback_map:
-                    cfb = feedback_map[reports_to]
+                if reports_to and reports_to in reporting_authority_feedback_map:
+                    cfb = reporting_authority_feedback_map[reports_to]
 
                     if cfb.get("avg_rating"):
                         rating = flt(cfb.get("avg_rating"), 2)
@@ -746,25 +904,9 @@ def process_rows(filters, data):
                 if not totals_dict.get("reports_to"):
                     continue
 
-            if not validate_efficiency_filter(filters, totals_dict):
-                continue
-
-            for field in INCENTIVE_FIELD_MAP:
-                if filters.get(field):
-                    totals_dict[field] = filters.get(field)
-
-            efficiency_cap = get_efficiency_cap(totals_dict)
-            efficiency_cap_counts[efficiency_cap] = (
-                efficiency_cap_counts.get(efficiency_cap, 0) + 1
+            totals_dict["calculated_incentive"] = compute_incentive(
+                totals_dict,
+                filters.get("based_on"),
             )
 
-            if efficiency_cap:
-                totals_dict["calculated_incentive"] = compute_incentive(
-                    totals_dict,
-                    filters.get("based_on"),
-                )
-
             yield totals_dict
-
-    # return counts separately if needed
-    yield {"_summary": efficiency_cap_counts}
