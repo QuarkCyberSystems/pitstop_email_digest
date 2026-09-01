@@ -62,11 +62,17 @@ def service_advisor_process_rows(
     service_advisor_feedback_map,
     wip_average_age_sa,
     target_sa,
+    allowed_service_advisors=None,
 ):
     for each_turnover_data in workshop_turnover_report_data:
         for each_group_data in each_turnover_data.rows:
             totals_dict = each_group_data.totals
             if not totals_dict.get("service_advisor"):
+                continue
+            if (
+                allowed_service_advisors is not None
+                and totals_dict.get("service_advisor") not in allowed_service_advisors
+            ):
                 continue
             totals_dict["customer_feedback_amt"] = 0.0
             totals_dict["wip_ageing_amt"] = 0.0

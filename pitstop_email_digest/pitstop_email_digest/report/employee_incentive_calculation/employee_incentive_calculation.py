@@ -627,6 +627,31 @@ def fetch_avg_customer_feed_back_overall_service_advisor(filters):
     )
 
 
+def fetch_service_advisors_by_designation():
+    settings = frappe.get_cached_doc("Incentive Calculation Setttings")
+    designations = [
+        d.designation
+        for d in (settings.service_advisor_designation or [])
+        if d.designation
+    ]
+    if not designations:
+        return None
+
+    rows = frappe.db.sql(
+        """
+        select sp.name
+        from `tabSales Person` sp
+        inner join `tabEmployee` emp on emp.user_id = sp.user_id
+        where sp.is_service_advisor = 1
+          and sp.enabled = 1
+          and emp.designation in %(designations)s
+        """,
+        {"designations": tuple(designations)},
+        as_dict=True,
+    )
+    return {row.name for row in rows}
+
+
 def fetch_target_sa(filters):
     to_date = getdate(filters.get("to_date") or getdate())
     year = to_date.year
@@ -699,6 +724,7 @@ def process_rows(filters, data, workshop_turnover_report_data=None):
         }
         wip_average_age_sa = fetch_wip_average_age_service_advisor(filters) or []
         target_sa = fetch_target_sa(filters)
+        allowed_service_advisors = fetch_service_advisors_by_designation()
 
         if workshop_turnover_report_data:
             yield from service_advisor_process_rows(
@@ -707,6 +733,7 @@ def process_rows(filters, data, workshop_turnover_report_data=None):
                 service_advisor_feedback_map,
                 wip_average_age_sa,
                 target_sa,
+                allowed_service_advisors,
             )
 
     for each_data in data:
