@@ -34,7 +34,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			fieldname: "based_on",
 			label: __("Based On"),
 			fieldtype: "Select",
-			options: ["Technician", "Reporting Authority", "Service Advisor"], // "Reporting Manager"
+			options: ["Technician", "Reporting Authority", "Service Advisor"], // "Job Controller"
 			default: "Technician",
 			reqd: 1,
 			on_change: function () {

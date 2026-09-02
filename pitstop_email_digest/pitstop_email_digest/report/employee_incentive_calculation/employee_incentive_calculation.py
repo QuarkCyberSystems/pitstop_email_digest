@@ -94,6 +94,30 @@ BASED_ON_TEMPLATE_DATA = {
         "wip_ageing_ladder": {45: 100.0, 46: 0.0},
         "cfb_rate_ladder": {4.5: 0, 4.6: 100.0},
     },
+    "Job Controller": {
+        "weightages": {
+            "idle_time": 40,
+            "productivity": 30,
+            "wip_ageing": 20,
+            "key_to_key": 10,
+        },
+        "idle_time_ladder": {14.9: 100.0, 15.0: 0.0},
+        "productivity_ladder": {
+            85: 0,
+            90: 85,
+            95: 90,
+            100: 95,
+            105: 100,
+            110: 105,
+            115: 110,
+            125: 115,
+        },
+        "wip_ageing_ladder": {44.9: 100.0, 45.0: 0.0},
+        "key_to_key_mechanical_ladder": {1.9: 100.0, 2.0: 0.0},
+        "key_to_key_bodyshop_ladder": {10.9: 100.0, 11.0: 0.0},
+        # "productivity_ladder": {45: 100.0, 46: 0.0},
+        # "wip_ageing_ladder": {4.5: 0, 4.6: 100.0},
+    },
 }
 
 
@@ -165,6 +189,18 @@ def execute(filters=None):
         filters.get("based_on"), "wip_ageing_ladder", "Average WIP Ageing"
     )
 
+    idle_time_ladder_html_table = rate_based_generate_ladder_html(
+        filters.get("based_on"), "idle_time_ladder", "Idle", "%"
+    )
+
+    key_to_key_mechanical_ladder_html_table = rate_based_generate_ladder_html(
+        filters.get("based_on"), "key_to_key_mechanical_ladder", "K2K Mechanical"
+    )
+
+    key_to_key_bodyshop_ladder_html_table = rate_based_generate_ladder_html(
+        filters.get("based_on"), "key_to_key_bodyshop_ladder", "K2K Bodyshop"
+    )
+
     summary_html = ""
 
     if (
@@ -177,6 +213,9 @@ def execute(filters=None):
         or cfb_rate_ladder_html_table
         or wip_ageing_ladder_html_table
         or revenue_ladder_html_table
+        or idle_time_ladder_html_table
+        or key_to_key_mechanical_ladder_html_table
+        or key_to_key_bodyshop_ladder_html_table
     ):
         summary_html = """
         <table style="
@@ -209,6 +248,9 @@ def execute(filters=None):
             or cfb_rate_ladder_html_table
             or wip_ageing_ladder_html_table
             or revenue_ladder_html_table
+            or idle_time_ladder_html_table
+            or key_to_key_mechanical_ladder_html_table
+            or key_to_key_bodyshop_ladder_html_table
         ):
             summary_html += """
                 <td style="
@@ -245,6 +287,7 @@ def execute(filters=None):
                 summary_html += f"""
                     <div style="
                         width: 100%;
+                        margin-bottom: 10px;
                     ">
                         {productivity_ladder_html_table}
                     </div>
@@ -299,8 +342,39 @@ def execute(filters=None):
                 summary_html += f"""
                     <div style="
                         width: 100%;
+                        margin-bottom: 10px;
                     ">
                         {wip_ageing_ladder_html_table}
+                    </div>
+                """
+
+            if idle_time_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                        margin-bottom: 10px;
+                    ">
+                        {idle_time_ladder_html_table}
+                    </div>
+                """
+
+            if key_to_key_mechanical_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                        margin-bottom: 10px;
+                    ">
+                        {key_to_key_mechanical_ladder_html_table}
+                    </div>
+                """
+
+            if key_to_key_bodyshop_ladder_html_table:
+                summary_html += f"""
+                    <div style="
+                        width: 100%;
+                        margin-bottom: 10px;
+                    ">
+                        {key_to_key_bodyshop_ladder_html_table}
                     </div>
                 """
 
@@ -311,6 +385,43 @@ def execute(filters=None):
         summary_html += """
             </tr>
         </table>
+        """
+
+        summary_html = f"""
+        <details style="
+            border: 1px solid #d1d8dd;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 10px;
+            background: #fafbfc;
+        ">
+            <summary style="
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 14px;
+                color: #1f272e;
+                list-style: none;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                user-select: none;
+            ">
+                <span class="incentive-summary-caret" style="
+                    display: inline-block;
+                    transition: transform 0.15s ease;
+                ">&#9656;</span>
+                Incentive Calculation Criteria
+            </summary>
+            <style>
+                details[open] .incentive-summary-caret {{
+                    transform: rotate(90deg);
+                }}
+                summary::-webkit-details-marker {{ display: none; }}
+            </style>
+            <div style="margin-top: 10px;">
+                {summary_html}
+            </div>
+        </details>
         """
 
     return (
