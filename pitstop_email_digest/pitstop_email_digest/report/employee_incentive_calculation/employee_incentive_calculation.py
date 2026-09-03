@@ -11,6 +11,10 @@ from automotive.automotive.report.workshop_turnover.workshop_turnover import (
 from frappe.utils import getdate
 from frappe.utils.data import flt
 
+from pitstop_email_digest.pitstop_email_digest.report.key_to_key_report.key_to_key_report import (
+    VehicleKeyToKeyReport,
+)
+
 from .html_generator_employee_incentive_calculation import (
     generate_ladder_html,
     generate_weightage_table,
@@ -192,6 +196,9 @@ class EmployeeIncentiveCalculationReport:
         elif based_on == "Service Advisor":
             self.filters["group_by_1"] = "Group by Service Advisor"
             self.filters["include_tasks"] = 1
+        elif based_on == "Job Controller":
+            self.filters["group_by_1"] = "Group by Job Controller"
+            self.filters["include_tasks"] = 1
 
     def _load_source_reports(self):
         based_on = self.filters.get("based_on")
@@ -358,6 +365,48 @@ class EmployeeIncentiveCalculationReport:
                 }
             )
 
+        if based_on == "Job Controller":
+            columns.append(
+                {
+                    "label": "Idle %",
+                    "fieldname": "total_idle_percentage",
+                    "fieldtype": "Percentage",
+                    "width": 100,
+                }
+            )
+            columns.append(
+                {
+                    "label": "WIP RO Count",
+                    "fieldname": "wip_ro_count",
+                    "fieldtype": "Int",
+                    "width": 100,
+                }
+            )
+            columns.append(
+                {
+                    "label": "WIP Average Age",
+                    "fieldname": "wip_average_age",
+                    "fieldtype": "Float",
+                    "width": 100,
+                }
+            )
+            columns.append(
+                {
+                    "label": "K2K Bodyshop Avg. Age",
+                    "fieldname": "key_to_key_duration_bodyshop",
+                    "fieldtype": "Int",
+                    "width": 100,
+                }
+            )
+            columns.append(
+                {
+                    "label": "K2K Mechanical Avg. Age",
+                    "fieldname": "key_to_key_duration_mechanical",
+                    "fieldtype": "Int",
+                    "width": 100,
+                }
+            )
+
         if incentive_columns:
             columns.extend(incentive_columns)
 
@@ -395,6 +444,14 @@ class EmployeeIncentiveCalculationReport:
             self.target_sa = self._fetch_service_advisor_targets()
             self.allowed_service_advisors = (
                 self._fetch_service_advisors_by_designation()
+            )
+        elif based_on == "Job Controller":
+            self.wip_average_age_jc = self._fetch_job_controller_wip_age() or []
+            self._fetch_job_controller_key_to_key_mechanical = (
+                self._fetch_job_controller_key_to_key("Mechanical")
+            )
+            self._fetch_job_controller_key_to_key_bodyshop = (
+                self._fetch_job_controller_key_to_key("Body Shop")
             )
 
     def _fetch_reporting_authority_feedback(self):
@@ -568,6 +625,35 @@ class EmployeeIncentiveCalculationReport:
             as_dict=True,
         )
 
+    def _fetch_job_controller_wip_age(self):
+        as_of = getdate(self.filters.get("to_date") or getdate())
+
+        return frappe.db.sql(
+            """
+            select
+                p.job_controller,
+                count(p.name) as ro_count,
+                round(avg(datediff(%(as_of)s, date(p.project_date))), 2) as average_wip_age
+            from
+                `tabProject` p
+            where
+                p.status != 'Cancelled'
+                and p.project_status != 'Completed'
+                and p.job_controller is not null
+                and p.job_controller != ''
+                and p.project_date <= %(as_of)s
+            group by
+                p.job_controller;
+            """,
+            {"as_of": as_of},
+            as_dict=True,
+        )
+
+    def _fetch_job_controller_key_to_key(self, workshop_division):
+        self.filters["workshop_division"] = workshop_division
+        key_to_key_report = VehicleKeyToKeyReport(self.filters).run()
+        return key_to_key_report[1]
+
     def _process_rows(self):
         based_on = self.filters.get("based_on")
 
@@ -634,6 +720,120 @@ class EmployeeIncentiveCalculationReport:
                     self._compute_reporting_authority_feedback(totals_dict)
                     if not totals_dict.get("reports_to"):
                         continue
+
+                if based_on == "Job Controller":
+                    if not totals_dict.get("job_controller"):
+                        continue
+                    totals_dict["total_idle_percentage"] = flt(
+                        (
+                            flt(
+                                flt(totals_dict.get("available_hours"))
+                                - flt(totals_dict.get("actual_time"))
+                                - flt(totals_dict.get("out_of_shift_hours"))
+                            )
+                            / flt(totals_dict.get("available_hours"))
+                        )
+                        * 100.0,
+                        3,
+                    )
+                    self._compute_idle_amount(totals_dict)
+                    job_controller = totals_dict.get("job_controller")
+                    totals_dict["wip_ageing_amt"] = 0.0
+                    totals_dict["wip_ro_count"] = 0
+
+                    for each_job_controller_wip_average_age in self.wip_average_age_jc:
+                        if (
+                            each_job_controller_wip_average_age.get("job_controller")
+                            == job_controller
+                        ):
+                            totals_dict["wip_average_age"] = flt(
+                                each_job_controller_wip_average_age.get(
+                                    "average_wip_age"
+                                )
+                            )
+                            totals_dict["wip_ro_count"] = flt(
+                                each_job_controller_wip_average_age.get("ro_count")
+                            )
+                            if flt(totals_dict["wip_average_age"]) <= 46.0:
+                                wip_average_age_weightage_amount = (
+                                    get_weightage_amount(
+                                        based_on=self.filters.get("based_on"),
+                                        base_incentive=self.filters.get(
+                                            "base_incentive"
+                                        ),
+                                        field_name="wip_ageing",
+                                    )
+                                    or 0
+                                )
+                                totals_dict["wip_ageing_amt"] = flt(
+                                    wip_average_age_weightage_amount,
+                                    3,
+                                )
+                                break
+                    else:
+                        totals_dict["wip_ro_count"] = 0
+                        totals_dict["wip_average_age"] = 0.0
+                        wip_average_age_weightage_amount = (
+                            get_weightage_amount(
+                                based_on=self.filters.get("based_on"),
+                                base_incentive=self.filters.get("base_incentive"),
+                                field_name="wip_ageing",
+                            )
+                            or 0
+                        )
+                        totals_dict["wip_ageing_amt"] = flt(
+                            wip_average_age_weightage_amount,
+                            3,
+                        )
+                    total_age_key_to_key_bodyshop = 0
+                    total_number_of_key_to_key_ro_bodyshop = len(
+                        self._fetch_job_controller_key_to_key_bodyshop
+                    )
+                    for (
+                        each_job_controller_key_to_key_bodyshop
+                    ) in self._fetch_job_controller_key_to_key_bodyshop:
+                        if (
+                            each_job_controller_key_to_key_bodyshop.get(
+                                "job_controller"
+                            )
+                            == job_controller
+                        ):
+                            total_age_key_to_key_bodyshop += (
+                                int(each_job_controller_key_to_key_bodyshop.get("age"))
+                                if each_job_controller_key_to_key_bodyshop.get("age")
+                                else 0
+                            )
+                    else:
+                        totals_dict["key_to_key_duration_bodyshop"] = int(
+                            total_age_key_to_key_bodyshop
+                            / total_number_of_key_to_key_ro_bodyshop
+                        )
+
+                    total_age_key_to_key_mechanical = 0
+                    total_number_of_key_to_key_ro_mechanical = len(
+                        self._fetch_job_controller_key_to_key_mechanical
+                    )
+                    for (
+                        each_job_controller_key_to_key_mechanical
+                    ) in self._fetch_job_controller_key_to_key_mechanical:
+                        if (
+                            each_job_controller_key_to_key_mechanical.get(
+                                "job_controller"
+                            )
+                            == job_controller
+                        ):
+                            total_age_key_to_key_mechanical += (
+                                int(
+                                    each_job_controller_key_to_key_mechanical.get("age")
+                                )
+                                if each_job_controller_key_to_key_mechanical.get("age")
+                                else 0
+                            )
+                    else:
+                        totals_dict["key_to_key_duration_mechanical"] = int(
+                            total_age_key_to_key_bodyshop
+                            / total_number_of_key_to_key_ro_mechanical
+                        )
 
                 totals_dict["calculated_incentive"] = compute_incentive(
                     totals_dict, based_on
@@ -719,6 +919,20 @@ class EmployeeIncentiveCalculationReport:
             )
         else:
             totals["qc_ro_amt"] = 0
+
+    def _compute_idle_amount(self, totals):
+        result = get_rate_ladder_result(
+            based_on=self.filters.get("based_on"),
+            percentage=totals.get("total_idle_percentage"),
+            ladder_field="idle_time_ladder",
+            top_cap=10.0,
+        )
+        if result:
+            totals["idle_time_amt"] = flt(
+                self._weightage_amount("idle_time") * (result / 100.0), 3
+            )
+        else:
+            totals["idle_time_amt"] = 0
 
     def _compute_reporting_authority_feedback(self, totals):
         totals["customer_feedback_amt"] = 0
