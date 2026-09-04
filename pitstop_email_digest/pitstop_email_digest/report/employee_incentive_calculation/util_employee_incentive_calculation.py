@@ -177,4 +177,7 @@ def service_advisor_process_rows(
                 filters.get("based_on"),
             )
 
+            if totals_dict.get("_bold"):
+                totals_dict["_bold"] = 0
+
             yield totals_dict

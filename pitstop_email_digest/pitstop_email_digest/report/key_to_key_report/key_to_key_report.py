@@ -81,7 +81,7 @@ class VehicleKeyToKeyReport(object):
 				p.customer, p.customer_group,
 				p.customer_name, p.bill_to, p.bill_to_name,
 				p.contact_mobile, p.contact_mobile_2, p.contact_phone,
-				p.applies_to_vehicle, p.service_advisor, p.service_manager,
+				p.applies_to_vehicle, p.service_advisor, p.service_manager, p.job_controller, p.job_controller_name,
 				p.applies_to_item, p.applies_to_item_name, p.applies_to_variant_of, p.applies_to_variant_of_name,
 				p.vehicle_license_plate, p.vehicle_chassis_no, p.vehicle_engine_no, p.vehicle_unregistered, p.vehicle_color,
 				p.vehicle_received_date, p.vehicle_received_time,
@@ -293,6 +293,19 @@ class VehicleKeyToKeyReport(object):
                 "fieldname": "service_advisor",
                 "fieldtype": "Link",
                 "options": "Sales Person",
+                "width": 120,
+            },
+            {
+                "label": _("Job Controller ID"),
+                "fieldname": "job_controller",
+                "fieldtype": "Link",
+                "options": "Employee",
+                "width": 120,
+            },
+            {
+                "label": _("Job Controller"),
+                "fieldname": "job_controller_name",
+                "fieldtype": "Data",
                 "width": 120,
             },
             {

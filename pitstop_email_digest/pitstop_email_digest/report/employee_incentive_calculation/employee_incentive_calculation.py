@@ -834,6 +834,7 @@ class EmployeeIncentiveCalculationReport:
                             total_age_key_to_key_bodyshop
                             / total_number_of_key_to_key_ro_mechanical
                         )
+                    self._compute_key_to_key_amount(totals_dict)
 
                 totals_dict["calculated_incentive"] = compute_incentive(
                     totals_dict, based_on
@@ -933,6 +934,31 @@ class EmployeeIncentiveCalculationReport:
             )
         else:
             totals["idle_time_amt"] = 0
+
+    def _compute_key_to_key_amount(self, totals):
+        totals["key_to_key_amt"] = 0.0
+        bodyshop_result = get_rate_ladder_result(
+            based_on=self.filters.get("based_on"),
+            percentage=totals.get("key_to_key_duration_bodyshop"),
+            ladder_field="key_to_key_bodyshop_ladder",
+            top_cap=10.0,
+        )
+        if bodyshop_result:
+            totals["key_to_key_amt"] = flt(
+                self._weightage_amount("key_to_key") * (bodyshop_result / 100.0), 3
+            )
+        else:
+            mechanical_result = get_rate_ladder_result(
+                based_on=self.filters.get("based_on"),
+                percentage=totals.get("key_to_key_duration_mechanical"),
+                ladder_field="key_to_key_mechanical_ladder",
+                top_cap=10.0,
+            )
+            if mechanical_result:
+                totals["key_to_key_amt"] = flt(
+                    self._weightage_amount("key_to_key") * (mechanical_result / 100.0),
+                    3,
+                )
 
     def _compute_reporting_authority_feedback(self, totals):
         totals["customer_feedback_amt"] = 0
