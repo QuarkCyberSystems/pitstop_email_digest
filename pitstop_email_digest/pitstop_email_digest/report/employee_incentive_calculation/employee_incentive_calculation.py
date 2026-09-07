@@ -95,9 +95,18 @@ BASED_ON_TEMPLATE_DATA = {
     },
     "Service Advisor": {
         "weightages": {"revenue": 45, "customer_feedback": 35, "wip_ageing": 20},
-        "revenue_ladder": {"Target Revenue": 100.0},
+        "revenue_ladder": {
+            85: 0,
+            90: 85,
+            95: 90,
+            100: 95,
+            105: 100,
+            110: 105,
+            115: 110,
+            125: 115,
+        },
         "wip_ageing_ladder": {45: 100.0, 46: 0.0},
-        "cfb_rate_ladder": {4.5: 0, 4.6: 100.0},
+        "cfb_rate_ladder": {4.5: 0, 4.6: 100.0, 5.0: 125.0},
     },
     "Job Controller": {
         "weightages": {
@@ -1236,7 +1245,7 @@ class EmployeeIncentiveCalculationReport:
             ("productivity_ladder", "Productivity %", "percent", None),
             ("proficiency_ladder", "Proficiency %", "percent", None),
             ("qc_ro_ladder", "QC RO", "rate", "%"),
-            ("revenue_ladder", "Revenue", "rate", None),
+            ("revenue_ladder", "Revenue %", "percent", None),
             ("cfb_rate_ladder", "Customer Feedback Rate", "rate", None),
             ("wip_ageing_ladder", "Average WIP Ageing", "rate", None),
             ("idle_time_ladder", "Idle", "rate", "%"),

@@ -154,9 +154,28 @@ def service_advisor_process_rows(
                 totals_dict["sa_target_revenue"] = 0.0
 
             # Revenue section
-            if flt(totals_dict.get("sa_target_revenue")) <= flt(
-                totals_dict.get("total_sales_amount")
-            ):
+            totals_dict["revenue_amt"] = 0.0
+            revenue_percentage = (
+                flt(
+                    (
+                        flt(totals_dict.get("total_sales_amount"))
+                        / flt(totals_dict.get("sa_target_revenue"))
+                    )
+                    * 100.0,
+                    3,
+                )
+                if flt(totals_dict.get("sa_target_revenue"))
+                else 0.0
+            )
+
+            revenue_ladder_result = get_ladder_result(
+                based_on=filters.get("based_on"),
+                sold_hrs_percentage=revenue_percentage,
+                ladder_field="revenue_ladder",
+                top_cap=125.0,
+            )
+
+            if revenue_ladder_result:
                 revenue_weightage_amount = (
                     get_weightage_amount(
                         based_on=filters.get("based_on"),
@@ -166,11 +185,9 @@ def service_advisor_process_rows(
                     or 0
                 )
                 totals_dict["revenue_amt"] = flt(
-                    revenue_weightage_amount,
+                    revenue_weightage_amount * (revenue_ladder_result / 100.0),
                     3,
                 )
-            else:
-                totals_dict["revenue_amt"] = 0.0
 
             totals_dict["calculated_incentive"] = compute_incentive(
                 totals_dict,
