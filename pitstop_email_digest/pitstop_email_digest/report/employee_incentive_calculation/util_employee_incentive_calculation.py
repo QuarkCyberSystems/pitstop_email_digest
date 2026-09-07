@@ -181,3 +181,163 @@ def service_advisor_process_rows(
                 totals_dict["_bold"] = 0
 
             yield totals_dict
+
+
+def quality_control_process_rows(
+    filters,
+    data,
+    quality_controller_feedback_map,
+    qc_task_types,
+    qc_technicians=None,
+):
+    for each_data in data:
+        if not each_data.get("rows"):
+            continue
+
+        for each_group_rows in each_data.rows:
+            totals_dict = each_group_rows.totals or {}
+
+            if qc_technicians:
+                assignee = each_group_rows.get("employee") or totals_dict.get(
+                    "employee"
+                )
+                if assignee not in qc_technicians:
+                    continue
+                totals_dict["customer_feedback_amt"] = 0.0
+                if assignee and assignee in quality_controller_feedback_map:
+                    cfb = quality_controller_feedback_map[assignee]
+
+                    if cfb.get("avg_rating"):
+                        rating = flt(cfb.get("avg_rating"), 2)
+                        totals_dict["customer_overall_rating"] = rating
+                        totals_dict["customer_overall_rating_value"] = rating
+                        rating_out_of_five = flt((rating / 2) * 10.0, 2)
+                        totals_dict["ro_count_cfb"] = cfb.get("ro_count")
+
+                        # CFB Section cfb_rate_ladder
+                        cfb_rate_ladder_result = get_rate_ladder_result(
+                            based_on=filters.get("based_on"),
+                            percentage=rating_out_of_five,
+                            ladder_field="cfb_rate_ladder",
+                            top_cap=5.0,
+                        )
+
+                        if cfb_rate_ladder_result:
+                            customer_feedback_weightage_amount = (
+                                get_weightage_amount(
+                                    based_on=filters.get("based_on"),
+                                    base_incentive=filters.get("base_incentive"),
+                                    field_name="customer_feedback",
+                                )
+                                or 0
+                            )
+                            totals_dict["customer_feedback_amt"] = flt(
+                                customer_feedback_weightage_amount
+                                * (cfb_rate_ladder_result / 100.0),
+                                3,
+                            )
+
+            all_ro = set()
+            ro_with_qc = set()
+            qc_invoice_ro = set()
+            comeback_ro = set()
+
+            for row in each_group_rows.rows or []:
+                repair_order = row.get("project")
+                if not repair_order:
+                    continue
+
+                all_ro.add(repair_order)
+
+                if row.get("task_type") in qc_task_types:
+                    ro_with_qc.add(repair_order)
+
+                if (
+                    (row.get("task_type") in qc_task_types)
+                    and flt(row.get("billed_amount"))
+                ) > 0:
+                    qc_invoice_ro.add(repair_order)
+
+                if row.get("service_type") == "Comeback":
+                    comeback_ro.add(repair_order)
+
+            qc_projects = ro_with_qc
+            non_qc_projects = all_ro - ro_with_qc
+
+            total_ro = len(all_ro)
+            total_qc_ro = len(qc_projects)
+            total_comeback_ro = len(comeback_ro)
+            totals_dict["total_qc_ro_count"] = total_qc_ro
+            totals_dict["total_ro_count_non_qc"] = len(non_qc_projects)
+            totals_dict["total_qc_invoice_ro_count"] = len(qc_invoice_ro)
+            totals_dict["total_comeback_ro_count"] = len(comeback_ro)
+            totals_dict["total_ro_count"] = total_ro
+
+            # Invoiced RO% QC Invoiced
+            totals_dict["qc_ro_amt"] = 0.0
+            percentage_of_invoiced_qc_ro = (
+                flt((len(qc_invoice_ro) / total_qc_ro) * 100, 3) if total_qc_ro else 0.0
+            )
+
+            qc_ro_ladder_result = get_rate_ladder_result(
+                based_on=filters.get("based_on"),
+                percentage=percentage_of_invoiced_qc_ro,
+                ladder_field="qc_ro_ladder",
+                top_cap=5.0,
+            )
+
+            if qc_ro_ladder_result:
+                qc_ro_weightage_amount = (
+                    get_weightage_amount(
+                        based_on=filters.get("based_on"),
+                        base_incentive=filters.get("base_incentive"),
+                        field_name="qc_ro",
+                    )
+                    or 0
+                )
+                totals_dict["qc_ro_amt"] = flt(
+                    qc_ro_weightage_amount * (qc_ro_ladder_result / 100.0),
+                    3,
+                )
+
+            # Comeback RO% From Total RO
+            totals_dict["come_back_ro_amt"] = 0.0
+            percentage_of_comeback_ro = (
+                flt((total_comeback_ro / total_ro) * 100, 3) if total_ro else 0.0
+            )
+
+            come_back_ro_ladder_result = get_rate_ladder_result(
+                based_on=filters.get("based_on"),
+                percentage=percentage_of_comeback_ro,
+                ladder_field="come_back_ro_ladder",
+                top_cap=5.0,
+            )
+
+            if come_back_ro_ladder_result:
+                come_back_ro_weightage_amount = (
+                    get_weightage_amount(
+                        based_on=filters.get("based_on"),
+                        base_incentive=filters.get("base_incentive"),
+                        field_name="come_back_ro",
+                    )
+                    or 0
+                )
+                totals_dict["come_back_ro_amt"] = flt(
+                    come_back_ro_weightage_amount
+                    * (come_back_ro_ladder_result / 100.0),
+                    3,
+                )
+
+            totals_dict["total_qc_ro_percentage"] = (
+                flt((len(qc_projects) / total_ro) * 100.0, 3) if total_ro else 0.0
+            )
+
+            if totals_dict.get("_bold"):
+                totals_dict["_bold"] = 0
+
+            totals_dict["calculated_incentive"] = compute_incentive(
+                totals_dict,
+                filters.get("based_on"),
+            )
+
+            yield totals_dict
