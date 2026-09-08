@@ -269,10 +269,9 @@ def quality_control_process_rows(
                 if row.get("task_type") in qc_task_types:
                     ro_with_qc.add(repair_order)
 
-                if (
-                    (row.get("task_type") in qc_task_types)
-                    and flt(row.get("billed_amount"))
-                ) > 0:
+                if row.get("task_type") in qc_task_types and row.get(
+                    "billing_status"
+                ) not in ("Not Applicable", "Not Billed"):
                     qc_invoice_ro.add(repair_order)
 
                 if row.get("service_type") == "Comeback":

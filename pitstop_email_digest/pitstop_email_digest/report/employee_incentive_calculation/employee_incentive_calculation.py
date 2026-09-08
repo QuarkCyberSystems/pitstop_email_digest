@@ -838,7 +838,7 @@ class EmployeeIncentiveCalculationReport:
             """
 			select
 				p.name as project,
-				p.total_billed_amount as billed_amount,
+				p.billing_status,
 				p.project_date,
 				p.project_type as service_type,
 				t.name as task,
