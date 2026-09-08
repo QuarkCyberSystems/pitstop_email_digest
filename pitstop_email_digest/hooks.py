@@ -82,6 +82,11 @@ fixtures = [
                     "Company-branch_monthly_revenue_target",
                     "Project-job_type",
                     "Customer Feedback-brand",
+                    # Quotation
+                    "Quotation-estimator_details_section",
+                    "Quotation-estimator_id",
+                    "Quotation-column_break_zxbn",
+                    "Quotation-estimator_name",
                 ],
             ]
         ],
