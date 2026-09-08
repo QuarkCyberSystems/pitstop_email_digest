@@ -115,7 +115,22 @@ BASED_ON_TEMPLATE_DATA = {
             "wip_ageing": 20,
             "key_to_key": 10,
         },
-        "idle_time_ladder": {14.9: 100.0, 15.0: 0.0},
+        # Lower idle time is better. Each key is the inclusive lower bound of
+        # the band, the value is the multiplier applied to the idle time
+        # weightage. 0.0 covers everything below 12% (the best band).
+        "idle_time_ladder": {
+            0.0: 125.0,
+            12.0: 120.0,
+            12.75: 115.0,
+            13.5: 110.0,
+            14.25: 105.0,
+            14.5: 100.0,
+            15.0: 95.0,
+            15.75: 90.0,
+            16.5: 85.0,
+            17.25: 80.0,
+            18.0: 0.0,
+        },
         "productivity_ladder": {
             85: 0,
             90: 85,
