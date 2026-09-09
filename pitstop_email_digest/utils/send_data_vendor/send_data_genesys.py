@@ -7,7 +7,11 @@ from frappe.utils import evaluate_filters
 def send_data_genesys(doc, campaing_name=None, extra_key_args=None):
     settings = frappe.get_single("Genesys Settings")
 
-    if not settings.enable or frappe.conf.developer_mode:
+    # `mute_genesys` in site_config.json blocks all outbound Genesys campaigns.
+    # Defaults to developer_mode so dev sites stay muted unless it is set to 0.
+    if not settings.enable or frappe.conf.get(
+        "mute_genesys", frappe.conf.developer_mode
+    ):
         return
 
     campaign = settings.get_campaign_details(doc, campaing_name)
