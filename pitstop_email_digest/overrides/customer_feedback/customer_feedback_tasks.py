@@ -5,6 +5,10 @@ from automotive.automotive.report.vehicle_service_feedback.vehicle_service_feedb
 from crm.crm.doctype.customer_feedback.customer_feedback import make_feedback_doc
 from frappe.utils import add_days, get_time, getdate, now_datetime, today
 
+# Only individual customers are surveyed, and Tesla vehicles are excluded.
+FEEDBACK_CUSTOMER_GROUP = "Individual"
+EXCLUDED_BRAND = "TESLA"
+
 
 def create_pending_customer_feedback():
     """Scheduled daily at midnight. Create a Customer Feedback for the previous day's
@@ -23,6 +27,7 @@ def create_pending_customer_feedback():
             "from_date": previous_date,
             "to_date": previous_date,
             "feedback_filter": "Pending Feedback",
+            "customer_group": FEEDBACK_CUSTOMER_GROUP,
         }
     )
 
@@ -40,6 +45,14 @@ def create_pending_customer_feedback():
             continue
 
         visited_projects.add(d.project)
+
+        brand = (
+            frappe.get_cached_value("Item", d.variant_item_code, "brand")
+            if d.variant_item_code
+            else None
+        )
+        if brand and brand.upper() == EXCLUDED_BRAND:
+            continue
 
         if frappe.db.exists(
             "Customer Feedback",
