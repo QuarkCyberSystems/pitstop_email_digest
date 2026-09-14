@@ -44,6 +44,32 @@ def get_rate_ladder_result(based_on, percentage, ladder_field, top_cap):
     return ladder[thresholds[0]]
 
 
+def get_target_ladder_result(based_on, value, ladder_field, target_value=None):
+    """Pass/fail against a target: 0 below it, the ladder's result at or above
+    it. `target_value` overrides the target configured on the ladder, for
+    targets that come from data rather than the template."""
+    from .employee_incentive_calculation import BASED_ON_TEMPLATE_DATA
+
+    ladder = BASED_ON_TEMPLATE_DATA.get(based_on, {}).get(ladder_field, {})
+
+    if not ladder:
+        return None
+
+    if target_value is None:
+        target_value = ladder.get("target_value")
+
+    achieved_result = max(
+        (
+            result
+            for key, result in ladder.items()
+            if isinstance(key, (int, float)) and not isinstance(key, bool)
+        ),
+        default=100.0,
+    )
+
+    return achieved_result if flt(value) >= flt(target_value) else 0.0
+
+
 def compute_incentive(data_row, based_on):
     from .employee_incentive_calculation import BASED_ON_TEMPLATE_DATA
 

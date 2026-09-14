@@ -151,6 +151,27 @@ BASED_ON_TEMPLATE_DATA = {
         "come_back_ro_ladder": {0.9: 100.0, 1.0: 0.0},
         "cfb_rate_ladder": {4.5: 0, 4.6: 100.0},
     },
+    "Bodyshop Estimator": {
+        "weightages": {
+            "invoiced_ro": 40,
+            "gross_profit": 30,
+            "estimate_to_approval": 30,
+        },
+        "invoiced_ro_ladder": {
+            85: 0,
+            90: 85,
+            95: 90,
+            100: 95,
+            105: 100,
+            110: 105,
+            115: 110,
+            125: 115,
+        },
+        # 55% and below scores nothing; anything above 55% scores the full
+        # gross profit weightage.
+        "gross_profit_ladder": {54.9: 0.0, 55.0: 100.0},
+        "estimate_to_approval_ladder": {74.9: 0.0, 75.0: 100.0},
+    },
 }
 
 HIDDEN_SOURCE_COLUMNS = {
@@ -745,25 +766,24 @@ class EmployeeIncentiveCalculationReport:
         rows = frappe.db.sql(
             f"""
 			select
-				td.service_advisor,
-				td.{month_field} as target_amount
+				tr.sales_person,
+				trd.{month_field} as target_amount
 			from
-				`tabTarget Details` td
+				`tabTarget Role Details` trd
+			inner join
+				`tabTarget Role` tr on tr.name = trd.parent
 			where
-				td.parent = 'Target Settings'
-				and td.parenttype = 'Target Settings'
-				and td.parentfield = 'service_advisor_targets'
-				and td.year = %(year)s
-				and td.service_advisor is not null
-				and td.service_advisor != ''
+				trd.parenttype = 'Target Role'
+				and trd.parentfield = 'targets'
+				and trd.year = %(year)s
+				and tr.sales_person is not null
+				and tr.sales_person != ''
 			""",
             {"year": year},
             as_dict=True,
         )
 
-        return {
-            row.get("service_advisor"): flt(row.get("target_amount")) for row in rows
-        }
+        return {row.get("sales_person"): flt(row.get("target_amount")) for row in rows}
 
     def _fetch_service_advisor_wip_age(self):
         as_of = getdate(self.filters.get("to_date") or getdate())
@@ -1267,6 +1287,9 @@ class EmployeeIncentiveCalculationReport:
             ("key_to_key_mechanical_ladder", "K2K Mechanical", "rate", None),
             ("key_to_key_bodyshop_ladder", "K2K Bodyshop", "rate", None),
             ("come_back_ro_ladder", "Come Back RO", "rate", "%"),
+            ("invoiced_ro_ladder", "Invoiced RO %", "percent", None),
+            ("gross_profit_ladder", "Gross Profit", "rate", "%"),
+            ("estimate_to_approval_ladder", "Estimate to Approval", "rate", "%"),
         ]
 
         ladder_html_tables = []
