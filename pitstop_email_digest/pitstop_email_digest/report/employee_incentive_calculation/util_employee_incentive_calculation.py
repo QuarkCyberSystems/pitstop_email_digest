@@ -383,3 +383,14 @@ def quality_control_process_rows(
             )
 
             yield totals_dict
+
+
+def bodyshop_estimator_process_rows(
+    filters,
+    bodyshop_estimator,
+    bodyshop_estimator_invoiced_ro,
+    bodyshop_estimator_approved_estimate,
+    bodyshop_estimator_gross_profit_margin,
+):
+    for each_estimator in bodyshop_estimator:
+        yield each_estimator

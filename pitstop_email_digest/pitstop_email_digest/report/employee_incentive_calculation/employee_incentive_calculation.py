@@ -21,6 +21,7 @@ from .html_generator_employee_incentive_calculation import (
     rate_based_generate_ladder_html,
 )
 from .util_employee_incentive_calculation import (
+    bodyshop_estimator_process_rows,
     compute_incentive,
     get_ladder_result,
     get_rate_ladder_result,
@@ -28,6 +29,9 @@ from .util_employee_incentive_calculation import (
     quality_control_process_rows,
     service_advisor_process_rows,
 )
+
+# Trailing comma is required: ("Completed") is a str, not a tuple, and breaks `in %(...)s`
+COMPLETED_PROJECT_STATUSES = ("Completed",)
 
 BASED_ON_TEMPLATE_DATA = {
     "Technician": {
@@ -266,6 +270,8 @@ class EmployeeIncentiveCalculationReport:
             self._update_columns([])
         elif based_on == "Quality Controller":
             self._update_columns([])
+        elif based_on == "Bodyshop Estimator":
+            self._update_columns([])
         else:
             productivity_report = WorkshopProductivityReport(self.filters).run()
             self.data = productivity_report[1]
@@ -452,6 +458,27 @@ class EmployeeIncentiveCalculationReport:
                     "width": 150,
                 },
             ],
+            "Bodyshop Estimator": [
+                {
+                    "label": frappe._("Bodyshop Estimator ID"),
+                    "fieldname": "bodyshop_estimator_id",
+                    "fieldtype": "Link",
+                    "options": "Employee",
+                    "width": 150,
+                },
+                {
+                    "label": frappe._("Bodyshop Estimator Name"),
+                    "fieldname": "bodyshop_estimator_name",
+                    "fieldtype": "Data",
+                    "width": 150,
+                },
+                {
+                    "label": "Sales Amount",
+                    "fieldname": "total_sales_amount",
+                    "fieldtype": "Currency",
+                    "width": 100,
+                },
+            ],
         }
 
         columns = list(source_columns)
@@ -584,6 +611,10 @@ class EmployeeIncentiveCalculationReport:
             self.quality_controller_feedback_map = {
                 d.get("assigned_to"): d for d in feedback
             }
+        elif based_on == "Bodyshop Estimator":
+            self.bodyshop_estimator = self._fetch_bodyshop_estimator_employee(
+                fetch_id_name=True
+            )
 
     def _fetch_quality_control_feedback(self):
         return frappe.db.sql(
@@ -839,12 +870,21 @@ class EmployeeIncentiveCalculationReport:
         return key_to_key_report[1]
 
     def _fetch_qc_technician(self):
+        settings = frappe.get_cached_doc("Incentive Calculation Setttings")
+        designations = [
+            d.designation
+            for d in (settings.quality_controller_designation or [])
+            if d.designation
+        ]
+        if not designations:
+            return None
+
         return frappe.get_all(
             "Employee",
             {
                 "status": "Active",
                 "is_technician": 1,
-                "designation": "Quality Controller",
+                "designation": ["in", designations],
             },
             pluck="name",
         )
@@ -903,6 +943,340 @@ class EmployeeIncentiveCalculationReport:
 
         return [frappe._dict({"rows": list(groups.values())})]
 
+    def _fetch_bodyshop_estimator_employee(self, fetch_id_name=False):
+        settings = frappe.get_cached_doc("Incentive Calculation Setttings")
+        designations = [
+            d.designation
+            for d in (settings.bodyshop_estimator_designation or [])
+            if d.designation
+        ]
+        if not designations:
+            return None
+
+        filters = {
+            "status": "Active",
+            "designation": ["in", designations],
+        }
+
+        if fetch_id_name:
+            return frappe.get_all(
+                "Employee",
+                filters=filters,
+                fields=[
+                    "name as bodyshop_estimator_id",
+                    "employee_name as bodyshop_estimator_name",
+                ],
+            )
+
+        return frappe.get_all("Employee", filters=filters, pluck="name")
+
+    def _fetch_bodyshop_estimator_approved_estimate(self):
+        estimators = self._fetch_bodyshop_estimator_employee()
+        if not estimators:
+            return []
+
+        conditions = ""
+        values = {
+            "from_dt": self.filters.get("from_date"),
+            "to_dt": self.filters.get("to_date"),
+            "estimators": tuple(estimators),
+        }
+
+        if self.filters.get("company"):
+            conditions += " and q.company = %(company)s"
+            values["company"] = self.filters.get("company")
+
+        rows = frappe.db.sql(
+            f"""
+			select
+				q.estimator_id as employee,
+				q.estimator_name as employee_name,
+				q.name as quotation,
+				q.transaction_date as quotation_date,
+				q.status as quotation_status,
+				q.project,
+				q.base_net_total as estimate_net_amount,
+				q.base_grand_total as estimate_grand_amount,
+				ifnull(approved.sales_order_count, 0) as sales_order_count,
+				ifnull(approved.approved_net_amount, 0) as approved_net_amount,
+				case when ifnull(approved.sales_order_count, 0) > 0 then 1 else 0 end as is_approved
+			from
+				`tabQuotation` q
+			left join (
+				select
+					soi.quotation as quotation,
+					count(distinct so.name) as sales_order_count,
+					sum(soi.base_net_amount) as approved_net_amount
+				from
+					`tabSales Order Item` soi
+				join
+					`tabSales Order` so
+				on
+					so.name = soi.parent
+				where
+					so.docstatus = 1
+					and ifnull(soi.quotation, '') != ''
+				group by
+					soi.quotation
+			) approved
+			on
+				approved.quotation = q.name
+			where
+				q.docstatus = 1
+				and q.transaction_date between %(from_dt)s and %(to_dt)s
+				and q.estimator_id in %(estimators)s
+				{conditions}
+			""",
+            values,
+            as_dict=True,
+        )
+
+        groups = {}
+        for row in rows:
+            bodyshop_estimator_id = row.get("employee")
+            bodyshop_estimator_name = row.get("employee_name")
+            group = groups.setdefault(
+                bodyshop_estimator_id,
+                frappe._dict(
+                    {
+                        "employee": bodyshop_estimator_id,
+                        "totals": frappe._dict(
+                            {
+                                "employee": bodyshop_estimator_id,
+                                "employee_name": bodyshop_estimator_name,
+                                "total_estimate_count": 0,
+                                "total_approved_estimate_count": 0,
+                                "total_estimate_net_amount": 0.0,
+                                "total_approved_net_amount": 0.0,
+                                "estimate_to_approval_ratio": 0.0,
+                                "estimate_to_approval_amount_ratio": 0.0,
+                            }
+                        ),
+                        "rows": [],
+                    }
+                ),
+            )
+            group["rows"].append(row)
+
+            totals = group["totals"]
+            totals["total_estimate_count"] += 1
+            totals["total_estimate_net_amount"] += flt(row.get("estimate_net_amount"))
+            if row.get("is_approved"):
+                totals["total_approved_estimate_count"] += 1
+                totals["total_approved_net_amount"] += flt(
+                    row.get("approved_net_amount")
+                )
+
+        for group in groups.values():
+            totals = group["totals"]
+            if totals["total_estimate_count"]:
+                totals["estimate_to_approval_ratio"] = flt(
+                    (
+                        totals["total_approved_estimate_count"]
+                        / totals["total_estimate_count"]
+                    )
+                    * 100.0,
+                    3,
+                )
+            if totals["total_estimate_net_amount"]:
+                totals["estimate_to_approval_amount_ratio"] = flt(
+                    (
+                        totals["total_approved_net_amount"]
+                        / totals["total_estimate_net_amount"]
+                    )
+                    * 100.0,
+                    3,
+                )
+
+        return [frappe._dict({"rows": list(groups.values())})]
+
+    def _fetch_bodyshop_estimator_invoiced_ro(self):
+        estimators = self._fetch_bodyshop_estimator_employee()
+        if not estimators:
+            return []
+
+        conditions = ""
+        values = {
+            "from_dt": self.filters.get("from_date"),
+            "to_dt": self.filters.get("to_date"),
+            "estimators": tuple(estimators),
+        }
+
+        if self.filters.get("company"):
+            conditions += " and si.company = %(company)s"
+            values["company"] = self.filters.get("company")
+
+        rows = frappe.db.sql(
+            f"""
+			select
+				q.estimator_id as employee,
+				q.estimator_name as employee_name,
+				q.name as quotation,
+				q.transaction_date as quotation_date,
+				q.status as quotation_status,
+				q.net_total as quotation_net_total,
+				p.name as project,
+				p.project_date,
+				p.project_type as service_type,
+				p.project_status,
+				si.name as sales_invoice,
+				si.posting_date,
+				si.base_net_total as invoiced_net_amount,
+				si.base_grand_total as invoiced_grand_amount
+			from
+				`tabQuotation` q
+			join
+				`tabProject` p
+			on
+				p.name = q.project
+			join
+				`tabSales Invoice` si
+			on
+				si.project = p.name
+			where
+				si.docstatus = 1
+				and si.posting_date between %(from_dt)s and %(to_dt)s
+				and q.estimator_id in %(estimators)s
+				{conditions}
+			""",
+            values,
+            as_dict=True,
+        )
+
+        groups = {}
+        for row in rows:
+            bodyshop_estimator_id = row.get("employee")
+            bodyshop_estimator_name = row.get("employee_name")
+            group = groups.setdefault(
+                bodyshop_estimator_id,
+                frappe._dict(
+                    {
+                        "employee": bodyshop_estimator_id,
+                        "totals": frappe._dict(
+                            {
+                                "employee": bodyshop_estimator_id,
+                                "employee_name": bodyshop_estimator_name,
+                                "total_invoiced_net_amount": 0.0,
+                                "total_invoiced_grand_amount": 0.0,
+                                "total_ro_count": 0,
+                                "total_quotation_count": 0,
+                                "total_sales_invoice_count": 0,
+                            }
+                        ),
+                        "rows": [],
+                        "_projects": set(),
+                        "_quotations": set(),
+                    }
+                ),
+            )
+            group["rows"].append(row)
+            group["_projects"].add(row.get("project"))
+            group["_quotations"].add(row.get("quotation"))
+
+            totals = group["totals"]
+            totals["total_invoiced_net_amount"] += flt(row.get("invoiced_net_amount"))
+            totals["total_invoiced_grand_amount"] += flt(
+                row.get("invoiced_grand_amount")
+            )
+            totals["total_sales_invoice_count"] += 1
+
+        for group in groups.values():
+            totals = group["totals"]
+            totals["total_ro_count"] = len(group.pop("_projects"))
+            totals["total_quotation_count"] = len(group.pop("_quotations"))
+
+        return [frappe._dict({"rows": list(groups.values())})]
+
+    def _fetch_bodyshop_estimator_gross_profit_margin(self):
+        estimators = self._fetch_bodyshop_estimator_employee()
+        if not estimators:
+            return []
+
+        conditions = ""
+        values = {
+            "from_dt": self.filters.get("from_date"),
+            "to_dt": self.filters.get("to_date"),
+            "estimators": tuple(estimators),
+            "completed_statuses": COMPLETED_PROJECT_STATUSES,
+        }
+
+        if self.filters.get("company"):
+            conditions += " and p.company = %(company)s"
+            values["company"] = self.filters.get("company")
+
+        rows = frappe.db.sql(
+            f"""
+			select
+				q.estimator_id as employee,
+				max(q.estimator_name) as employee_name,
+				p.name as project,
+				max(p.project_date) as project_date,
+				max(p.status) as status,
+				max(p.project_status) as project_status,
+				max(p.project_type) as service_type,
+				max(p.total_sales_amount) as total_sales_amount,
+				max(p.gross_margin) as gross_margin,
+				max(p.per_gross_margin) as per_gross_margin
+			from
+				`tabQuotation` q
+			join
+				`tabProject` p
+			on
+				p.name = q.project
+			where
+				q.docstatus = 1
+				and p.status in %(completed_statuses)s
+				and p.project_date between %(from_dt)s and %(to_dt)s
+				and q.estimator_id in %(estimators)s
+				{conditions}
+			group by
+				q.estimator_id, p.name
+			""",
+            values,
+            as_dict=True,
+        )
+
+        groups = {}
+        for row in rows:
+            bodyshop_estimator_id = row.get("employee")
+            bodyshop_estimator_name = row.get("employee_name")
+            group = groups.setdefault(
+                bodyshop_estimator_id,
+                frappe._dict(
+                    {
+                        "employee": bodyshop_estimator_id,
+                        "totals": frappe._dict(
+                            {
+                                "employee": bodyshop_estimator_id,
+                                "employee_name": bodyshop_estimator_name,
+                                "total_completed_ro_count": 0,
+                                "total_sales_amount": 0.0,
+                                "total_gross_margin": 0.0,
+                                "gross_profit_margin_percentage": 0.0,
+                            }
+                        ),
+                        "rows": [],
+                    }
+                ),
+            )
+            group["rows"].append(row)
+
+            totals = group["totals"]
+            totals["total_completed_ro_count"] += 1
+            totals["total_sales_amount"] += flt(row.get("total_sales_amount"))
+            totals["total_gross_margin"] += flt(row.get("gross_margin"))
+
+        for group in groups.values():
+            totals = group["totals"]
+            if totals["total_sales_amount"]:
+                totals["gross_profit_margin_percentage"] = flt(
+                    (totals["total_gross_margin"] / totals["total_sales_amount"])
+                    * 100.0,
+                    3,
+                )
+
+        return [frappe._dict({"rows": list(groups.values())})]
+
     def _process_rows(self):
         based_on = self.filters.get("based_on")
 
@@ -925,7 +1299,21 @@ class EmployeeIncentiveCalculationReport:
                 self.qc_technicians,
             )
 
-        if based_on not in ["Service Advisor", "Quality Controller"]:
+        if based_on == "Bodyshop Estimator":
+            print(self.bodyshop_estimator)
+            yield from bodyshop_estimator_process_rows(
+                self.filters,
+                self.bodyshop_estimator,
+                self._fetch_bodyshop_estimator_invoiced_ro(),
+                self._fetch_bodyshop_estimator_approved_estimate(),
+                self._fetch_bodyshop_estimator_gross_profit_margin(),
+            )
+
+        if based_on not in [
+            "Service Advisor",
+            "Quality Controller",
+            "Bodyshop Estimator",
+        ]:
             for each_data in self.data:
                 if each_data.get("sold_time") and each_data.get("available_hours"):
                     each_data["sold_hrs_percentage"] = flt(

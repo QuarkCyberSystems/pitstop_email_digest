@@ -5,7 +5,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "service_advisor_designation"
+  "service_advisor_designation",
+  "quality_controller_designation",
+  "bodyshop_estimator_designation"
  ],
  "fields": [
   {
@@ -13,13 +15,25 @@
    "fieldtype": "Table MultiSelect",
    "label": "Service Advisor Designation",
    "options": "Designation Details"
+  },
+  {
+   "fieldname": "quality_controller_designation",
+   "fieldtype": "Table MultiSelect",
+   "label": "Quality Controller Designation",
+   "options": "Designation Details"
+  },
+  {
+   "fieldname": "bodyshop_estimator_designation",
+   "fieldtype": "Table MultiSelect",
+   "label": "Bodyshop Estimator Designation",
+   "options": "Designation Details"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-09-01 11:02:13.991173",
+ "modified": "2026-09-14 16:45:04.941745",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Incentive Calculation Setttings",
