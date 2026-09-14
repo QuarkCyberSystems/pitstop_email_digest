@@ -1415,7 +1415,8 @@ class EmployeeIncentiveCalculationReport:
                                                 based_on=self.filters.get("based_on"),
                                                 base_incentive=self.filters.get(
                                                     "base_incentive"
-                                                ),
+                                                )
+                                                or 0.0,
                                                 field_name="wip_ageing",
                                             )
                                             or 0
@@ -1433,7 +1434,8 @@ class EmployeeIncentiveCalculationReport:
                                         based_on=self.filters.get("based_on"),
                                         base_incentive=self.filters.get(
                                             "base_incentive"
-                                        ),
+                                        )
+                                        or 0.0,
                                         field_name="wip_ageing",
                                     )
                                     or 0
@@ -1512,7 +1514,7 @@ class EmployeeIncentiveCalculationReport:
         return (
             get_weightage_amount(
                 based_on=self.filters.get("based_on"),
-                base_incentive=self.filters.get("base_incentive"),
+                base_incentive=self.filters.get("base_incentive") or 0.0,
                 field_name=field_name,
             )
             or 0
@@ -1658,7 +1660,7 @@ class EmployeeIncentiveCalculationReport:
 
     def _build_summary_html(self):
         based_on = self.filters.get("based_on")
-        base_incentive = self.filters.get("base_incentive")
+        base_incentive = self.filters.get("base_incentive") or 0.0
 
         based_on_html_table = generate_weightage_table(based_on, base_incentive)
 
