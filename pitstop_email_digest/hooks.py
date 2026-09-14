@@ -22,6 +22,11 @@ app_license = "mit"
 # ]
 
 
+# Workbook templates shipped with this app, discovered by Frappe Insights.
+# Path is relative to the app directory; each subfolder holds a manifest.json
+# + workbook.json. Inert when Insights is not installed.
+insights_workbooks = "workbook_templates"
+
 scheduler_events = {
     "cron": {
         # every day at 00:05

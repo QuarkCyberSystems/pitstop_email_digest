@@ -1,0 +1,17 @@
+{
+	"version": 1,
+	"title": "Asset Register & Depreciation",
+	"description": "Fixed-asset portfolio at a glance \u2014 gross value, net book value and accumulated depreciation, with category/location breakdowns, an ageing profile, the depreciation runway, asset purchases and movements.",
+	"notes": "Built from submitted Assets (docstatus=1, so cancelled and draft assets are excluded). Net book value is read from the Asset Finance Book child row (one per asset), NOT from Asset.value_after_depreciation, which is left at 0 on submitted assets on some sites; accumulated depreciation is therefore gross purchase amount minus that net book value. A Depreciation Schedule row counts as 'Booked' once it carries a journal entry and 'Future' otherwise, so the booked-vs-future split shows the remaining depreciation runway. Amounts are in the company's base currency. Asset purchases come from fixed-asset lines on submitted Purchase Invoices. The date filter drives the depreciation and purchase trends only - the portfolio KPIs are an as-of-today snapshot.",
+	"module": "Assets",
+	"required_apps": [
+		"erpnext",
+		"pitstop_email_digest"
+	],
+	"source_doctypes": [
+		"Asset",
+		"Depreciation Schedule",
+		"Master Asset",
+		"Purchase Invoice"
+	]
+}

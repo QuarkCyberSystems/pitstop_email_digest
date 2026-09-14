@@ -1,0 +1,1349 @@
+{
+	"version": 1.0,
+	"type": "Workbook",
+	"name": "template-erpnext-asset",
+	"doc": {
+		"name": "template-erpnext-asset",
+		"title": "Asset Register & Depreciation"
+	},
+	"dependencies": {
+		"folders": [],
+		"queries": {
+			"tq-asset-register": {
+				"name": "tq-asset-register",
+				"title": "Asset Register",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 0,
+				"use_live_connection": 1,
+				"is_script_query": 0,
+				"is_builder_query": 1,
+				"is_native_query": 0,
+				"operations": [
+					{
+						"type": "source",
+						"table": {
+							"type": "table",
+							"data_source": "Site DB",
+							"table_name": "tabAsset"
+						}
+					},
+					{
+						"type": "filter_group",
+						"logical_operator": "And",
+						"filters": [
+							{
+								"column": {
+									"type": "column",
+									"column_name": "docstatus"
+								},
+								"operator": "=",
+								"value": 1
+							}
+						]
+					},
+					{
+						"type": "remove",
+						"column_names": [
+							"value_after_depreciation",
+							"depreciation_method"
+						]
+					},
+					{
+						"type": "join",
+						"join_type": "inner",
+						"table": {
+							"type": "table",
+							"data_source": "Site DB",
+							"table_name": "tabAsset Finance Book"
+						},
+						"select_columns": [
+							{
+								"type": "column",
+								"column_name": "value_after_depreciation"
+							},
+							{
+								"type": "column",
+								"column_name": "rate_of_depreciation"
+							},
+							{
+								"type": "column",
+								"column_name": "depreciation_method"
+							},
+							{
+								"type": "column",
+								"column_name": "depreciation_start_date"
+							}
+						],
+						"join_condition": {
+							"left_column": {
+								"type": "column",
+								"column_name": "name"
+							},
+							"right_column": {
+								"type": "column",
+								"column_name": "parent"
+							}
+						}
+					},
+					{
+						"type": "mutate",
+						"new_name": "accumulated_depreciation",
+						"data_type": "Decimal",
+						"expression": {
+							"type": "expression",
+							"expression": "gross_purchase_amount - value_after_depreciation"
+						}
+					},
+					{
+						"type": "mutate",
+						"new_name": "asset_age_days",
+						"data_type": "Integer",
+						"expression": {
+							"type": "expression",
+							"expression": "date_diff(today(), purchase_date, 'day')"
+						}
+					},
+					{
+						"type": "mutate",
+						"new_name": "asset_age_years",
+						"data_type": "Decimal",
+						"expression": {
+							"type": "expression",
+							"expression": "asset_age_days / 365.0"
+						}
+					},
+					{
+						"type": "mutate",
+						"new_name": "depreciation_pct",
+						"data_type": "Decimal",
+						"expression": {
+							"type": "expression",
+							"expression": "if_else(gross_purchase_amount > 0, accumulated_depreciation * 100 / gross_purchase_amount, 0)"
+						}
+					},
+					{
+						"type": "mutate",
+						"new_name": "age_bucket",
+						"data_type": "String",
+						"expression": {
+							"type": "expression",
+							"expression": "cases((asset_age_years < 1, '1. Under 1 Year'), (asset_age_years < 3, '2. 1-3 Years'), (asset_age_years < 5, '3. 3-5 Years'), (asset_age_years < 10, '4. 5-10 Years'), else_='5. 10+ Years')"
+						}
+					},
+					{
+						"type": "select",
+						"column_names": [
+							"name",
+							"asset_name",
+							"item_code",
+							"item_name",
+							"asset_category",
+							"asset_category_group",
+							"company",
+							"location",
+							"branch",
+							"custodian",
+							"supplier",
+							"status",
+							"purchase_date",
+							"available_for_use_date",
+							"next_depreciation_date",
+							"disposal_date",
+							"gross_purchase_amount",
+							"value_after_depreciation",
+							"opening_accumulated_depreciation",
+							"accumulated_depreciation",
+							"depreciation_pct",
+							"depreciation_method",
+							"rate_of_depreciation",
+							"depreciation_start_date",
+							"total_number_of_depreciations",
+							"frequency_of_depreciation",
+							"useful_life",
+							"is_existing_asset",
+							"master_asset",
+							"purchase_order",
+							"purchase_receipt",
+							"purchase_invoice",
+							"asset_age_days",
+							"asset_age_years",
+							"age_bucket"
+						]
+					}
+				]
+			},
+			"tq-depreciation": {
+				"name": "tq-depreciation",
+				"title": "Depreciation Schedule",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 1,
+				"use_live_connection": 1,
+				"is_script_query": 0,
+				"is_builder_query": 1,
+				"is_native_query": 0,
+				"operations": [
+					{
+						"type": "source",
+						"table": {
+							"type": "table",
+							"data_source": "Site DB",
+							"table_name": "tabDepreciation Schedule"
+						}
+					},
+					{
+						"type": "join",
+						"join_type": "inner",
+						"table": {
+							"type": "table",
+							"data_source": "Site DB",
+							"table_name": "tabAsset"
+						},
+						"select_columns": [
+							{
+								"type": "column",
+								"column_name": "company"
+							},
+							{
+								"type": "column",
+								"column_name": "asset_category"
+							},
+							{
+								"type": "column",
+								"column_name": "asset_name"
+							},
+							{
+								"type": "column",
+								"column_name": "status"
+							},
+							{
+								"type": "column",
+								"column_name": "location"
+							},
+							{
+								"type": "column",
+								"column_name": "branch"
+							}
+						],
+						"join_condition": {
+							"left_column": {
+								"type": "column",
+								"column_name": "parent"
+							},
+							"right_column": {
+								"type": "column",
+								"column_name": "name"
+							}
+						}
+					},
+					{
+						"type": "filter_group",
+						"logical_operator": "And",
+						"filters": [
+							{
+								"column": {
+									"type": "column",
+									"column_name": "status"
+								},
+								"operator": "!=",
+								"value": "Cancelled"
+							}
+						]
+					},
+					{
+						"type": "mutate",
+						"new_name": "entry_status",
+						"data_type": "String",
+						"expression": {
+							"type": "expression",
+							"expression": "if_else(if_null(journal_entry, '') == '', 'Future', 'Booked')"
+						}
+					},
+					{
+						"type": "select",
+						"column_names": [
+							"parent",
+							"asset_name",
+							"company",
+							"asset_category",
+							"location",
+							"branch",
+							"schedule_date",
+							"depreciation_amount",
+							"accumulated_depreciation_amount",
+							"finance_book",
+							"journal_entry",
+							"entry_status"
+						]
+					}
+				]
+			},
+			"tq-master-assets": {
+				"name": "tq-master-assets",
+				"title": "Master Assets",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 2,
+				"use_live_connection": 1,
+				"is_script_query": 0,
+				"is_builder_query": 1,
+				"is_native_query": 0,
+				"operations": [
+					{
+						"type": "source",
+						"table": {
+							"type": "table",
+							"data_source": "Site DB",
+							"table_name": "tabMaster Asset"
+						}
+					},
+					{
+						"type": "select",
+						"column_names": [
+							"name",
+							"title",
+							"company",
+							"supplier",
+							"status",
+							"source_type",
+							"purchase_order",
+							"purchase_date",
+							"total_assets",
+							"total_asset_value"
+						]
+					}
+				]
+			},
+			"tq-asset-purchases": {
+				"name": "tq-asset-purchases",
+				"title": "Asset Purchases",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 3,
+				"use_live_connection": 1,
+				"is_script_query": 0,
+				"is_builder_query": 1,
+				"is_native_query": 0,
+				"operations": [
+					{
+						"type": "source",
+						"table": {
+							"type": "table",
+							"data_source": "Site DB",
+							"table_name": "tabPurchase Invoice Item"
+						}
+					},
+					{
+						"type": "filter_group",
+						"logical_operator": "And",
+						"filters": [
+							{
+								"column": {
+									"type": "column",
+									"column_name": "is_fixed_asset"
+								},
+								"operator": "=",
+								"value": 1
+							},
+							{
+								"column": {
+									"type": "column",
+									"column_name": "docstatus"
+								},
+								"operator": "=",
+								"value": 1
+							}
+						]
+					},
+					{
+						"type": "join",
+						"join_type": "inner",
+						"table": {
+							"type": "table",
+							"data_source": "Site DB",
+							"table_name": "tabPurchase Invoice"
+						},
+						"select_columns": [
+							{
+								"type": "column",
+								"column_name": "posting_date"
+							},
+							{
+								"type": "column",
+								"column_name": "supplier"
+							},
+							{
+								"type": "column",
+								"column_name": "company"
+							}
+						],
+						"join_condition": {
+							"left_column": {
+								"type": "column",
+								"column_name": "parent"
+							},
+							"right_column": {
+								"type": "column",
+								"column_name": "name"
+							}
+						}
+					},
+					{
+						"type": "select",
+						"column_names": [
+							"parent",
+							"item_code",
+							"item_name",
+							"asset_category",
+							"qty",
+							"base_net_amount",
+							"posting_date",
+							"supplier",
+							"company"
+						]
+					}
+				]
+			},
+			"tq-asset-movements": {
+				"name": "tq-asset-movements",
+				"title": "Asset Movements",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 4,
+				"use_live_connection": 1,
+				"is_script_query": 0,
+				"is_builder_query": 1,
+				"is_native_query": 0,
+				"operations": [
+					{
+						"type": "source",
+						"table": {
+							"type": "table",
+							"data_source": "Site DB",
+							"table_name": "tabAsset Movement Item"
+						}
+					},
+					{
+						"type": "join",
+						"join_type": "inner",
+						"table": {
+							"type": "table",
+							"data_source": "Site DB",
+							"table_name": "tabAsset Movement"
+						},
+						"select_columns": [
+							{
+								"type": "column",
+								"column_name": "purpose"
+							},
+							{
+								"type": "column",
+								"column_name": "transaction_date"
+							}
+						],
+						"join_condition": {
+							"left_column": {
+								"type": "column",
+								"column_name": "parent"
+							},
+							"right_column": {
+								"type": "column",
+								"column_name": "name"
+							}
+						}
+					},
+					{
+						"type": "select",
+						"column_names": [
+							"asset",
+							"asset_name",
+							"company",
+							"source_location",
+							"target_location",
+							"purpose",
+							"transaction_date"
+						]
+					}
+				]
+			}
+		},
+		"charts": {
+			"tc-asset-kpis": {
+				"name": "tc-asset-kpis",
+				"title": "Asset Portfolio KPIs",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 0,
+				"query": "tq-asset-register",
+				"chart_type": "Number",
+				"config": {
+					"number_columns": [
+						{
+							"measure_name": "Gross Asset Value",
+							"column_name": "gross_purchase_amount",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Net Book Value",
+							"column_name": "value_after_depreciation",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Accumulated Depreciation",
+							"column_name": "accumulated_depreciation",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Assets",
+							"column_name": "name",
+							"data_type": "Integer",
+							"aggregation": "count"
+						},
+						{
+							"measure_name": "Avg Age (Years)",
+							"column_name": "asset_age_years",
+							"data_type": "Decimal",
+							"aggregation": "avg"
+						}
+					],
+					"number_column_options": [
+						{
+							"decimal": 2,
+							"shorten_numbers": true
+						},
+						{
+							"decimal": 2,
+							"shorten_numbers": true
+						},
+						{
+							"decimal": 2,
+							"shorten_numbers": true
+						},
+						{
+							"shorten_numbers": false
+						},
+						{
+							"decimal": 1,
+							"shorten_numbers": false
+						}
+					],
+					"comparison": false,
+					"sparkline": false,
+					"shorten_numbers": true
+				}
+			},
+			"tc-dep-trend": {
+				"name": "tc-dep-trend",
+				"title": "Depreciation Trend",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 1,
+				"query": "tq-depreciation",
+				"chart_type": "Line",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "schedule_date",
+							"column_name": "schedule_date",
+							"data_type": "Date",
+							"granularity": "month"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Depreciation",
+									"column_name": "depreciation_amount",
+									"data_type": "Decimal",
+									"aggregation": "sum"
+								}
+							}
+						],
+						"show_data_labels": false
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "schedule_date"
+							},
+							"direction": "asc"
+						}
+					],
+					"limit": 200,
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					}
+				}
+			},
+			"tc-status-mix": {
+				"name": "tc-status-mix",
+				"title": "Assets by Status",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 2,
+				"query": "tq-asset-register",
+				"chart_type": "Donut",
+				"config": {
+					"label_column": {
+						"dimension_name": "status",
+						"column_name": "status",
+						"data_type": "String"
+					},
+					"value_column": {
+						"measure_name": "Assets",
+						"column_name": "name",
+						"data_type": "Integer",
+						"aggregation": "count"
+					},
+					"legend_position": "bottom",
+					"order_by": [],
+					"limit": 20,
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					}
+				}
+			},
+			"tc-value-by-category": {
+				"name": "tc-value-by-category",
+				"title": "Value by Asset Category",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 3,
+				"query": "tq-asset-register",
+				"chart_type": "Bar",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "asset_category",
+							"column_name": "asset_category",
+							"data_type": "String"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Gross Value",
+									"column_name": "gross_purchase_amount",
+									"data_type": "Decimal",
+									"aggregation": "sum"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Net Book Value",
+									"column_name": "value_after_depreciation",
+									"data_type": "Decimal",
+									"aggregation": "sum"
+								}
+							}
+						],
+						"show_data_labels": false
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Gross Value"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 15
+				}
+			},
+			"tc-value-by-location": {
+				"name": "tc-value-by-location",
+				"title": "Net Book Value by Location",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 4,
+				"query": "tq-asset-register",
+				"chart_type": "Bar",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "location",
+							"column_name": "location",
+							"data_type": "String"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Net Book Value",
+									"column_name": "value_after_depreciation",
+									"data_type": "Decimal",
+									"aggregation": "sum"
+								}
+							}
+						],
+						"show_data_labels": false
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Net Book Value"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 15
+				}
+			},
+			"tc-age-buckets": {
+				"name": "tc-age-buckets",
+				"title": "Assets by Age",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 5,
+				"query": "tq-asset-register",
+				"chart_type": "Bar",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "age_bucket",
+							"column_name": "age_bucket",
+							"data_type": "String"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Assets",
+									"column_name": "name",
+									"data_type": "Integer",
+									"aggregation": "count"
+								}
+							}
+						],
+						"show_data_labels": true
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "age_bucket"
+							},
+							"direction": "asc"
+						}
+					],
+					"limit": 10
+				}
+			},
+			"tc-dep-booked-future": {
+				"name": "tc-dep-booked-future",
+				"title": "Booked vs Future Depreciation",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 6,
+				"query": "tq-depreciation",
+				"chart_type": "Bar",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "entry_status",
+							"column_name": "entry_status",
+							"data_type": "String"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Depreciation",
+									"column_name": "depreciation_amount",
+									"data_type": "Decimal",
+									"aggregation": "sum"
+								}
+							}
+						],
+						"show_data_labels": true
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "entry_status"
+							},
+							"direction": "asc"
+						}
+					],
+					"limit": 10
+				}
+			},
+			"tc-dep-by-category": {
+				"name": "tc-dep-by-category",
+				"title": "Depreciation by Category",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 7,
+				"query": "tq-depreciation",
+				"chart_type": "Bar",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "asset_category",
+							"column_name": "asset_category",
+							"data_type": "String"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Depreciation",
+									"column_name": "depreciation_amount",
+									"data_type": "Decimal",
+									"aggregation": "sum"
+								}
+							}
+						],
+						"show_data_labels": false
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Depreciation"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 15
+				}
+			},
+			"tc-top-assets": {
+				"name": "tc-top-assets",
+				"title": "Top Assets by Value",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 8,
+				"query": "tq-asset-register",
+				"chart_type": "Table",
+				"config": {
+					"rows": [
+						{
+							"dimension_name": "Asset",
+							"column_name": "asset_name",
+							"data_type": "String"
+						},
+						{
+							"dimension_name": "Category",
+							"column_name": "asset_category",
+							"data_type": "String"
+						}
+					],
+					"columns": [],
+					"values": [
+						{
+							"measure_name": "Gross Value",
+							"column_name": "gross_purchase_amount",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Net Book Value",
+							"column_name": "value_after_depreciation",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Accumulated Dep.",
+							"column_name": "accumulated_depreciation",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Age (Yrs)",
+							"column_name": "asset_age_years",
+							"data_type": "Decimal",
+							"aggregation": "max"
+						}
+					],
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Gross Value"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 15
+				}
+			},
+			"tc-category-table": {
+				"name": "tc-category-table",
+				"title": "Category Summary",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 9,
+				"query": "tq-asset-register",
+				"chart_type": "Table",
+				"config": {
+					"rows": [
+						{
+							"dimension_name": "Category",
+							"column_name": "asset_category",
+							"data_type": "String"
+						}
+					],
+					"columns": [],
+					"values": [
+						{
+							"measure_name": "Assets",
+							"column_name": "name",
+							"data_type": "Integer",
+							"aggregation": "count"
+						},
+						{
+							"measure_name": "Gross Value",
+							"column_name": "gross_purchase_amount",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Net Book Value",
+							"column_name": "value_after_depreciation",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Depreciated %",
+							"column_name": "depreciation_pct",
+							"data_type": "Decimal",
+							"aggregation": "avg"
+						}
+					],
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Gross Value"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 20
+				}
+			},
+			"tc-master-assets": {
+				"name": "tc-master-assets",
+				"title": "Master Assets",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 10,
+				"query": "tq-master-assets",
+				"chart_type": "Table",
+				"config": {
+					"rows": [
+						{
+							"dimension_name": "Master Asset",
+							"column_name": "title",
+							"data_type": "String"
+						},
+						{
+							"dimension_name": "Supplier",
+							"column_name": "supplier",
+							"data_type": "String"
+						},
+						{
+							"dimension_name": "Status",
+							"column_name": "status",
+							"data_type": "String"
+						}
+					],
+					"columns": [],
+					"values": [
+						{
+							"measure_name": "Sub-Assets",
+							"column_name": "total_assets",
+							"data_type": "Integer",
+							"aggregation": "sum"
+						},
+						{
+							"measure_name": "Total Value",
+							"column_name": "total_asset_value",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						}
+					],
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Total Value"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 15
+				}
+			},
+			"tc-purchase-trend": {
+				"name": "tc-purchase-trend",
+				"title": "Asset Purchase Trend",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 11,
+				"query": "tq-asset-purchases",
+				"chart_type": "Line",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "posting_date",
+							"column_name": "posting_date",
+							"data_type": "Date",
+							"granularity": "month"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Purchased Value",
+									"column_name": "base_net_amount",
+									"data_type": "Decimal",
+									"aggregation": "sum"
+								}
+							}
+						],
+						"show_data_labels": false
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "posting_date"
+							},
+							"direction": "asc"
+						}
+					],
+					"limit": 100,
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					}
+				}
+			},
+			"tc-purchase-supplier": {
+				"name": "tc-purchase-supplier",
+				"title": "Asset Spend by Supplier",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 12,
+				"query": "tq-asset-purchases",
+				"chart_type": "Table",
+				"config": {
+					"rows": [
+						{
+							"dimension_name": "Supplier",
+							"column_name": "supplier",
+							"data_type": "String"
+						}
+					],
+					"columns": [],
+					"values": [
+						{
+							"measure_name": "Purchased Value",
+							"column_name": "base_net_amount",
+							"data_type": "Decimal",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Lines",
+							"column_name": "parent",
+							"data_type": "Integer",
+							"aggregation": "count"
+						}
+					],
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Purchased Value"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 10
+				}
+			},
+			"tc-movements": {
+				"name": "tc-movements",
+				"title": "Asset Movements by Location",
+				"workbook": "template-erpnext-asset",
+				"folder": null,
+				"sort_order": 13,
+				"query": "tq-asset-movements",
+				"chart_type": "Table",
+				"config": {
+					"rows": [
+						{
+							"dimension_name": "Target Location",
+							"column_name": "target_location",
+							"data_type": "String"
+						},
+						{
+							"dimension_name": "Purpose",
+							"column_name": "purpose",
+							"data_type": "String"
+						}
+					],
+					"columns": [],
+					"values": [
+						{
+							"measure_name": "Assets Moved",
+							"column_name": "asset",
+							"data_type": "Integer",
+							"aggregation": "count"
+						}
+					],
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Assets Moved"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 15
+				}
+			}
+		},
+		"dashboards": {
+			"tc-asset-dashboard": {
+				"name": "tc-asset-dashboard",
+				"title": "Asset Register & Depreciation",
+				"workbook": "template-erpnext-asset",
+				"items": [
+					{
+						"type": "filter",
+						"filter_name": "Company",
+						"filter_type": "String",
+						"icon": "building-2",
+						"links": {
+							"tc-asset-kpis": "`tq-asset-register`.`company`",
+							"tc-status-mix": "`tq-asset-register`.`company`",
+							"tc-value-by-category": "`tq-asset-register`.`company`",
+							"tc-value-by-location": "`tq-asset-register`.`company`",
+							"tc-age-buckets": "`tq-asset-register`.`company`",
+							"tc-top-assets": "`tq-asset-register`.`company`",
+							"tc-category-table": "`tq-asset-register`.`company`",
+							"tc-dep-trend": "`tq-depreciation`.`company`",
+							"tc-dep-booked-future": "`tq-depreciation`.`company`",
+							"tc-dep-by-category": "`tq-depreciation`.`company`",
+							"tc-master-assets": "`tq-master-assets`.`company`",
+							"tc-purchase-trend": "`tq-asset-purchases`.`company`",
+							"tc-purchase-supplier": "`tq-asset-purchases`.`company`",
+							"tc-movements": "`tq-asset-movements`.`company`"
+						},
+						"layout": {
+							"i": "filter-company",
+							"x": 0,
+							"y": 0,
+							"w": 4,
+							"h": 1
+						}
+					},
+					{
+						"type": "filter",
+						"filter_name": "Date",
+						"filter_type": "Date",
+						"icon": "calendar",
+						"links": {
+							"tc-dep-trend": "`tq-depreciation`.`schedule_date`",
+							"tc-purchase-trend": "`tq-asset-purchases`.`posting_date`"
+						},
+						"default_operator": "within",
+						"default_value": "Last 12 months",
+						"layout": {
+							"i": "filter-date",
+							"x": 4,
+							"y": 0,
+							"w": 4,
+							"h": 1
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-asset-kpis",
+						"layout": {
+							"i": "i-asset-kpis",
+							"x": 0,
+							"y": 1,
+							"w": 20,
+							"h": 3
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-dep-trend",
+						"layout": {
+							"i": "i-dep-trend",
+							"x": 0,
+							"y": 4,
+							"w": 12,
+							"h": 9
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-status-mix",
+						"layout": {
+							"i": "i-status-mix",
+							"x": 12,
+							"y": 4,
+							"w": 8,
+							"h": 9
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-value-by-category",
+						"layout": {
+							"i": "i-value-by-category",
+							"x": 0,
+							"y": 13,
+							"w": 10,
+							"h": 9
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-value-by-location",
+						"layout": {
+							"i": "i-value-by-location",
+							"x": 10,
+							"y": 13,
+							"w": 10,
+							"h": 9
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-age-buckets",
+						"layout": {
+							"i": "i-age-buckets",
+							"x": 0,
+							"y": 22,
+							"w": 6,
+							"h": 8
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-dep-booked-future",
+						"layout": {
+							"i": "i-dep-booked-future",
+							"x": 6,
+							"y": 22,
+							"w": 6,
+							"h": 8
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-dep-by-category",
+						"layout": {
+							"i": "i-dep-by-category",
+							"x": 12,
+							"y": 22,
+							"w": 8,
+							"h": 8
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-top-assets",
+						"layout": {
+							"i": "i-top-assets",
+							"x": 0,
+							"y": 30,
+							"w": 10,
+							"h": 9
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-category-table",
+						"layout": {
+							"i": "i-category-table",
+							"x": 10,
+							"y": 30,
+							"w": 10,
+							"h": 9
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-purchase-trend",
+						"layout": {
+							"i": "i-purchase-trend",
+							"x": 0,
+							"y": 39,
+							"w": 12,
+							"h": 8
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-purchase-supplier",
+						"layout": {
+							"i": "i-purchase-supplier",
+							"x": 12,
+							"y": 39,
+							"w": 8,
+							"h": 8
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-master-assets",
+						"layout": {
+							"i": "i-master-assets",
+							"x": 0,
+							"y": 47,
+							"w": 10,
+							"h": 8
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-movements",
+						"layout": {
+							"i": "i-movements",
+							"x": 10,
+							"y": 47,
+							"w": 10,
+							"h": 8
+						}
+					}
+				]
+			}
+		}
+	}
+}
