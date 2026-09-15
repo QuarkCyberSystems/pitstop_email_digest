@@ -1,6 +1,27 @@
 # Copyright (c) 2026, QCS and contributors
 # For license information, please see license.txt
 
+"""Employee Incentive Calculation report.
+
+This module is the orchestrator only: it picks the `util_<designation>` module
+matching the `based_on` filter and drives it through a fixed sequence — apply
+the source report filters, load the source data, prepare the lookups, process
+the rows. Every designation specific column, query and calculation lives in its
+own module:
+
+    util_technician.py
+    util_reporting_authority.py
+    util_service_advisor.py
+    util_job_controller.py
+    util_quality_controller.py
+    util_bodyshop_estimator.py
+
+Each of those exposes the same small interface: TEMPLATE_DATA, REPORT_FILTERS,
+SOURCE_REPORT, get_leading_columns(), get_trailing_columns(),
+prepare_lookups(filters) and
+process_rows(filters, source_data, qc_task_types, lookups).
+"""
+
 import frappe
 from automotive.automotive.report.workshop_productivity.workshop_productivity import (
     WorkshopProductivityReport,
@@ -8,174 +29,34 @@ from automotive.automotive.report.workshop_productivity.workshop_productivity im
 from automotive.automotive.report.workshop_turnover.workshop_turnover import (
     WorkshopTurnoverReport,
 )
-from frappe.utils import getdate
-from frappe.utils.data import flt
 
-from pitstop_email_digest.pitstop_email_digest.report.key_to_key_report.key_to_key_report import (
-    VehicleKeyToKeyReport,
+from . import (
+    util_bodyshop_estimator,
+    util_job_controller,
+    util_quality_controller,
+    util_reporting_authority,
+    util_service_advisor,
+    util_technician,
 )
-
 from .html_generator_employee_incentive_calculation import (
     generate_ladder_html,
     generate_weightage_table,
     rate_based_generate_ladder_html,
 )
-from .util_employee_incentive_calculation import (
-    bodyshop_estimator_process_rows,
-    compute_incentive,
-    get_ladder_result,
-    get_rate_ladder_result,
-    get_weightage_amount,
-    quality_control_process_rows,
-    service_advisor_process_rows,
-)
 
-# Trailing comma is required: ("Completed") is a str, not a tuple, and breaks `in %(...)s`
-COMPLETED_PROJECT_STATUSES = ("Completed",)
+DESIGNATION_UTILS = {
+    "Technician": util_technician,
+    "Reporting Authority": util_reporting_authority,
+    "Service Advisor": util_service_advisor,
+    "Job Controller": util_job_controller,
+    "Quality Controller": util_quality_controller,
+    "Bodyshop Estimator": util_bodyshop_estimator,
+}
 
+# Assembled from the designation modules so each one owns its own weightages
+# and ladders. Read by the ladder helpers and the summary HTML generator.
 BASED_ON_TEMPLATE_DATA = {
-    "Technician": {
-        "weightages": {"sold_hrs": 50, "efficiency": 25, "productivity": 25},
-        "sold_hrs_ladder": {
-            80: 0,
-            85: 80,
-            90: 85,
-            95: 90,
-            100: 95,
-            105: 100,
-            115: 105,
-            125: 115,
-        },
-        "efficiency_ladder": {
-            90: 0,
-            95: 90,
-            100: 95,
-            105: 100,
-            110: 105,
-            115: 110,
-            120: 115,
-            125: 120,
-        },
-        "productivity_ladder": {
-            85: 0,
-            90: 85,
-            95: 90,
-            100: 95,
-            105: 100,
-            110: 105,
-            115: 110,
-            125: 115,
-        },
-    },
-    "Reporting Authority": {
-        "weightages": {
-            "efficiency": 30,
-            "proficiency": 30,
-            "qc_ro": 20,
-            "customer_feedback": 20,
-        },
-        "efficiency_ladder": {
-            85: 0,
-            90: 85,
-            95: 90,
-            100: 95,
-            105: 100,
-            110: 105,
-            115: 110,
-            125: 115,
-        },
-        "proficiency_ladder": {
-            85: 0,
-            90: 85,
-            95: 90,
-            100: 95,
-            105: 100,
-            110: 105,
-            115: 110,
-            125: 115,
-        },
-        "qc_ro_ladder": {9.9: 0, 10: 100.0},
-        "cfb_rate_ladder": {4.5: 0, 4.6: 100.0},
-    },
-    "Service Advisor": {
-        "weightages": {"revenue": 45, "customer_feedback": 35, "wip_ageing": 20},
-        "revenue_ladder": {
-            85: 0,
-            90: 85,
-            95: 90,
-            100: 95,
-            105: 100,
-            110: 105,
-            115: 110,
-            125: 115,
-        },
-        "wip_ageing_ladder": {45: 100.0, 46: 0.0},
-        "cfb_rate_ladder": {4.5: 0, 4.6: 100.0, 5.0: 125.0},
-    },
-    "Job Controller": {
-        "weightages": {
-            "idle_time": 40,
-            "productivity": 30,
-            "wip_ageing": 20,
-            "key_to_key": 10,
-        },
-        # Lower idle time is better. Each key is the inclusive lower bound of
-        # the band, the value is the multiplier applied to the idle time
-        # weightage. 0.0 covers everything below 12% (the best band).
-        "idle_time_ladder": {
-            0.0: 125.0,
-            12.0: 120.0,
-            12.75: 115.0,
-            13.5: 110.0,
-            14.25: 105.0,
-            14.5: 100.0,
-            15.0: 95.0,
-            15.75: 90.0,
-            16.5: 85.0,
-            17.25: 80.0,
-            18.0: 0.0,
-        },
-        "productivity_ladder": {
-            85: 0,
-            90: 85,
-            95: 90,
-            100: 95,
-            105: 100,
-            110: 105,
-            115: 110,
-            125: 115,
-        },
-        "wip_ageing_ladder": {44.9: 100.0, 45.0: 0.0},
-        "key_to_key_mechanical_ladder": {1.9: 100.0, 2.0: 0.0},
-        "key_to_key_bodyshop_ladder": {10.9: 100.0, 11.0: 0.0},
-    },
-    "Quality Controller": {
-        "weightages": {"qc_ro": 40, "come_back_ro": 40, "customer_feedback": 20},
-        "qc_ro_ladder": {9.9: 0, 10: 100.0},
-        "come_back_ro_ladder": {0.9: 100.0, 1.0: 0.0},
-        "cfb_rate_ladder": {4.5: 0, 4.6: 100.0},
-    },
-    "Bodyshop Estimator": {
-        "weightages": {
-            "invoiced_ro": 40,
-            "gross_profit": 30,
-            "estimate_to_approval": 30,
-        },
-        "invoiced_ro_ladder": {
-            85: 0,
-            90: 85,
-            95: 90,
-            100: 95,
-            105: 100,
-            110: 105,
-            115: 110,
-            125: 115,
-        },
-        # 55% and below scores nothing; anything above 55% scores the full
-        # gross profit weightage.
-        "gross_profit_ladder": {54.9: 0.0, 55.0: 100.0},
-        "estimate_to_approval_ladder": {74.9: 0.0, 75.0: 100.0},
-    },
+    based_on: module.TEMPLATE_DATA for based_on, module in DESIGNATION_UTILS.items()
 }
 
 HIDDEN_SOURCE_COLUMNS = {
@@ -201,6 +82,24 @@ HIDDEN_SOURCE_COLUMNS = {
     "job_controller_name",
 }
 
+LADDER_SPECS = [
+    ("sold_hrs_ladder", "Sold Hrs %", "percent", None),
+    ("efficiency_ladder", "Efficiency %", "percent", None),
+    ("productivity_ladder", "Productivity %", "percent", None),
+    ("proficiency_ladder", "Proficiency %", "percent", None),
+    ("qc_ro_ladder", "QC RO", "rate", "%"),
+    ("revenue_ladder", "Revenue %", "percent", None),
+    ("cfb_rate_ladder", "Customer Feedback Rate", "rate", None),
+    ("wip_ageing_ladder", "Average WIP Ageing", "rate", None),
+    ("idle_time_ladder", "Idle", "rate", "%"),
+    ("key_to_key_mechanical_ladder", "K2K Mechanical", "rate", None),
+    ("key_to_key_bodyshop_ladder", "K2K Bodyshop", "rate", None),
+    ("come_back_ro_ladder", "Come Back RO", "rate", "%"),
+    ("invoiced_ro_ladder", "Invoiced RO %", "percent", None),
+    ("gross_profit_ladder", "Gross Profit", "rate", "%"),
+    ("estimate_to_approval_ladder", "Estimate to Approval", "rate", "%"),
+]
+
 
 def execute(filters=None):
     return EmployeeIncentiveCalculationReport(filters).run()
@@ -224,19 +123,17 @@ def format_label(fieldname):
 class EmployeeIncentiveCalculationReport:
     def __init__(self, filters=None):
         self.filters = frappe._dict(filters or {})
+        self.module = DESIGNATION_UTILS.get(self.filters.get("based_on"))
         self.columns = []
-        self.data = []
-        self.workshop_turnover_report_data = []
+        self.source_data = []
+        self.source_columns = []
         self.qc_task_types = set()
-        self.reporting_authority_feedback_map = {}
-        self.service_advisor_feedback_map = {}
-        self.wip_average_age_sa = []
-        self.target_sa = {}
-        self.allowed_service_advisors = None
+        self.lookups = {}
 
     def run(self):
         self._apply_based_on_filters()
         self._load_source_reports()
+        self._update_columns()
         self._prepare_lookups()
 
         filtered_data = [row for row in self._process_rows() if ("_summary" not in row)]
@@ -245,322 +142,41 @@ class EmployeeIncentiveCalculationReport:
         return (self.columns, filtered_data, summary_html, None, None)
 
     def _apply_based_on_filters(self):
-        based_on = self.filters.get("based_on")
-        if based_on == "Technician":
-            self.filters["group_by_1"] = "Group by Technician/Bay/Equipment"
-        elif based_on == "Reporting Authority":
-            self.filters["group_by_1"] = "Group by Reporting Authority"
-            self.filters["include_tasks"] = 1
-        elif based_on == "Service Advisor":
-            self.filters["group_by_1"] = "Group by Service Advisor"
-            self.filters["include_tasks"] = 1
-        elif based_on == "Job Controller":
-            self.filters["group_by_1"] = "Group by Job Controller"
-            self.filters["include_tasks"] = 1
-        elif based_on == "Quality Controller":
-            self.filters["group_by_1"] = "Group by Technician/Bay/Equipment"
-            self.filters["include_tasks"] = 1
+        if self.module:
+            self.filters.update(self.module.REPORT_FILTERS)
 
     def _load_source_reports(self):
-        based_on = self.filters.get("based_on")
+        source_report = self.module.SOURCE_REPORT if self.module else None
 
-        if based_on == "Service Advisor":
-            workshop_turnover_report = WorkshopTurnoverReport(self.filters).run()
-            self.workshop_turnover_report_data = workshop_turnover_report[1]
-            self._update_columns([])
-        elif based_on == "Quality Controller":
-            self._update_columns([])
-        elif based_on == "Bodyshop Estimator":
-            self._update_columns([])
-        else:
+        if source_report == "turnover":
+            turnover_report = WorkshopTurnoverReport(self.filters).run()
+            self.source_data = turnover_report[1]
+        elif source_report == "productivity":
             productivity_report = WorkshopProductivityReport(self.filters).run()
-            self.data = productivity_report[1]
-            self._update_columns(productivity_report[0])
+            self.source_data = productivity_report[1]
+            self.source_columns = productivity_report[0]
 
-    def _update_columns(self, source_columns):
-        for column in source_columns:
+    def _update_columns(self):
+        for column in self.source_columns:
             if column.get("fieldname") in HIDDEN_SOURCE_COLUMNS:
                 column["hidden"] = 1
 
-        based_on = self.filters.get("based_on")
+        columns = list(self.source_columns)
 
-        columns_map = {
-            "Technician": [
-                {
-                    "label": "Employee ID",
-                    "fieldname": "employee",
-                    "fieldtype": "Link",
-                    "options": "Employee",
-                    "width": 150,
-                },
-                {
-                    "label": "Employee Name",
-                    "fieldname": "employee_name",
-                    "fieldtype": "Data",
-                    "width": 150,
-                },
-                {
-                    "label": "Reporting Manger",
-                    "fieldname": "reports_to",
-                    "fieldtype": "Link",
-                    "options": "Employee",
-                    "width": 150,
-                },
-            ],
-            "Reporting Authority": [
-                {
-                    "label": "Reporting Manger",
-                    "fieldname": "reports_to",
-                    "fieldtype": "Link",
-                    "options": "Employee",
-                    "width": 150,
-                },
-                {
-                    "label": "Reporting Manger Name",
-                    "fieldname": "reports_to_name",
-                    "fieldtype": "Data",
-                    "width": 150,
-                },
-                {
-                    "label": "Avg. CFB",
-                    "fieldname": "customer_overall_rating",
-                    "fieldtype": "Rating",
-                    "width": 200,
-                },
-                {
-                    "label": "Rating Value",
-                    "fieldname": "customer_overall_rating_value",
-                    "fieldtype": "Float",
-                    "width": 150,
-                    "hidden": 1,
-                },
-                {
-                    "label": "RO Count (CFB)",
-                    "fieldname": "ro_count_cfb",
-                    "fieldtype": "Int",
-                    "width": 150,
-                },
-                {
-                    "label": "QC RO Count",
-                    "fieldname": "total_qc_ro_count",
-                    "fieldtype": "Int",
-                    "width": 150,
-                },
-                {
-                    "label": "Non QC RO Count",
-                    "fieldname": "total_ro_count_non_qc",
-                    "fieldtype": "Int",
-                    "width": 150,
-                },
-            ],
-            "Service Advisor": [
-                {
-                    "label": frappe._("Service Advisor"),
-                    "fieldname": "service_advisor",
-                    "fieldtype": "Link",
-                    "options": "Sales Person",
-                    "width": 150,
-                },
-                {
-                    "label": "Avg. CFB",
-                    "fieldname": "customer_overall_rating",
-                    "fieldtype": "Rating",
-                    "width": 200,
-                },
-                {
-                    "label": "Sales Amount",
-                    "fieldname": "total_sales_amount",
-                    "fieldtype": "Currency",
-                    "width": 100,
-                },
-                {
-                    "label": "Target Revenue",
-                    "fieldname": "sa_target_revenue",
-                    "fieldtype": "Currency",
-                    "width": 100,
-                },
-                {
-                    "label": "WIP RO Count",
-                    "fieldname": "wip_ro_count",
-                    "fieldtype": "Int",
-                    "width": 100,
-                },
-                {
-                    "label": "WIP Average Age",
-                    "fieldname": "wip_average_age",
-                    "fieldtype": "Float",
-                    "width": 100,
-                },
-            ],
-            "Job Controller": [
-                {
-                    "label": frappe._("Controller"),
-                    "fieldname": "job_controller",
-                    "fieldtype": "Link",
-                    "options": "Employee",
-                    "width": 150,
-                },
-                {
-                    "label": frappe._("Controller Name"),
-                    "fieldname": "job_controller_name",
-                    "fieldtype": "Data",
-                    "width": 150,
-                },
-            ],
-            "Quality Controller": [
-                {
-                    "label": "Employee ID",
-                    "fieldname": "employee",
-                    "fieldtype": "Link",
-                    "options": "Employee",
-                    "width": 150,
-                },
-                {
-                    "label": "Employee Name",
-                    "fieldname": "employee_name",
-                    "fieldtype": "Data",
-                    "width": 150,
-                },
-                {
-                    "label": "Total RO Count",
-                    "fieldname": "total_ro_count",
-                    "fieldtype": "Int",
-                    "width": 150,
-                },
-                {
-                    "label": "Avg. CFB",
-                    "fieldname": "customer_overall_rating",
-                    "fieldtype": "Rating",
-                    "width": 200,
-                },
-                {
-                    "label": "QC RO Count",
-                    "fieldname": "total_qc_ro_count",
-                    "fieldtype": "Int",
-                    "width": 150,
-                },
-                {
-                    "label": "Invoiced QC RO Count",
-                    "fieldname": "total_qc_invoice_ro_count",
-                    "fieldtype": "Int",
-                    "width": 120,
-                },
-                {
-                    "label": "Non QC RO Count",
-                    "fieldname": "total_ro_count_non_qc",
-                    "fieldtype": "Int",
-                    "width": 150,
-                },
-                {
-                    "label": "Comeback RO Count",
-                    "fieldname": "total_comeback_ro_count",
-                    "fieldtype": "Int",
-                    "width": 150,
-                },
-            ],
-            "Bodyshop Estimator": [
-                {
-                    "label": frappe._("Bodyshop Estimator ID"),
-                    "fieldname": "bodyshop_estimator_id",
-                    "fieldtype": "Link",
-                    "options": "Employee",
-                    "width": 150,
-                },
-                {
-                    "label": frappe._("Bodyshop Estimator Name"),
-                    "fieldname": "bodyshop_estimator_name",
-                    "fieldtype": "Data",
-                    "width": 150,
-                },
-                {
-                    "label": "Sales Amount",
-                    "fieldname": "total_sales_amount",
-                    "fieldtype": "Currency",
-                    "width": 100,
-                },
-            ],
-        }
+        if self.module:
+            columns[:0] = self.module.get_leading_columns()
+            columns.extend(self.module.get_trailing_columns())
 
-        columns = list(source_columns)
-        columns[:0] = columns_map.get(based_on, [])
-
-        incentive_columns = []
-        template = BASED_ON_TEMPLATE_DATA.get(based_on) or {}
-        if template.get("weightages"):
-            incentive_columns = [
+            weightages = self.module.TEMPLATE_DATA.get("weightages") or {}
+            columns.extend(
                 {
                     "label": format_label(field) + " Amt",
                     "fieldname": field + "_amt",
                     "fieldtype": "Float",
                     "width": 150,
                 }
-                for field in template["weightages"]
-            ]
-
-        if based_on in ("Reporting Authority", "Technician"):
-            columns.append(
-                {
-                    "label": "Sold Hrs. %",
-                    "fieldname": "sold_hrs_percentage",
-                    "fieldtype": "Float",
-                    "width": 100,
-                }
+                for field in weightages
             )
-
-        if based_on == "Reporting Authority":
-            columns.append(
-                {
-                    "label": "QC RO %",
-                    "fieldname": "total_qc_ro_percentage",
-                    "fieldtype": "Float",
-                    "width": 100,
-                }
-            )
-
-        if based_on == "Job Controller":
-            columns.append(
-                {
-                    "label": "Idle %",
-                    "fieldname": "total_idle_percentage",
-                    "fieldtype": "Percentage",
-                    "width": 100,
-                }
-            )
-            columns.append(
-                {
-                    "label": "WIP RO Count",
-                    "fieldname": "wip_ro_count",
-                    "fieldtype": "Int",
-                    "width": 100,
-                }
-            )
-            columns.append(
-                {
-                    "label": "WIP Average Age",
-                    "fieldname": "wip_average_age",
-                    "fieldtype": "Float",
-                    "width": 100,
-                }
-            )
-            columns.append(
-                {
-                    "label": "K2K Bodyshop Avg. Age",
-                    "fieldname": "key_to_key_duration_bodyshop",
-                    "fieldtype": "Int",
-                    "width": 100,
-                }
-            )
-            columns.append(
-                {
-                    "label": "K2K Mechanical Avg. Age",
-                    "fieldname": "key_to_key_duration_mechanical",
-                    "fieldtype": "Int",
-                    "width": 100,
-                }
-            )
-
-        if incentive_columns:
-            columns.extend(incentive_columns)
 
         columns.append(
             {
@@ -580,1083 +196,19 @@ class EmployeeIncentiveCalculationReport:
             )
         )
 
-        based_on = self.filters.get("based_on")
-
-        if based_on == "Reporting Authority":
-            feedback = self._fetch_reporting_authority_feedback() or []
-            self.reporting_authority_feedback_map = {
-                d.get("reports_to"): d for d in feedback
-            }
-        elif based_on == "Service Advisor":
-            feedback = self._fetch_service_advisor_feedback() or []
-            self.service_advisor_feedback_map = {
-                d.get("service_advisor"): d for d in feedback
-            }
-            self.wip_average_age_sa = self._fetch_service_advisor_wip_age() or []
-            self.target_sa = self._fetch_service_advisor_targets()
-            self.allowed_service_advisors = (
-                self._fetch_service_advisors_by_designation()
-            )
-        elif based_on == "Job Controller":
-            self.wip_average_age_jc = self._fetch_job_controller_wip_age() or []
-            self._fetch_job_controller_key_to_key_mechanical = (
-                self._fetch_job_controller_key_to_key("Mechanical")
-            )
-            self._fetch_job_controller_key_to_key_bodyshop = (
-                self._fetch_job_controller_key_to_key("Body Shop")
-            )
-        elif based_on == "Quality Controller":
-            self.qc_technicians = self._fetch_qc_technician()
-            feedback = self._fetch_quality_control_feedback()
-            self.quality_controller_feedback_map = {
-                d.get("assigned_to"): d for d in feedback
-            }
-        elif based_on == "Bodyshop Estimator":
-            self.bodyshop_estimator = self._fetch_bodyshop_estimator_employee(
-                fetch_id_name=True
-            )
-
-    def _fetch_quality_control_feedback(self):
-        return frappe.db.sql(
-            """
-			SELECT
-				cbf_task_employee.assigned_to,
-				cbf_task_employee.assigned_to_name,
-				COUNT(DISTINCT cbf_task_employee.project) AS ro_count,
-				ROUND(
-					AVG(cbf_task_employee.overall_satisfaction_rating),
-					2
-				) AS avg_rating
-			FROM (
-				select distinct
-					tt3.assigned_to,
-					tt3.assigned_to_name,
-					tt3.project,
-					tcf.overall_satisfaction_rating
-				from
-					`tabTimesheet Detail` ttd
-				join
-					tabTimesheet tt
-				on
-					tt.name = ttd.parent
-				join
-					tabTask tt3
-				on
-					tt3.name = ttd.task
-				join
-					tabEmployee te
-				on
-					te.name = tt3.assigned_to
-				join
-					tabProject tp
-				on
-					tp.name = tt3.project
-				join
-					`tabCustomer Feedback` tcf
-				on
-					tt3.project = tcf.project
-				WHERE te.status = 'Active'
-					AND te.designation = 'Quality Controller'
-					AND tp.project_date BETWEEN %(from_date)s AND %(to_date)s
-			) AS cbf_task_employee
-			GROUP BY
-				cbf_task_employee.assigned_to,
-				cbf_task_employee.assigned_to_name
-			""",
-            {
-                "from_date": self.filters.get("from_date"),
-                "to_date": self.filters.get("to_date"),
-            },
-            as_dict=True,
-        )
-
-    def _fetch_reporting_authority_feedback(self):
-        condition_dict = {
-            "from_dt": self.filters.get("from_date"),
-            "to_dt": self.filters.get("to_date"),
-        }
-
-        condition = "and %(from_dt)s <= ttd.to_time and %(to_dt)s >= ttd.from_time"
-
-        return frappe.db.sql(
-            f"""
-			select
-				cbf_task_employee.reports_to,
-				cbf_task_employee.reports_to_name,
-				count(distinct cbf_task_employee.project) as ro_count,
-				round(avg(cbf_task_employee.overall_satisfaction_rating), 2) as avg_rating
-			from (
-				select distinct
-					tt3.reports_to,
-					tt3.reports_to_name,
-					tt3.project,
-					tcf.overall_satisfaction_rating
-				from
-					`tabTimesheet Detail` ttd
-				join
-					tabTimesheet tt
-				on
-					tt.name = ttd.parent
-				join
-					tabTask tt3
-				on
-					tt3.name = ttd.task
-				join
-					`tabCustomer Feedback` tcf
-				on
-					tt3.project = tcf.project
-				where
-					tcf.status = 'Completed'
-					and tt3.reports_to != ""
-					and tt.docstatus < 2
-					and tt3.reports_to is not null {condition}
-			) cbf_task_employee
-			group by
-				cbf_task_employee.reports_to;
-		""",
-            condition_dict,
-            as_dict=True,
-        )
-
-    def _fetch_service_advisor_feedback(self):
-        condition_dict = {
-            "from_dt": self.filters.get("from_date"),
-            "to_dt": self.filters.get("to_date"),
-        }
-
-        return frappe.db.sql(
-            """
-			select
-				cbf_task_sa.service_advisor,
-				count(distinct cbf_task_sa.project) as ro_count,
-				round(avg(cbf_task_sa.overall_satisfaction_rating), 2) as avg_rating
-			from (
-				select distinct
-					p.service_advisor,
-					p.name as project,
-					tcf.overall_satisfaction_rating
-				from
-					`tabSales Invoice` si
-				join
-					`tabSales Invoice Item` sii
-				on
-					sii.parent = si.name
-				join
-					`tabProject` p
-				on
-					p.name = sii.project
-				join
-					`tabCustomer Feedback` tcf
-				on
-					p.name = tcf.project
-				where
-					tcf.status = 'Completed'
-					and p.service_advisor != ""
-					and p.service_advisor is not null
-					and si.docstatus = 1
-					and si.posting_date between %(from_dt)s and %(to_dt)s
-					and sii.project is not null
-					and sii.project != ""
-			) cbf_task_sa
-			group by
-				cbf_task_sa.service_advisor;
-		""",
-            condition_dict,
-            as_dict=True,
-        )
-
-    def _fetch_service_advisors_by_designation(self):
-        settings = frappe.get_cached_doc("Incentive Calculation Setttings")
-        designations = [
-            d.designation
-            for d in (settings.service_advisor_designation or [])
-            if d.designation
-        ]
-        if not designations:
-            return None
-
-        rows = frappe.db.sql(
-            """
-			select sp.name
-			from `tabSales Person` sp
-			inner join `tabEmployee` emp on emp.user_id = sp.user_id
-			where sp.is_service_advisor = 1
-			  and sp.enabled = 1
-			  and emp.designation in %(designations)s
-			""",
-            {"designations": tuple(designations)},
-            as_dict=True,
-        )
-        return {row.name for row in rows}
-
-    def _fetch_service_advisor_targets(self):
-        to_date = getdate(self.filters.get("to_date") or getdate())
-        year = to_date.year
-        month_field = to_date.strftime("%B").lower()
-
-        rows = frappe.db.sql(
-            f"""
-			select
-				tr.sales_person,
-				trd.{month_field} as target_amount
-			from
-				`tabTarget Role Details` trd
-			inner join
-				`tabTarget Role` tr on tr.name = trd.parent
-			where
-				trd.parenttype = 'Target Role'
-				and trd.parentfield = 'targets'
-				and trd.year = %(year)s
-				and tr.sales_person is not null
-				and tr.sales_person != ''
-			""",
-            {"year": year},
-            as_dict=True,
-        )
-
-        return {row.get("sales_person"): flt(row.get("target_amount")) for row in rows}
-
-    def _fetch_service_advisor_wip_age(self):
-        as_of = getdate(self.filters.get("to_date") or getdate())
-
-        return frappe.db.sql(
-            """
-			select
-				p.service_advisor,
-				count(p.name) as ro_count,
-				round(avg(datediff(%(as_of)s, date(p.project_date))), 2) as average_wip_age
-			from
-				`tabProject` p
-			where
-				p.status != 'Cancelled'
-				and p.project_status != 'Completed'
-				and p.service_advisor is not null
-				and p.service_advisor != ''
-				and p.project_date <= %(as_of)s
-			group by
-				p.service_advisor;
-			""",
-            {"as_of": as_of},
-            as_dict=True,
-        )
-
-    def _fetch_job_controller_wip_age(self):
-        as_of = getdate(self.filters.get("to_date") or getdate())
-
-        return frappe.db.sql(
-            """
-			select
-				p.job_controller,
-				count(p.name) as ro_count,
-				round(avg(datediff(%(as_of)s, date(p.project_date))), 2) as average_wip_age
-			from
-				`tabProject` p
-			where
-				p.status != 'Cancelled'
-				and p.project_status != 'Completed'
-				and p.job_controller is not null
-				and p.job_controller != ''
-				and p.project_date <= %(as_of)s
-			group by
-				p.job_controller;
-			""",
-            {"as_of": as_of},
-            as_dict=True,
-        )
-
-    def _fetch_job_controller_key_to_key(self, workshop_division):
-        self.filters["workshop_division"] = workshop_division
-        key_to_key_report = VehicleKeyToKeyReport(self.filters).run()
-        return key_to_key_report[1]
-
-    def _fetch_qc_technician(self):
-        settings = frappe.get_cached_doc("Incentive Calculation Setttings")
-        designations = [
-            d.designation
-            for d in (settings.quality_controller_designation or [])
-            if d.designation
-        ]
-        if not designations:
-            return None
-
-        return frappe.get_all(
-            "Employee",
-            {
-                "status": "Active",
-                "is_technician": 1,
-                "designation": ["in", designations],
-            },
-            pluck="name",
-        )
-
-    def _fetch_ro_task_qc(self):
-        qc_technicians = self._fetch_qc_technician()
-        if not qc_technicians:
-            return []
-
-        rows = frappe.db.sql(
-            """
-			select
-				p.name as project,
-				p.billing_status,
-				p.project_date,
-				p.project_type as service_type,
-				t.name as task,
-				t.task_type,
-				t.assigned_to as employee,
-				t.assigned_to_name as employee_name
-			from
-				`tabProject` p
-			join
-				`tabTask` t
-			on
-				t.project = p.name
-			where
-				p.project_date between %(from_dt)s and %(to_dt)s
-				and t.assigned_to in %(qc_technicians)s
-			""",
-            {
-                "from_dt": self.filters.get("from_date"),
-                "to_dt": self.filters.get("to_date"),
-                "qc_technicians": tuple(qc_technicians),
-            },
-            as_dict=True,
-        )
-
-        groups = {}
-        for row in rows:
-            employee = row.get("employee")
-            employee_name = row.get("employee_name")
-            group = groups.setdefault(
-                employee,
-                frappe._dict(
-                    {
-                        "employee": employee,
-                        "totals": frappe._dict(
-                            {"employee": employee, "employee_name": employee_name}
-                        ),
-                        "rows": [],
-                    }
-                ),
-            )
-            group["rows"].append(row)
-
-        return [frappe._dict({"rows": list(groups.values())})]
-
-    def _fetch_bodyshop_estimator_employee(self, fetch_id_name=False):
-        settings = frappe.get_cached_doc("Incentive Calculation Setttings")
-        designations = [
-            d.designation
-            for d in (settings.bodyshop_estimator_designation or [])
-            if d.designation
-        ]
-        if not designations:
-            return None
-
-        filters = {
-            "status": "Active",
-            "designation": ["in", designations],
-        }
-
-        if fetch_id_name:
-            return frappe.get_all(
-                "Employee",
-                filters=filters,
-                fields=[
-                    "name as bodyshop_estimator_id",
-                    "employee_name as bodyshop_estimator_name",
-                ],
-            )
-
-        return frappe.get_all("Employee", filters=filters, pluck="name")
-
-    def _fetch_bodyshop_estimator_approved_estimate(self):
-        estimators = self._fetch_bodyshop_estimator_employee()
-        if not estimators:
-            return []
-
-        conditions = ""
-        values = {
-            "from_dt": self.filters.get("from_date"),
-            "to_dt": self.filters.get("to_date"),
-            "estimators": tuple(estimators),
-        }
-
-        if self.filters.get("company"):
-            conditions += " and q.company = %(company)s"
-            values["company"] = self.filters.get("company")
-
-        rows = frappe.db.sql(
-            f"""
-			select
-				q.estimator_id as employee,
-				q.estimator_name as employee_name,
-				q.name as quotation,
-				q.transaction_date as quotation_date,
-				q.status as quotation_status,
-				q.project,
-				q.base_net_total as estimate_net_amount,
-				q.base_grand_total as estimate_grand_amount,
-				ifnull(approved.sales_order_count, 0) as sales_order_count,
-				ifnull(approved.approved_net_amount, 0) as approved_net_amount,
-				case when ifnull(approved.sales_order_count, 0) > 0 then 1 else 0 end as is_approved
-			from
-				`tabQuotation` q
-			left join (
-				select
-					soi.quotation as quotation,
-					count(distinct so.name) as sales_order_count,
-					sum(soi.base_net_amount) as approved_net_amount
-				from
-					`tabSales Order Item` soi
-				join
-					`tabSales Order` so
-				on
-					so.name = soi.parent
-				where
-					so.docstatus = 1
-					and ifnull(soi.quotation, '') != ''
-				group by
-					soi.quotation
-			) approved
-			on
-				approved.quotation = q.name
-			where
-				q.docstatus = 1
-				and q.transaction_date between %(from_dt)s and %(to_dt)s
-				and q.estimator_id in %(estimators)s
-				{conditions}
-			""",
-            values,
-            as_dict=True,
-        )
-
-        groups = {}
-        for row in rows:
-            bodyshop_estimator_id = row.get("employee")
-            bodyshop_estimator_name = row.get("employee_name")
-            group = groups.setdefault(
-                bodyshop_estimator_id,
-                frappe._dict(
-                    {
-                        "employee": bodyshop_estimator_id,
-                        "totals": frappe._dict(
-                            {
-                                "employee": bodyshop_estimator_id,
-                                "employee_name": bodyshop_estimator_name,
-                                "total_estimate_count": 0,
-                                "total_approved_estimate_count": 0,
-                                "total_estimate_net_amount": 0.0,
-                                "total_approved_net_amount": 0.0,
-                                "estimate_to_approval_ratio": 0.0,
-                                "estimate_to_approval_amount_ratio": 0.0,
-                            }
-                        ),
-                        "rows": [],
-                    }
-                ),
-            )
-            group["rows"].append(row)
-
-            totals = group["totals"]
-            totals["total_estimate_count"] += 1
-            totals["total_estimate_net_amount"] += flt(row.get("estimate_net_amount"))
-            if row.get("is_approved"):
-                totals["total_approved_estimate_count"] += 1
-                totals["total_approved_net_amount"] += flt(
-                    row.get("approved_net_amount")
-                )
-
-        for group in groups.values():
-            totals = group["totals"]
-            if totals["total_estimate_count"]:
-                totals["estimate_to_approval_ratio"] = flt(
-                    (
-                        totals["total_approved_estimate_count"]
-                        / totals["total_estimate_count"]
-                    )
-                    * 100.0,
-                    3,
-                )
-            if totals["total_estimate_net_amount"]:
-                totals["estimate_to_approval_amount_ratio"] = flt(
-                    (
-                        totals["total_approved_net_amount"]
-                        / totals["total_estimate_net_amount"]
-                    )
-                    * 100.0,
-                    3,
-                )
-
-        return [frappe._dict({"rows": list(groups.values())})]
-
-    def _fetch_bodyshop_estimator_invoiced_ro(self):
-        estimators = self._fetch_bodyshop_estimator_employee()
-        if not estimators:
-            return []
-
-        conditions = ""
-        values = {
-            "from_dt": self.filters.get("from_date"),
-            "to_dt": self.filters.get("to_date"),
-            "estimators": tuple(estimators),
-        }
-
-        if self.filters.get("company"):
-            conditions += " and si.company = %(company)s"
-            values["company"] = self.filters.get("company")
-
-        rows = frappe.db.sql(
-            f"""
-			select
-				q.estimator_id as employee,
-				q.estimator_name as employee_name,
-				q.name as quotation,
-				q.transaction_date as quotation_date,
-				q.status as quotation_status,
-				q.net_total as quotation_net_total,
-				p.name as project,
-				p.project_date,
-				p.project_type as service_type,
-				p.project_status,
-				si.name as sales_invoice,
-				si.posting_date,
-				si.base_net_total as invoiced_net_amount,
-				si.base_grand_total as invoiced_grand_amount
-			from
-				`tabQuotation` q
-			join
-				`tabProject` p
-			on
-				p.name = q.project
-			join
-				`tabSales Invoice` si
-			on
-				si.project = p.name
-			where
-				si.docstatus = 1
-				and si.posting_date between %(from_dt)s and %(to_dt)s
-				and q.estimator_id in %(estimators)s
-				{conditions}
-			""",
-            values,
-            as_dict=True,
-        )
-
-        groups = {}
-        for row in rows:
-            bodyshop_estimator_id = row.get("employee")
-            bodyshop_estimator_name = row.get("employee_name")
-            group = groups.setdefault(
-                bodyshop_estimator_id,
-                frappe._dict(
-                    {
-                        "employee": bodyshop_estimator_id,
-                        "totals": frappe._dict(
-                            {
-                                "employee": bodyshop_estimator_id,
-                                "employee_name": bodyshop_estimator_name,
-                                "total_invoiced_net_amount": 0.0,
-                                "total_invoiced_grand_amount": 0.0,
-                                "total_ro_count": 0,
-                                "total_quotation_count": 0,
-                                "total_sales_invoice_count": 0,
-                            }
-                        ),
-                        "rows": [],
-                        "_projects": set(),
-                        "_quotations": set(),
-                    }
-                ),
-            )
-            group["rows"].append(row)
-            group["_projects"].add(row.get("project"))
-            group["_quotations"].add(row.get("quotation"))
-
-            totals = group["totals"]
-            totals["total_invoiced_net_amount"] += flt(row.get("invoiced_net_amount"))
-            totals["total_invoiced_grand_amount"] += flt(
-                row.get("invoiced_grand_amount")
-            )
-            totals["total_sales_invoice_count"] += 1
-
-        for group in groups.values():
-            totals = group["totals"]
-            totals["total_ro_count"] = len(group.pop("_projects"))
-            totals["total_quotation_count"] = len(group.pop("_quotations"))
-
-        return [frappe._dict({"rows": list(groups.values())})]
-
-    def _fetch_bodyshop_estimator_gross_profit_margin(self):
-        estimators = self._fetch_bodyshop_estimator_employee()
-        if not estimators:
-            return []
-
-        conditions = ""
-        values = {
-            "from_dt": self.filters.get("from_date"),
-            "to_dt": self.filters.get("to_date"),
-            "estimators": tuple(estimators),
-            "completed_statuses": COMPLETED_PROJECT_STATUSES,
-        }
-
-        if self.filters.get("company"):
-            conditions += " and p.company = %(company)s"
-            values["company"] = self.filters.get("company")
-
-        rows = frappe.db.sql(
-            f"""
-			select
-				q.estimator_id as employee,
-				max(q.estimator_name) as employee_name,
-				p.name as project,
-				max(p.project_date) as project_date,
-				max(p.status) as status,
-				max(p.project_status) as project_status,
-				max(p.project_type) as service_type,
-				max(p.total_sales_amount) as total_sales_amount,
-				max(p.gross_margin) as gross_margin,
-				max(p.per_gross_margin) as per_gross_margin
-			from
-				`tabQuotation` q
-			join
-				`tabProject` p
-			on
-				p.name = q.project
-			where
-				q.docstatus = 1
-				and p.status in %(completed_statuses)s
-				and p.project_date between %(from_dt)s and %(to_dt)s
-				and q.estimator_id in %(estimators)s
-				{conditions}
-			group by
-				q.estimator_id, p.name
-			""",
-            values,
-            as_dict=True,
-        )
-
-        groups = {}
-        for row in rows:
-            bodyshop_estimator_id = row.get("employee")
-            bodyshop_estimator_name = row.get("employee_name")
-            group = groups.setdefault(
-                bodyshop_estimator_id,
-                frappe._dict(
-                    {
-                        "employee": bodyshop_estimator_id,
-                        "totals": frappe._dict(
-                            {
-                                "employee": bodyshop_estimator_id,
-                                "employee_name": bodyshop_estimator_name,
-                                "total_completed_ro_count": 0,
-                                "total_sales_amount": 0.0,
-                                "total_gross_margin": 0.0,
-                                "gross_profit_margin_percentage": 0.0,
-                            }
-                        ),
-                        "rows": [],
-                    }
-                ),
-            )
-            group["rows"].append(row)
-
-            totals = group["totals"]
-            totals["total_completed_ro_count"] += 1
-            totals["total_sales_amount"] += flt(row.get("total_sales_amount"))
-            totals["total_gross_margin"] += flt(row.get("gross_margin"))
-
-        for group in groups.values():
-            totals = group["totals"]
-            if totals["total_sales_amount"]:
-                totals["gross_profit_margin_percentage"] = flt(
-                    (totals["total_gross_margin"] / totals["total_sales_amount"])
-                    * 100.0,
-                    3,
-                )
-
-        return [frappe._dict({"rows": list(groups.values())})]
+        if self.module:
+            self.lookups = self.module.prepare_lookups(self.filters) or {}
 
     def _process_rows(self):
-        based_on = self.filters.get("based_on")
+        if not self.module:
+            return iter([])
 
-        if based_on == "Service Advisor":
-            if self.workshop_turnover_report_data:
-                yield from service_advisor_process_rows(
-                    self.filters,
-                    self.workshop_turnover_report_data,
-                    self.service_advisor_feedback_map,
-                    self.wip_average_age_sa,
-                    self.target_sa,
-                    self.allowed_service_advisors,
-                )
-        if based_on == "Quality Controller":
-            yield from quality_control_process_rows(
-                self.filters,
-                self._fetch_ro_task_qc(),
-                self.quality_controller_feedback_map,
-                self.qc_task_types,
-                self.qc_technicians,
-            )
-
-        if based_on == "Bodyshop Estimator":
-            print(self.bodyshop_estimator)
-            yield from bodyshop_estimator_process_rows(
-                self.filters,
-                self.bodyshop_estimator,
-                self._fetch_bodyshop_estimator_invoiced_ro(),
-                self._fetch_bodyshop_estimator_approved_estimate(),
-                self._fetch_bodyshop_estimator_gross_profit_margin(),
-            )
-
-        if based_on not in [
-            "Service Advisor",
-            "Quality Controller",
-            "Bodyshop Estimator",
-        ]:
-            for each_data in self.data:
-                if each_data.get("sold_time") and each_data.get("available_hours"):
-                    each_data["sold_hrs_percentage"] = flt(
-                        (each_data.get("sold_time") / each_data.get("available_hours"))
-                        * 100.0,
-                        3,
-                    )
-                else:
-                    each_data["sold_hrs_percentage"] = 0.0
-
-                if each_data.rows:
-                    for each_group_rows in each_data.rows:
-                        totals_dict = each_group_rows.totals or {}
-
-                        ro_set, qc_ro_set = set(), set()
-                        for row in each_group_rows.rows or []:
-                            if row.get("task_type") in self.qc_task_types:
-                                qc_ro_set.add(row.get("project"))
-                            else:
-                                ro_set.add(row.get("project"))
-
-                        if totals_dict.get("sold_time") and totals_dict.get(
-                            "available_hours"
-                        ):
-                            totals_dict["sold_hrs_percentage"] = flt(
-                                (
-                                    totals_dict.get("sold_time")
-                                    / totals_dict.get("available_hours")
-                                )
-                                * 100.0,
-                                3,
-                            )
-                        else:
-                            totals_dict["sold_hrs_percentage"] = 0.0
-
-                        self._compute_sold_hrs_amount(totals_dict)
-                        self._compute_efficiency_amount(totals_dict)
-                        self._compute_productivity_amount(totals_dict)
-                        self._compute_proficiency_amount(totals_dict)
-
-                        totals_dict["total_ro_count_non_qc"] = len(ro_set)
-                        totals_dict["total_qc_ro_count"] = len(qc_ro_set)
-                        totals_dict["total_qc_ro_percentage"] = flt(
-                            (len(qc_ro_set) / (len(ro_set) + len(qc_ro_set))) * 100.0, 3
-                        )
-
-                        self._compute_qc_ro_amount(totals_dict)
-
-                        if totals_dict.get("_bold"):
-                            totals_dict["_bold"] = 0
-
-                        if based_on == "Reporting Authority":
-                            self._compute_reporting_authority_feedback(totals_dict)
-                            if not totals_dict.get("reports_to"):
-                                continue
-
-                        if based_on == "Job Controller":
-                            if not totals_dict.get("job_controller"):
-                                continue
-                            totals_dict["total_idle_percentage"] = flt(
-                                (
-                                    flt(
-                                        flt(totals_dict.get("available_hours"))
-                                        - flt(totals_dict.get("actual_time"))
-                                        - flt(totals_dict.get("out_of_shift_hours"))
-                                    )
-                                    / flt(totals_dict.get("available_hours"))
-                                )
-                                * 100.0,
-                                3,
-                            )
-                            self._compute_idle_amount(totals_dict)
-                            job_controller = totals_dict.get("job_controller")
-                            totals_dict["wip_ageing_amt"] = 0.0
-                            totals_dict["wip_ro_count"] = 0
-
-                            for (
-                                each_job_controller_wip_average_age
-                            ) in self.wip_average_age_jc:
-                                if (
-                                    each_job_controller_wip_average_age.get(
-                                        "job_controller"
-                                    )
-                                    == job_controller
-                                ):
-                                    totals_dict["wip_average_age"] = flt(
-                                        each_job_controller_wip_average_age.get(
-                                            "average_wip_age"
-                                        )
-                                    )
-                                    totals_dict["wip_ro_count"] = flt(
-                                        each_job_controller_wip_average_age.get(
-                                            "ro_count"
-                                        )
-                                    )
-                                    if flt(totals_dict["wip_average_age"]) <= 46.0:
-                                        wip_average_age_weightage_amount = (
-                                            get_weightage_amount(
-                                                based_on=self.filters.get("based_on"),
-                                                base_incentive=self.filters.get(
-                                                    "base_incentive"
-                                                )
-                                                or 0.0,
-                                                field_name="wip_ageing",
-                                            )
-                                            or 0
-                                        )
-                                        totals_dict["wip_ageing_amt"] = flt(
-                                            wip_average_age_weightage_amount,
-                                            3,
-                                        )
-                                        break
-                            else:
-                                totals_dict["wip_ro_count"] = 0
-                                totals_dict["wip_average_age"] = 0.0
-                                wip_average_age_weightage_amount = (
-                                    get_weightage_amount(
-                                        based_on=self.filters.get("based_on"),
-                                        base_incentive=self.filters.get(
-                                            "base_incentive"
-                                        )
-                                        or 0.0,
-                                        field_name="wip_ageing",
-                                    )
-                                    or 0
-                                )
-                                totals_dict["wip_ageing_amt"] = flt(
-                                    wip_average_age_weightage_amount,
-                                    3,
-                                )
-                            total_age_key_to_key_bodyshop = 0
-                            total_number_of_key_to_key_ro_bodyshop = len(
-                                self._fetch_job_controller_key_to_key_bodyshop
-                            )
-                            for (
-                                each_job_controller_key_to_key_bodyshop
-                            ) in self._fetch_job_controller_key_to_key_bodyshop:
-                                if (
-                                    each_job_controller_key_to_key_bodyshop.get(
-                                        "job_controller"
-                                    )
-                                    == job_controller
-                                ):
-                                    total_age_key_to_key_bodyshop += (
-                                        int(
-                                            each_job_controller_key_to_key_bodyshop.get(
-                                                "age"
-                                            )
-                                        )
-                                        if each_job_controller_key_to_key_bodyshop.get(
-                                            "age"
-                                        )
-                                        else 0
-                                    )
-                            else:
-                                totals_dict["key_to_key_duration_bodyshop"] = int(
-                                    total_age_key_to_key_bodyshop
-                                    / total_number_of_key_to_key_ro_bodyshop
-                                )
-
-                            total_age_key_to_key_mechanical = 0
-                            total_number_of_key_to_key_ro_mechanical = len(
-                                self._fetch_job_controller_key_to_key_mechanical
-                            )
-                            for (
-                                each_job_controller_key_to_key_mechanical
-                            ) in self._fetch_job_controller_key_to_key_mechanical:
-                                if (
-                                    each_job_controller_key_to_key_mechanical.get(
-                                        "job_controller"
-                                    )
-                                    == job_controller
-                                ):
-                                    total_age_key_to_key_mechanical += (
-                                        int(
-                                            each_job_controller_key_to_key_mechanical.get(
-                                                "age"
-                                            )
-                                        )
-                                        if each_job_controller_key_to_key_mechanical.get(
-                                            "age"
-                                        )
-                                        else 0
-                                    )
-                            else:
-                                totals_dict["key_to_key_duration_mechanical"] = int(
-                                    total_age_key_to_key_bodyshop
-                                    / total_number_of_key_to_key_ro_mechanical
-                                )
-                            self._compute_key_to_key_amount(totals_dict)
-
-                        totals_dict["calculated_incentive"] = compute_incentive(
-                            totals_dict, based_on
-                        )
-                        yield totals_dict
-
-    def _weightage_amount(self, field_name):
-        return (
-            get_weightage_amount(
-                based_on=self.filters.get("based_on"),
-                base_incentive=self.filters.get("base_incentive") or 0.0,
-                field_name=field_name,
-            )
-            or 0
+        return self.module.process_rows(
+            self.filters,
+            self.source_data,
+            self.qc_task_types,
+            self.lookups,
         )
-
-    def _compute_sold_hrs_amount(self, totals):
-        result = get_ladder_result(
-            based_on=self.filters.get("based_on"),
-            sold_hrs_percentage=totals.get("sold_hrs_percentage"),
-            ladder_field="sold_hrs_ladder",
-            top_cap=125.0,
-        )
-        if result:
-            totals["sold_hrs_amt"] = flt(
-                self._weightage_amount("sold_hrs") * (result / 100.0), 3
-            )
-        else:
-            totals["sold_hrs_amt"] = 0
-
-    def _compute_efficiency_amount(self, totals):
-        result = get_ladder_result(
-            based_on=self.filters.get("based_on"),
-            sold_hrs_percentage=totals.get("per_efficiency"),
-            ladder_field="efficiency_ladder",
-            top_cap=125.0,
-        )
-        if result:
-            totals["efficiency_amt"] = flt(
-                self._weightage_amount("efficiency") * (result / 100.0), 3
-            )
-        else:
-            totals["efficiency_amt"] = 0
-
-    def _compute_productivity_amount(self, totals):
-        result = get_ladder_result(
-            based_on=self.filters.get("based_on"),
-            sold_hrs_percentage=totals.get("per_productivity"),
-            ladder_field="productivity_ladder",
-            top_cap=125.0,
-        )
-        if result:
-            totals["productivity_amt"] = flt(
-                self._weightage_amount("productivity") * (result / 100.0), 3
-            )
-        else:
-            totals["productivity_amt"] = 0
-
-    def _compute_proficiency_amount(self, totals):
-        result = get_ladder_result(
-            based_on=self.filters.get("based_on"),
-            sold_hrs_percentage=totals.get("per_proficiency"),
-            ladder_field="proficiency_ladder",
-            top_cap=125.0,
-        )
-        if result:
-            totals["proficiency_amt"] = flt(
-                self._weightage_amount("proficiency") * (result / 100.0), 3
-            )
-        else:
-            totals["proficiency_amt"] = 0
-
-    def _compute_qc_ro_amount(self, totals):
-        result = get_rate_ladder_result(
-            based_on=self.filters.get("based_on"),
-            percentage=totals.get("total_qc_ro_percentage"),
-            ladder_field="qc_ro_ladder",
-            top_cap=10.0,
-        )
-        if result:
-            totals["qc_ro_amt"] = flt(
-                self._weightage_amount("qc_ro") * (result / 100.0), 3
-            )
-        else:
-            totals["qc_ro_amt"] = 0
-
-    def _compute_idle_amount(self, totals):
-        result = get_rate_ladder_result(
-            based_on=self.filters.get("based_on"),
-            percentage=totals.get("total_idle_percentage"),
-            ladder_field="idle_time_ladder",
-            top_cap=10.0,
-        )
-        if result:
-            totals["idle_time_amt"] = flt(
-                self._weightage_amount("idle_time") * (result / 100.0), 3
-            )
-        else:
-            totals["idle_time_amt"] = 0
-
-    def _compute_key_to_key_amount(self, totals):
-        totals["key_to_key_amt"] = 0.0
-        bodyshop_result = get_rate_ladder_result(
-            based_on=self.filters.get("based_on"),
-            percentage=totals.get("key_to_key_duration_bodyshop"),
-            ladder_field="key_to_key_bodyshop_ladder",
-            top_cap=10.0,
-        )
-        if bodyshop_result:
-            totals["key_to_key_amt"] = flt(
-                self._weightage_amount("key_to_key") * (bodyshop_result / 100.0), 3
-            )
-        else:
-            mechanical_result = get_rate_ladder_result(
-                based_on=self.filters.get("based_on"),
-                percentage=totals.get("key_to_key_duration_mechanical"),
-                ladder_field="key_to_key_mechanical_ladder",
-                top_cap=10.0,
-            )
-            if mechanical_result:
-                totals["key_to_key_amt"] = flt(
-                    self._weightage_amount("key_to_key") * (mechanical_result / 100.0),
-                    3,
-                )
-
-    def _compute_reporting_authority_feedback(self, totals):
-        totals["customer_feedback_amt"] = 0
-        reports_to = totals.get("reports_to")
-        if not reports_to or reports_to not in self.reporting_authority_feedback_map:
-            return
-
-        cfb = self.reporting_authority_feedback_map[reports_to]
-        if not cfb.get("avg_rating"):
-            return
-
-        rating = flt(cfb.get("avg_rating"), 2)
-        totals["customer_overall_rating"] = rating
-        totals["customer_overall_rating_value"] = rating
-        rating_out_of_five = flt((rating / 2) * 10.0, 2)
-        totals["ro_count_cfb"] = cfb.get("ro_count")
-
-        result = get_rate_ladder_result(
-            based_on=self.filters.get("based_on"),
-            percentage=rating_out_of_five,
-            ladder_field="cfb_rate_ladder",
-            top_cap=5.0,
-        )
-        if result:
-            totals["customer_feedback_amt"] = flt(
-                self._weightage_amount("customer_feedback") * (result / 100.0), 3
-            )
-        else:
-            totals["customer_feedback_amt"] = 0
 
     def _build_summary_html(self):
         based_on = self.filters.get("based_on")
@@ -1664,26 +216,8 @@ class EmployeeIncentiveCalculationReport:
 
         based_on_html_table = generate_weightage_table(based_on, base_incentive)
 
-        ladder_specs = [
-            ("sold_hrs_ladder", "Sold Hrs %", "percent", None),
-            ("efficiency_ladder", "Efficiency %", "percent", None),
-            ("productivity_ladder", "Productivity %", "percent", None),
-            ("proficiency_ladder", "Proficiency %", "percent", None),
-            ("qc_ro_ladder", "QC RO", "rate", "%"),
-            ("revenue_ladder", "Revenue %", "percent", None),
-            ("cfb_rate_ladder", "Customer Feedback Rate", "rate", None),
-            ("wip_ageing_ladder", "Average WIP Ageing", "rate", None),
-            ("idle_time_ladder", "Idle", "rate", "%"),
-            ("key_to_key_mechanical_ladder", "K2K Mechanical", "rate", None),
-            ("key_to_key_bodyshop_ladder", "K2K Bodyshop", "rate", None),
-            ("come_back_ro_ladder", "Come Back RO", "rate", "%"),
-            ("invoiced_ro_ladder", "Invoiced RO %", "percent", None),
-            ("gross_profit_ladder", "Gross Profit", "rate", "%"),
-            ("estimate_to_approval_ladder", "Estimate to Approval", "rate", "%"),
-        ]
-
         ladder_html_tables = []
-        for ladder_field, label, kind, suffix in ladder_specs:
+        for ladder_field, label, kind, suffix in LADDER_SPECS:
             if kind == "percent":
                 html = generate_ladder_html(based_on, ladder_field, label)
             elif suffix is not None:
