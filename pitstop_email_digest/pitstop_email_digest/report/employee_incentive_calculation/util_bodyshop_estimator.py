@@ -6,7 +6,14 @@ margin of the ROs that completed.
 """
 
 import frappe
-from frappe.utils import flt
+from frappe.utils import flt, getdate
+
+from .util_employee_incentive_calculation import (
+    compute_incentive,
+    get_ladder_result,
+    get_rate_ladder_result,
+    weightage_amount,
+)
 
 TEMPLATE_DATA = {
     "weightages": {
@@ -56,6 +63,24 @@ def get_leading_columns():
             "fieldname": "total_sales_amount",
             "fieldtype": "Currency",
             "width": 100,
+        },
+        {
+            "label": "Sales Target Amount",
+            "fieldname": "bse_target_revenue",
+            "fieldtype": "Currency",
+            "width": 100,
+        },
+        {
+            "label": "Gross Margin Percentage",
+            "fieldname": "gp_gross_profit_margin_percentage",
+            "fieldtype": "Percentage",
+            "width": 140,
+        },
+        {
+            "label": "Estimate To Appoval Ration Percentage",
+            "fieldname": "estimate_to_approval_ratio",
+            "fieldtype": "Percentage",
+            "width": 140,
         },
     ]
 
@@ -119,8 +144,8 @@ def fetch_approved_estimate(filters):
     rows = frappe.db.sql(
         f"""
 		select
-			q.estimator_id as employee,
-			q.estimator_name as employee_name,
+			q.estimator_id as bodyshop_estimator_id,
+			q.estimator_name as bodyshop_estimator_name,
 			q.name as quotation,
 			q.transaction_date as quotation_date,
 			q.status as quotation_status,
@@ -163,17 +188,17 @@ def fetch_approved_estimate(filters):
 
     groups = {}
     for row in rows:
-        bodyshop_estimator_id = row.get("employee")
-        bodyshop_estimator_name = row.get("employee_name")
+        bodyshop_estimator_id = row.get("bodyshop_estimator_id")
+        bodyshop_estimator_name = row.get("bodyshop_estimator_name")
         group = groups.setdefault(
             bodyshop_estimator_id,
             frappe._dict(
                 {
-                    "employee": bodyshop_estimator_id,
+                    "bodyshop_estimator_id": bodyshop_estimator_id,
                     "totals": frappe._dict(
                         {
-                            "employee": bodyshop_estimator_id,
-                            "employee_name": bodyshop_estimator_name,
+                            "bodyshop_estimator_id": bodyshop_estimator_id,
+                            "bodyshop_estimator_name": bodyshop_estimator_name,
                             "total_estimate_count": 0,
                             "total_approved_estimate_count": 0,
                             "total_estimate_net_amount": 0.0,
@@ -240,8 +265,8 @@ def fetch_invoiced_ro(filters):
     rows = frappe.db.sql(
         f"""
 		select
-			q.estimator_id as employee,
-			q.estimator_name as employee_name,
+			q.estimator_id as bodyshop_estimator_id,
+			q.estimator_name as bodyshop_estimator_name,
 			q.name as quotation,
 			q.transaction_date as quotation_date,
 			q.status as quotation_status,
@@ -265,7 +290,7 @@ def fetch_invoiced_ro(filters):
 		on
 			si.project = p.name
 		where
-			si.docstatus = 1
+			si.docstatus = 1 and q.docstatus = 1
 			and si.posting_date between %(from_dt)s and %(to_dt)s
 			and q.estimator_id in %(estimators)s
 			{conditions}
@@ -276,19 +301,18 @@ def fetch_invoiced_ro(filters):
 
     groups = {}
     for row in rows:
-        bodyshop_estimator_id = row.get("employee")
-        bodyshop_estimator_name = row.get("employee_name")
+        bodyshop_estimator_id = row.get("bodyshop_estimator_id")
+        bodyshop_estimator_name = row.get("bodyshop_estimator_name")
         group = groups.setdefault(
             bodyshop_estimator_id,
             frappe._dict(
                 {
-                    "employee": bodyshop_estimator_id,
+                    "bodyshop_estimator_id": bodyshop_estimator_id,
                     "totals": frappe._dict(
                         {
-                            "employee": bodyshop_estimator_id,
-                            "employee_name": bodyshop_estimator_name,
-                            "total_invoiced_net_amount": 0.0,
-                            "total_invoiced_grand_amount": 0.0,
+                            "bodyshop_estimator_id": bodyshop_estimator_id,
+                            "bodyshop_estimator_name": bodyshop_estimator_name,
+                            "total_sales_amount": 0.0,
                             "total_ro_count": 0,
                             "total_quotation_count": 0,
                             "total_sales_invoice_count": 0,
@@ -305,8 +329,7 @@ def fetch_invoiced_ro(filters):
         group["_quotations"].add(row.get("quotation"))
 
         totals = group["totals"]
-        totals["total_invoiced_net_amount"] += flt(row.get("invoiced_net_amount"))
-        totals["total_invoiced_grand_amount"] += flt(row.get("invoiced_grand_amount"))
+        totals["total_sales_amount"] += flt(row.get("invoiced_net_amount"))
         totals["total_sales_invoice_count"] += 1
 
     for group in groups.values():
@@ -339,8 +362,8 @@ def fetch_gross_profit_margin(filters):
     rows = frappe.db.sql(
         f"""
 		select
-			q.estimator_id as employee,
-			max(q.estimator_name) as employee_name,
+			q.estimator_id as bodyshop_estimator_id,
+			q.estimator_name as bodyshop_estimator_name,
 			p.name as project,
 			max(p.project_date) as project_date,
 			max(p.status) as status,
@@ -370,21 +393,21 @@ def fetch_gross_profit_margin(filters):
 
     groups = {}
     for row in rows:
-        bodyshop_estimator_id = row.get("employee")
-        bodyshop_estimator_name = row.get("employee_name")
+        bodyshop_estimator_id = row.get("bodyshop_estimator_id")
+        bodyshop_estimator_name = row.get("bodyshop_estimator_name")
         group = groups.setdefault(
             bodyshop_estimator_id,
             frappe._dict(
                 {
-                    "employee": bodyshop_estimator_id,
+                    "bodyshop_estimator_id": bodyshop_estimator_id,
                     "totals": frappe._dict(
                         {
-                            "employee": bodyshop_estimator_id,
-                            "employee_name": bodyshop_estimator_name,
+                            "bodyshop_estimator_id": bodyshop_estimator_id,
+                            "bodyshop_estimator_name": bodyshop_estimator_name,
                             "total_completed_ro_count": 0,
-                            "total_sales_amount": 0.0,
-                            "total_gross_margin": 0.0,
-                            "gross_profit_margin_percentage": 0.0,
+                            "gp_total_sales_amount": 0.0,
+                            "gp_total_gross_margin": 0.0,
+                            "gp_gross_profit_margin_percentage": 0.0,
                         }
                     ),
                     "rows": [],
@@ -395,18 +418,140 @@ def fetch_gross_profit_margin(filters):
 
         totals = group["totals"]
         totals["total_completed_ro_count"] += 1
-        totals["total_sales_amount"] += flt(row.get("total_sales_amount"))
-        totals["total_gross_margin"] += flt(row.get("gross_margin"))
+        totals["gp_total_sales_amount"] += flt(row.get("total_sales_amount"))
+        totals["gp_total_gross_margin"] += flt(row.get("gross_margin"))
 
     for group in groups.values():
         totals = group["totals"]
-        if totals["total_sales_amount"]:
-            totals["gross_profit_margin_percentage"] = flt(
-                (totals["total_gross_margin"] / totals["total_sales_amount"]) * 100.0,
+        if totals["gp_total_sales_amount"]:
+            totals["gp_gross_profit_margin_percentage"] = flt(
+                (totals["gp_total_gross_margin"] / totals["gp_total_sales_amount"])
+                * 100.0,
                 3,
             )
 
     return [frappe._dict({"rows": list(groups.values())})]
+
+
+def apply_gross_profit_margin(filters, totals):
+    """Rate the gross profit margin percentage against `gross_profit_ladder`.
+
+    The percentage comes from `fetch_gross_profit_margin`, already merged into
+    `totals`: 55% and below scores nothing, anything above it scores the full
+    gross profit weightage.
+    """
+    totals["gross_profit_amt"] = 0.0
+
+    percentage = flt(totals.get("gp_gross_profit_margin_percentage"), 3)
+    if not percentage:
+        return
+
+    result = get_rate_ladder_result(
+        based_on=filters.get("based_on"),
+        percentage=percentage,
+        ladder_field="gross_profit_ladder",
+        top_cap=100.0,
+    )
+
+    if result:
+        totals["gross_profit_amt"] = flt(
+            weightage_amount(filters, "gross_profit") * (result / 100.0), 3
+        )
+
+
+def apply_approved_estimate(filters, totals):
+    """Rate the estimate-to-approval ratio against `estimate_to_approval_ladder`.
+
+    The ratio comes from `fetch_approved_estimate`, already merged into
+    `totals`: below 75% of estimates turning into submitted sales orders scores
+    nothing, at or above it scores the full estimate-to-approval weightage.
+    """
+    totals["estimate_to_approval_amt"] = 0.0
+
+    ratio = flt(totals.get("estimate_to_approval_ratio"), 3)
+    if not ratio:
+        return
+
+    result = get_rate_ladder_result(
+        based_on=filters.get("based_on"),
+        percentage=ratio,
+        ladder_field="estimate_to_approval_ladder",
+        top_cap=100.0,
+    )
+
+    if result:
+        totals["estimate_to_approval_amt"] = flt(
+            weightage_amount(filters, "estimate_to_approval") * (result / 100.0), 3
+        )
+
+
+def fetch_targets(filters):
+    to_date = getdate(filters.get("to_date") or getdate())
+    year = to_date.year
+    month_field = to_date.strftime("%B").lower()
+
+    settings = frappe.get_cached_doc("Incentive Calculation Setttings")
+    designations = [
+        d.designation
+        for d in (settings.bodyshop_estimator_designation or [])
+        if d.designation
+    ]
+    if not designations:
+        return None
+
+    rows = frappe.db.sql(
+        f"""
+		select
+			tr.employee as bodyshop_estimator_id,
+			trd.{month_field} as target_amount
+		from
+			`tabTarget Role Details` trd
+		inner join
+			`tabTarget Role` tr on tr.name = trd.parent
+		where
+			trd.parenttype = 'Target Role'
+			and trd.parentfield = 'targets'
+			and trd.year = %(year)s
+			and tr.employee is not null
+			and tr.employee != ''
+            and tr.designation in %(designations)s
+		""",
+        {"year": year, "designations": tuple(designations)},
+        as_dict=True,
+    )
+
+    return {
+        row.get("bodyshop_estimator_id"): flt(row.get("target_amount")) for row in rows
+    }
+
+
+def compute_revenue_amount(filters, totals):
+    totals["invoiced_ro_amt"] = 0.0
+
+    revenue_percentage = (
+        flt(
+            (
+                flt(totals.get("total_sales_amount"))
+                / flt(totals.get("bse_target_revenue"))
+            )
+            * 100.0,
+            3,
+        )
+        if flt(totals.get("bse_target_revenue"))
+        else 0.0
+    )
+
+    result = get_ladder_result(
+        based_on=filters.get("based_on"),
+        sold_hrs_percentage=revenue_percentage,
+        ladder_field="invoiced_ro_ladder",
+        top_cap=125.0,
+    )
+
+    if result:
+        totals["invoiced_ro_amt"] = flt(
+            weightage_amount(filters, "invoiced_ro") * (result / 100.0), 3
+        )
 
 
 def prepare_lookups(filters):
@@ -415,6 +560,7 @@ def prepare_lookups(filters):
         "invoiced_ro": fetch_invoiced_ro(filters),
         "approved_estimate": fetch_approved_estimate(filters),
         "gross_profit_margin": fetch_gross_profit_margin(filters),
+        "target": fetch_targets(filters),
     }
 
 
@@ -422,5 +568,60 @@ def process_rows(filters, source_data, qc_task_types, lookups):
     # TODO: score invoiced_ro / approved_estimate / gross_profit_margin against
     # their ladders and total them into calculated_incentive. For now the rows
     # are listed unscored.
+    invoiced_ro = lookups.get("invoiced_ro") or []
+    target = lookups.get("target") or {}
+    gross_profit_margin = lookups.get("gross_profit_margin") or []
+    approved_estimate = lookups.get("approved_estimate") or []
+
     for each_estimator in lookups.get("estimators") or []:
+        each_estimator.update(
+            {
+                "total_sales_amount": 0.0,
+                "total_ro_count": 0.0,
+                "total_quotation_count": 0.0,
+                "total_sales_invoice_count": 0.0,
+                "gross_profit_margin_percentage": 0.0,
+                "total_completed_ro_count": 0.0,
+                "gp_total_sales_amount": 0.0,
+                "gp_total_gross_margin": 0.0,
+                "gp_gross_profit_margin_percentage": 0.0,
+                "total_estimate_count": 0,
+                "total_approved_estimate_count": 0,
+                "total_estimate_net_amount": 0.0,
+                "total_approved_net_amount": 0.0,
+                "estimate_to_approval_ratio": 0.0,
+            }
+        )
+        bodyshop_estimator = each_estimator.get("bodyshop_estimator_id")
+        for each_row in invoiced_ro:
+            for each_sub_row in each_row.rows:
+                if each_sub_row.get("bodyshop_estimator_id") == bodyshop_estimator:
+                    each_estimator.update(each_sub_row.get("totals"))
+                    break
+        for each_row_gpm in gross_profit_margin:
+            for each_row_gpm_sub_row in each_row_gpm.rows:
+                if (
+                    each_row_gpm_sub_row.get("bodyshop_estimator_id")
+                    == bodyshop_estimator
+                ):
+                    each_estimator.update(each_row_gpm_sub_row.get("totals"))
+                    break
+        for each_row_ae in approved_estimate:
+            for each_row_ae_sub_row in each_row_ae.rows:
+                if (
+                    each_row_ae_sub_row.get("bodyshop_estimator_id")
+                    == bodyshop_estimator
+                ):
+                    each_estimator.update(each_row_ae_sub_row.get("totals"))
+                    break
+
+        each_estimator["bse_target_revenue"] = target.get(bodyshop_estimator, 0.0)
+        compute_revenue_amount(filters, each_estimator)
+        apply_gross_profit_margin(filters, each_estimator)
+        apply_approved_estimate(filters, each_estimator)
+
+        each_estimator["calculated_incentive"] = compute_incentive(
+            each_estimator, filters.get("based_on")
+        )
+
         yield each_estimator
