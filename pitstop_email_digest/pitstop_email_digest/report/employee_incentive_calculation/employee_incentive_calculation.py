@@ -15,6 +15,7 @@ own module:
     util_job_controller.py
     util_quality_controller.py
     util_bodyshop_estimator.py
+    util_insurance_bd.py
 
 Each of those exposes the same small interface: TEMPLATE_DATA, REPORT_FILTERS,
 SOURCE_REPORT, get_leading_columns(), get_trailing_columns(),
