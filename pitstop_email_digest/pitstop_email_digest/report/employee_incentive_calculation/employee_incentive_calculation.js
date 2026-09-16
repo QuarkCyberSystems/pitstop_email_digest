@@ -8,6 +8,7 @@ const DEFAULT_INCENTIVE_AMT_MAP = {
 	"Job Controller": 500.0,
 	"Quality Controller": 450.0,
 	"Bodyshop Estimator": 600.0,
+	"Insurance BD": 1750.0,
 };
 
 frappe.query_reports["Employee Incentive Calculation"] = {
@@ -45,6 +46,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 				"Job Controller",
 				"Quality Controller",
 				"Bodyshop Estimator",
+				"Insurance BD",
 			], // "Bodyshop Estimator"
 			default: "Technician",
 			reqd: 1,

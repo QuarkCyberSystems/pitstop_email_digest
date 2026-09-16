@@ -32,6 +32,7 @@ from automotive.automotive.report.workshop_turnover.workshop_turnover import (
 
 from . import (
     util_bodyshop_estimator,
+    util_insurance_bd,
     util_job_controller,
     util_quality_controller,
     util_service_advisor,
@@ -51,6 +52,7 @@ DESIGNATION_UTILS = {
     "Job Controller": util_job_controller,
     "Quality Controller": util_quality_controller,
     "Bodyshop Estimator": util_bodyshop_estimator,
+    "Insurance BD": util_insurance_bd,
 }
 
 # Assembled from the designation modules so each one owns its own weightages
@@ -98,6 +100,7 @@ LADDER_SPECS = [
     ("invoiced_ro_ladder", "Invoiced RO %", "percent", None),
     ("gross_profit_ladder", "Gross Profit", "rate", "%"),
     ("estimate_to_approval_ladder", "Estimate to Approval", "rate", "%"),
+    ("labour_parts_mix_ladder", "Labour Parts Mix", "rate", "%"),
 ]
 
 

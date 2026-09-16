@@ -108,6 +108,7 @@ def fetch_estimator_employee(fetch_id_name=False):
     filters = {
         "status": "Active",
         "designation": ["in", designations],
+        "vehicle_workshop_division": "Body Shop",
     }
 
     if fetch_id_name:
@@ -565,9 +566,6 @@ def prepare_lookups(filters):
 
 
 def process_rows(filters, source_data, qc_task_types, lookups):
-    # TODO: score invoiced_ro / approved_estimate / gross_profit_margin against
-    # their ladders and total them into calculated_incentive. For now the rows
-    # are listed unscored.
     invoiced_ro = lookups.get("invoiced_ro") or []
     target = lookups.get("target") or {}
     gross_profit_margin = lookups.get("gross_profit_margin") or []
