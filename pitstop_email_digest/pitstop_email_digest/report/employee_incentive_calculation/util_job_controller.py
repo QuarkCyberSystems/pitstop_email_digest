@@ -218,20 +218,17 @@ def compute_idle_percentage(totals):
 
 
 def average_key_to_key_age(key_to_key_rows, job_controller):
-    """Average key-to-key age across `key_to_key_rows` for one job controller.
-
-    NOTE: preserved from the original implementation, the divisor is the length
-    of the whole result set rather than the number of rows matching this job
-    controller.
-    """
+    """Average key-to-key age across the rows belonging to one job controller."""
     total_age = 0
+    matched_rows = 0
     for each_key_to_key in key_to_key_rows:
         if each_key_to_key.get("job_controller") == job_controller:
             total_age += (
                 int(each_key_to_key.get("age")) if each_key_to_key.get("age") else 0
             )
+            matched_rows += 1
 
-    return int(total_age / len(key_to_key_rows)) if key_to_key_rows else 0
+    return int(total_age / matched_rows) if matched_rows else 0
 
 
 def process_rows(filters, source_data, qc_task_types, lookups):

@@ -180,7 +180,7 @@ def apply_customer_feedback(filters, totals, cfb):
     """Rate the average customer feedback against `cfb_rate_ladder`.
 
     Shared by every designation carrying a customer feedback weightage:
-    Reporting Authority, Service Advisor and Quality Controller.
+    Team Lead, Service Advisor and Quality Controller.
     """
     totals["customer_feedback_amt"] = 0.0
 
@@ -235,7 +235,7 @@ def apply_wip_ageing(filters, totals, wip_average_age_rows, employee_field):
 
 def iter_productivity_groups(filters, source_data, qc_task_types):
     """Yield each group's totals for the designations driven by the Workshop
-    Productivity report (Technician, Reporting Authority, Job Controller).
+    Productivity report (Technician, Team Lead, Job Controller).
 
     The shared sold hrs / efficiency / productivity / proficiency / QC RO
     figures are already applied; callers layer their own fields on top and

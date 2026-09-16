@@ -1,0 +1,20 @@
+{
+	"version": 1,
+	"title": "Workshop Turnover",
+	"description": "Workshop revenue, cost and gross profit at parity with the Workshop Turnover report \u2014 sales split by labour, package, parts, lubricants, consumables, paint and sublet, with parts cost of sales, labour cost, gross margins, sold hours, effective labour rate and vehicle throughput by workshop, division and service advisor.",
+	"notes": "Mirrors automotive's Workshop Turnover report line for line. Sales, sold hours and parts cost of sales come from submitted Sales Invoice lines carrying a project; parts cost of sales is the Stock Ledger Entry outgoing rate for the invoice or delivery note line, scaled by the depreciation and claim-customer split percentages. Item classification follows the item groups configured in Projects Settings (materials, lubricants, consumables, paint, sublet). Consumed material cost comes from Material Issue/Receipt stock entries, productive labour cost from timesheets, and sublet/purchase cost from non-stock Purchase Invoice lines. Amounts are in the company's base currency.\n\nTwo deliberate differences from the report: a timesheet line is attributed to the day it starts rather than to every day it overlaps, so a shift crossing the window boundary lands on one side only; and unproductive labour is floored per technician per day rather than across the whole filter window, and is costed at the default Activity Cost rate (which is what the report does today). Unproductive labour is reported separately and is not part of Total Cost, matching the report's default.\n\nThe fact query runs live against the site database, so keep the date filter reasonably narrow \u2014 it defaults to the current month, like the report does.",
+	"module": "Pitstop Email Digest",
+	"required_apps": [
+		"automotive",
+		"erpnext",
+		"pitstop_email_digest"
+	],
+	"source_doctypes": [
+		"Project",
+		"Sales Invoice Item",
+		"Stock Ledger Entry",
+		"Timesheet Detail",
+		"Purchase Invoice Item",
+		"Attendance"
+	]
+}

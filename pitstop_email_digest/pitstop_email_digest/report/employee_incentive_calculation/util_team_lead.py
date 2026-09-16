@@ -1,4 +1,4 @@
-"""Reporting Authority incentive calculation.
+"""Team Lead incentive calculation.
 
 Driven by the Workshop Productivity report grouped by reporting authority, with
 customer feedback averaged across the repair orders of the reportees.

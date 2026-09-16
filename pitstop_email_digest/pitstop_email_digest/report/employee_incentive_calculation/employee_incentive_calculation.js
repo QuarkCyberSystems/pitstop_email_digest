@@ -3,7 +3,11 @@
 
 const DEFAULT_INCENTIVE_AMT_MAP = {
 	Technician: 350.0,
-	"Reporting Authority": 600.0,
+	"Team Lead": 600.0,
+	"Service Advisor": 700.0,
+	"Job Controller": 500.0,
+	"Quality Controller": 450.0,
+	"Bodyshop Estimator": 600.0,
 };
 
 frappe.query_reports["Employee Incentive Calculation"] = {
@@ -36,7 +40,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			fieldtype: "Select",
 			options: [
 				"Technician",
-				"Reporting Authority",
+				"Team Lead",
 				"Service Advisor",
 				"Job Controller",
 				"Quality Controller",

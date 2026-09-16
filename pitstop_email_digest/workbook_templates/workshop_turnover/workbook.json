@@ -1,0 +1,1208 @@
+{
+ "version": "1.0",
+ "type": "Workbook",
+ "name": "template-automotive-workshop-turnover",
+ "doc": {
+  "name": "template-automotive-workshop-turnover",
+  "title": "Workshop Turnover"
+ },
+ "dependencies": {
+  "folders": [
+   {
+    "name": "tf-wt-queries",
+    "title": "Queries",
+    "type": "query",
+    "sort_order": 0
+   },
+   {
+    "name": "tf-wt-charts",
+    "title": "Charts",
+    "type": "chart",
+    "sort_order": 0
+   }
+  ],
+  "queries": {
+   "tq-wt-facts": {
+    "name": "tq-wt-facts",
+    "title": "Workshop Turnover Facts",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-queries",
+    "sort_order": 0,
+    "use_live_connection": 1,
+    "is_script_query": 0,
+    "is_builder_query": 0,
+    "is_native_query": 1,
+    "operations": [
+     {
+      "type": "sql",
+      "data_source": "Site DB",
+      "raw_sql": "with settings as (\n    select\n        max(case when field = 'materials_item_group'   then value end) as materials_group,\n        max(case when field = 'lubricants_item_group'  then value end) as lubricants_group,\n        max(case when field = 'consumables_item_group' then value end) as consumables_group,\n        max(case when field = 'sublet_item_group'      then value end) as sublet_group,\n        max(case when field = 'paint_item_group'       then value end) as paint_group\n    from `tabSingles`\n    where doctype = 'Projects Settings'\n),\nroots as (\n    select 'materials'   as role, materials_group   as root from settings\n    union all select 'lubricants',  lubricants_group  from settings\n    union all select 'consumables', consumables_group from settings\n    union all select 'sublet',      sublet_group      from settings\n    union all select 'paint',       paint_group       from settings\n),\nitem_group_flags as (\n    select\n        c.name as item_group,\n        max(case when r.role = 'materials'   then 1 else 0 end) as in_materials,\n        max(case when r.role = 'lubricants'  then 1 else 0 end) as in_lubricants,\n        max(case when r.role = 'consumables' then 1 else 0 end) as in_consumables,\n        max(case when r.role = 'sublet'      then 1 else 0 end) as in_sublet,\n        max(case when r.role = 'paint'       then 1 else 0 end) as in_paint\n    from `tabItem Group` c\n    inner join roots r on r.root is not null and r.root != ''\n    inner join `tabItem Group` rg on rg.name = r.root and c.lft >= rg.lft and c.rgt <= rg.rgt\n    group by c.name\n),\ninvoice_lines as (\n    select\n        i.project,\n        si.posting_date,\n        i.base_net_amount,\n        i.qty,\n        i.conversion_factor,\n        i.uom,\n        i.stock_uom,\n        case when i.is_stock_item = 1 or coalesce(g.in_materials, 0) = 1 then 1 else 0 end as is_material,\n        coalesce(g.in_lubricants, 0)  as in_lubricants,\n        coalesce(g.in_consumables, 0) as in_consumables,\n        coalesce(g.in_paint, 0)       as in_paint,\n        coalesce(g.in_sublet, 0)      as in_sublet,\n        cf_from.conversion_factor     as cf_from_uom,\n        cf_hour.conversion_factor     as cf_hour,\n        case\n            when coalesce(it.is_stock_item, 0) = 0 and pb.new_item_code is null then null\n            when si.update_stock = 1 then 'Sales Invoice'\n            when coalesce(i.delivery_note_item, '') != '' and (si.is_return = 0 or si.reopen_order = 1)\n                then 'Delivery Note'\n        end as voucher_type,\n        case\n            when coalesce(it.is_stock_item, 0) = 0 and pb.new_item_code is null then null\n            when si.update_stock = 1 then i.name\n            when coalesce(i.delivery_note_item, '') != '' and (si.is_return = 0 or si.reopen_order = 1)\n                then i.delivery_note_item\n        end as voucher_detail_no,\n        (\n            case\n                when coalesce(si.depreciation_type, '') != '' and coalesce(i.ignore_depreciation, 0) = 0\n                    then case when si.depreciation_type = 'After Depreciation Amount'\n                              then 100 - coalesce(i.depreciation_percentage, 0)\n                              else coalesce(i.depreciation_percentage, 0) end\n                else 100\n            end\n            *\n            case\n                when coalesce(dni.claim_customer, '') = '' then 1\n                when dni.claim_customer != si.bill_to then coalesce(dni.discount_percentage, 0) / 100\n                else 1 - coalesce(dni.discount_percentage, 0) / 100\n            end\n        ) as split_percentage\n    from `tabSales Invoice Item` i\n    inner join `tabSales Invoice` si on si.name = i.parent\n    left join `tabDelivery Note Item` dni on dni.name = i.delivery_note_item\n    left join item_group_flags g on g.item_group = i.item_group\n    left join `tabItem` it on it.name = i.item_code\n    left join `tabProduct Bundle` pb on pb.new_item_code = i.item_code\n    left join `tabUOM Conversion Detail` cf_from\n           on cf_from.parenttype = 'Item' and cf_from.parent = i.item_code and cf_from.uom = i.uom\n    left join `tabUOM Conversion Detail` cf_hour\n           on cf_hour.parenttype = 'Item' and cf_hour.parent = i.item_code and cf_hour.uom = 'Hour'\n    where si.docstatus = 1\n      and coalesce(i.project, '') != ''\n),\nfacts as (\n    -- Sales Invoice lines: every sales split, sold hours and parts cost of sales\n    select\n        l.project                                                     as project,\n        l.posting_date                                                as entry_date,\n        'Sales Invoice'                                               as source,\n        case\n            when l.is_material = 1 and l.in_lubricants = 1 then 'Lubricants'\n            when l.is_material = 1 and l.in_paint = 1 then 'Paint'\n            when l.is_material = 1 and l.in_consumables = 1 then 'Consumables'\n            when l.is_material = 1 then 'Parts'\n            when l.in_sublet = 1 then 'Sublet'\n            when l.uom = 'Hour' or l.stock_uom = 'Hour' then 'Labour'\n            else 'Package'\n        end                                                           as sales_category,\n        l.base_net_amount                                             as total_sales_amount,\n        case when l.is_material = 1 then l.base_net_amount else 0 end as material_sales_amount,\n        case when l.is_material = 1 and l.in_lubricants = 1\n             then l.base_net_amount else 0 end                        as lubricant_sales_amount,\n        case when l.is_material = 1 and l.in_lubricants = 0 and l.in_paint = 1\n             then l.base_net_amount else 0 end                        as paint_sales_amount,\n        case when l.is_material = 1 and l.in_lubricants = 0 and l.in_paint = 0 and l.in_consumables = 1\n             then l.base_net_amount else 0 end                        as consumable_sales_amount,\n        case when l.is_material = 1 and l.in_lubricants = 0 and l.in_paint = 0 and l.in_consumables = 0\n             then l.base_net_amount else 0 end                        as part_sales_amount,\n        case when l.is_material = 0 and l.in_sublet = 1\n             then l.base_net_amount else 0 end                        as sublet_sales_amount,\n        case when l.is_material = 0 and l.in_sublet = 0 and (l.uom = 'Hour' or l.stock_uom = 'Hour')\n             then l.base_net_amount else 0 end                        as hourly_labour_sales_amount,\n        case when l.is_material = 0 and l.in_sublet = 0 and l.uom != 'Hour' and l.stock_uom != 'Hour'\n             then l.base_net_amount else 0 end                        as package_sales_amount,\n        coalesce(\n            case when l.is_material = 0 and l.in_sublet = 0\n                 then case\n                        when l.uom = 'Hour' or l.stock_uom = 'Hour' then l.qty\n                        else l.qty * l.cf_from_uom / nullif(l.cf_hour, 0)\n                      end\n            end, 0)                                                   as sold_time,\n        l.qty * l.conversion_factor * l.split_percentage / 100\n              * coalesce((\n                  select case\n                           when max(x.bundle_qty) != 0\n                                then sum(x.stock_value_difference) / max(x.bundle_qty)\n                           when sum(x.actual_qty) != 0\n                                then sum(x.stock_value_difference) / sum(x.actual_qty)\n                           else 0\n                         end\n                  from `tabStock Ledger Entry` x\n                  where x.voucher_detail_no = l.voucher_detail_no\n                    and x.voucher_type = l.voucher_type\n                ), 0)                                                 as parts_cogs,\n        0                                                             as total_consumed_material_cost,\n        0                                                             as timesheet_costing_amount,\n        0                                                             as total_purchase_cost\n    from invoice_lines l\n\n    union all\n\n    -- Stock Entry consumption, valued off the stock ledger like the report does\n    select\n        sle.project, se.posting_date, 'Stock Entry', null,\n        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n        -sle.stock_value_difference,\n        0, 0\n    from `tabStock Entry Detail` sed\n    inner join `tabStock Entry` se on se.name = sed.parent\n    inner join `tabStock Ledger Entry` sle\n            on sle.voucher_no = se.name\n           and sle.voucher_type = 'Stock Entry'\n           and sle.voucher_detail_no = sed.name\n    where se.purpose in ('Material Issue', 'Material Receipt')\n      and coalesce(sle.project, '') != ''\n\n    union all\n\n    -- Productive labour cost from timesheets\n    select\n        tsd.project, date(tsd.from_time), 'Timesheet', null,\n        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n        tsd.costing_amount,\n        0\n    from `tabTimesheet Detail` tsd\n    where tsd.docstatus < 2\n      and coalesce(tsd.project, '') != ''\n\n    union all\n\n    -- Sublet / non-stock purchase cost\n    select\n        pii.project, pi.posting_date, 'Purchase Invoice', null,\n        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,\n        pii.base_net_amount\n    from `tabPurchase Invoice Item` pii\n    inner join `tabPurchase Invoice` pi on pi.name = pii.parent\n    where pi.docstatus = 1\n      and pii.is_stock_item = 0\n      and pii.is_fixed_asset = 0\n      and coalesce(pii.project, '') != ''\n)\nselect\n    f.project                                                        as project,\n    p.final_invoice_date                                             as final_invoice_date,\n    p.company                                                        as company,\n    p.vehicle_workshop                                               as vehicle_workshop,\n    p.branch                                                         as branch,\n    p.cost_center                                                    as cost_center,\n    p.vehicle_workshop_division                                      as workshop_division,\n    p.service_advisor                                                as service_advisor,\n    coalesce(nullif(p.bill_to_customer_group, ''), p.customer_group) as customer_group,\n    f.entry_date                                                     as entry_date,\n    f.source                                                         as source,\n    f.sales_category                                                 as sales_category,\n    f.total_sales_amount,\n    f.hourly_labour_sales_amount,\n    f.package_sales_amount,\n    f.part_sales_amount,\n    f.lubricant_sales_amount,\n    f.consumable_sales_amount,\n    f.paint_sales_amount,\n    f.sublet_sales_amount,\n    f.material_sales_amount,\n    f.sold_time,\n    f.parts_cogs,\n    f.total_consumed_material_cost,\n    f.timesheet_costing_amount,\n    f.total_purchase_cost\nfrom facts f\ninner join `tabProject` p on p.name = f.project"
+     }
+    ]
+   },
+   "tq-wt-repair-orders": {
+    "name": "tq-wt-repair-orders",
+    "title": "Repair Orders",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-queries",
+    "sort_order": 1,
+    "use_live_connection": 1,
+    "is_script_query": 0,
+    "is_builder_query": 0,
+    "is_native_query": 1,
+    "operations": [
+     {
+      "type": "sql",
+      "data_source": "Site DB",
+      "raw_sql": "select\n    p.name                                                           as repair_order,\n    p.company                                                        as company,\n    p.final_invoice_date                                             as final_invoice_date,\n    p.project_date                                                   as project_date,\n    p.vehicle_workshop                                               as vehicle_workshop,\n    p.branch                                                         as branch,\n    p.cost_center                                                    as cost_center,\n    p.vehicle_workshop_division                                      as workshop_division,\n    p.service_advisor                                                as service_advisor,\n    coalesce(nullif(p.bill_to_customer_group, ''), p.customer_group) as customer_group,\n    p.status                                                         as status,\n    p.project_status                                                 as project_status,\n    p.billing_status                                                 as billing_status,\n    -- report: throughput counts invoiced ROs, open counts unbilled / not-ready-to-close\n    case when p.final_invoice_date is not null then 1 else 0 end     as is_throughput,\n    case when p.billing_status != 'Fully Billed' or p.ready_to_close = 0\n         then 1 else 0 end                                           as is_open\nfrom `tabProject` p\nwhere p.status not in ('Draft', 'Cancelled')"
+     }
+    ]
+   },
+   "tq-wt-unproductive": {
+    "name": "tq-wt-unproductive",
+    "title": "Unproductive Labour",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-queries",
+    "sort_order": 2,
+    "use_live_connection": 1,
+    "is_script_query": 0,
+    "is_builder_query": 0,
+    "is_native_query": 1,
+    "operations": [
+     {
+      "type": "sql",
+      "data_source": "Site DB",
+      "raw_sql": "with default_rate as (\n    -- the report calls get_activity_cost() with a key the attendance row does not\n    -- carry, so every technician is costed at the default Activity Cost rate\n    select coalesce(max(ac.costing_rate), 0) as costing_rate\n    from `tabActivity Cost` ac\n    where coalesce(ac.employee, '') = '' and coalesce(ac.activity_type, '') = ''\n),\ntechnicians as (\n    select emp.name, emp.company, emp.vehicle_workshop\n    from `tabEmployee` emp\n    where emp.is_technician = 1\n),\navailable as (\n    select\n        att.employee             as employee,\n        att.attendance_date      as entry_date,\n        sum(att.available_hours) as available_hours\n    from `tabAttendance` att\n    inner join technicians t on t.name = att.employee\n    where att.docstatus = 1\n      and att.working_hours > 0\n    group by att.employee, att.attendance_date\n),\nactual as (\n    select\n        ts.employee         as employee,\n        date(tsd.from_time) as entry_date,\n        sum(tsd.hours)      as actual_hours\n    from `tabTimesheet Detail` tsd\n    inner join `tabTimesheet` ts on ts.name = tsd.parent\n    inner join technicians t on t.name = ts.employee\n    where ts.docstatus < 2\n    group by ts.employee, date(tsd.from_time)\n)\nselect\n    a.employee                                                   as employee,\n    a.entry_date                                                 as entry_date,\n    t.company                                                    as company,\n    t.vehicle_workshop                                           as vehicle_workshop,\n    a.available_hours                                            as available_hours,\n    coalesce(x.actual_hours, 0)                                  as actual_hours,\n    greatest(a.available_hours - coalesce(x.actual_hours, 0), 0) as unproductive_hours,\n    greatest(a.available_hours - coalesce(x.actual_hours, 0), 0) * d.costing_rate\n                                                                 as unproductive_cost\nfrom available a\ninner join technicians t on t.name = a.employee\nleft join actual x on x.employee = a.employee and x.entry_date = a.entry_date\ncross join default_rate d"
+     }
+    ]
+   }
+  },
+  "charts": {
+   "tc-wt-kpis": {
+    "name": "tc-wt-kpis",
+    "title": "Turnover KPIs",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 0,
+    "query": "tq-wt-facts",
+    "chart_type": "Number",
+    "config": {
+     "number_columns": [
+      {
+       "measure_name": "Total Sales",
+       "data_type": "Decimal",
+       "column_name": "total_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Total Cost",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(parts_cogs) + sum(total_consumed_material_cost) + sum(timesheet_costing_amount) + sum(total_purchase_cost)"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Total GP",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(total_sales_amount) - (sum(parts_cogs) + sum(total_consumed_material_cost) + sum(timesheet_costing_amount) + sum(total_purchase_cost))"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Total GP %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(total_sales_amount) - (sum(parts_cogs) + sum(total_consumed_material_cost) + sum(timesheet_costing_amount) + sum(total_purchase_cost))) / sum(total_sales_amount) * 100"
+       }
+      }
+     ],
+     "number_column_options": [
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 1,
+       "shorten_numbers": false
+      }
+     ],
+     "comparison": true,
+     "sparkline": true,
+     "date_column": {
+      "dimension_name": "entry_date",
+      "column_name": "entry_date",
+      "data_type": "Date",
+      "granularity": "month"
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "entry_date"
+       },
+       "direction": "asc"
+      }
+     ],
+     "limit": 100,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-margin-kpis": {
+    "name": "tc-wt-margin-kpis",
+    "title": "Labour & Parts Margin",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 1,
+    "query": "tq-wt-facts",
+    "chart_type": "Number",
+    "config": {
+     "number_columns": [
+      {
+       "measure_name": "Labour Sales",
+       "data_type": "Decimal",
+       "column_name": "hourly_labour_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Labour GP %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(hourly_labour_sales_amount) - sum(timesheet_costing_amount)) / sum(hourly_labour_sales_amount) * 100"
+       }
+      },
+      {
+       "measure_name": "Material Sales",
+       "data_type": "Decimal",
+       "column_name": "material_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Parts GP %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(material_sales_amount) - sum(parts_cogs) - sum(total_consumed_material_cost)) / sum(material_sales_amount) * 100"
+       }
+      },
+      {
+       "measure_name": "Sold Hours",
+       "data_type": "Decimal",
+       "column_name": "sold_time",
+       "aggregation": "sum"
+      },
+      {
+       "measure_name": "Effective Labour Rate",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(hourly_labour_sales_amount) / sum(sold_time)"
+       },
+       "format": "currency"
+      }
+     ],
+     "number_column_options": [
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 1,
+       "shorten_numbers": false
+      },
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 1,
+       "shorten_numbers": false
+      },
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 2,
+       "shorten_numbers": false
+      }
+     ],
+     "comparison": true,
+     "sparkline": true,
+     "date_column": {
+      "dimension_name": "entry_date",
+      "column_name": "entry_date",
+      "data_type": "Date",
+      "granularity": "month"
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "entry_date"
+       },
+       "direction": "asc"
+      }
+     ],
+     "limit": 100,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-ops-kpis": {
+    "name": "tc-wt-ops-kpis",
+    "title": "Throughput",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 2,
+    "query": "tq-wt-repair-orders",
+    "chart_type": "Number",
+    "config": {
+     "number_columns": [
+      {
+       "measure_name": "Vehicle Throughput",
+       "data_type": "Integer",
+       "column_name": "is_throughput",
+       "aggregation": "sum"
+      },
+      {
+       "measure_name": "Repair Orders",
+       "data_type": "Integer",
+       "column_name": "repair_order",
+       "aggregation": "count_distinct"
+      }
+     ],
+     "number_column_options": [
+      {
+       "shorten_numbers": false
+      },
+      {
+       "shorten_numbers": false
+      }
+     ],
+     "comparison": true,
+     "sparkline": true,
+     "date_column": {
+      "dimension_name": "final_invoice_date",
+      "column_name": "final_invoice_date",
+      "data_type": "Date",
+      "granularity": "month"
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "final_invoice_date"
+       },
+       "direction": "asc"
+      }
+     ],
+     "limit": 100,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-trend": {
+    "name": "tc-wt-trend",
+    "title": "Sales & Gross Profit Trend",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 3,
+    "query": "tq-wt-facts",
+    "chart_type": "Line",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "entry_date",
+       "column_name": "entry_date",
+       "data_type": "Date",
+       "granularity": "month"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Total Sales",
+         "data_type": "Decimal",
+         "column_name": "total_sales_amount",
+         "aggregation": "sum"
+        }
+       },
+       {
+        "measure": {
+         "measure_name": "Total GP",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "sum(total_sales_amount) - (sum(parts_cogs) + sum(total_consumed_material_cost) + sum(timesheet_costing_amount) + sum(total_purchase_cost))"
+         }
+        }
+       }
+      ],
+      "show_data_labels": false
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "entry_date"
+       },
+       "direction": "asc"
+      }
+     ],
+     "limit": 100,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-mix": {
+    "name": "tc-wt-mix",
+    "title": "Sales Mix",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 4,
+    "query": "tq-wt-facts",
+    "chart_type": "Donut",
+    "config": {
+     "label_column": {
+      "dimension_name": "sales_category",
+      "column_name": "sales_category",
+      "data_type": "String"
+     },
+     "value_column": {
+      "measure_name": "Sales",
+      "data_type": "Decimal",
+      "column_name": "total_sales_amount",
+      "aggregation": "sum"
+     },
+     "legend_position": "bottom",
+     "order_by": [],
+     "limit": 100,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-by-workshop": {
+    "name": "tc-wt-by-workshop",
+    "title": "Sales & GP by Workshop",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 5,
+    "query": "tq-wt-facts",
+    "chart_type": "Bar",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "vehicle_workshop",
+       "column_name": "vehicle_workshop",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Total Sales",
+         "data_type": "Decimal",
+         "column_name": "total_sales_amount",
+         "aggregation": "sum"
+        }
+       },
+       {
+        "measure": {
+         "measure_name": "Total GP",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "sum(total_sales_amount) - (sum(parts_cogs) + sum(total_consumed_material_cost) + sum(timesheet_costing_amount) + sum(total_purchase_cost))"
+         }
+        }
+       }
+      ],
+      "show_data_labels": false
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Total Sales"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 20,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-gp-pct-workshop": {
+    "name": "tc-wt-gp-pct-workshop",
+    "title": "GP % by Workshop",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 6,
+    "query": "tq-wt-facts",
+    "chart_type": "Bar",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "vehicle_workshop",
+       "column_name": "vehicle_workshop",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Total GP %",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "(sum(total_sales_amount) - (sum(parts_cogs) + sum(total_consumed_material_cost) + sum(timesheet_costing_amount) + sum(total_purchase_cost))) / sum(total_sales_amount) * 100"
+         }
+        }
+       }
+      ],
+      "show_data_labels": true
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Total GP %"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 20,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-elr": {
+    "name": "tc-wt-elr",
+    "title": "Effective Labour Rate by Workshop",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 7,
+    "query": "tq-wt-facts",
+    "chart_type": "Bar",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "vehicle_workshop",
+       "column_name": "vehicle_workshop",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Effective Labour Rate",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "sum(hourly_labour_sales_amount) / sum(sold_time)"
+         }
+        }
+       }
+      ],
+      "show_data_labels": true
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Effective Labour Rate"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 20,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-by-division": {
+    "name": "tc-wt-by-division",
+    "title": "Sales by Workshop Division",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 8,
+    "query": "tq-wt-facts",
+    "chart_type": "Row",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "workshop_division",
+       "column_name": "workshop_division",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Total Sales",
+         "data_type": "Decimal",
+         "column_name": "total_sales_amount",
+         "aggregation": "sum"
+        }
+       }
+      ]
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Total Sales"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 15,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-advisors": {
+    "name": "tc-wt-advisors",
+    "title": "Top Service Advisors",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 9,
+    "query": "tq-wt-facts",
+    "chart_type": "Row",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "service_advisor",
+       "column_name": "service_advisor",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Total Sales",
+         "data_type": "Decimal",
+         "column_name": "total_sales_amount",
+         "aggregation": "sum"
+        }
+       }
+      ]
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Total Sales"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 10,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-throughput-workshop": {
+    "name": "tc-wt-throughput-workshop",
+    "title": "Throughput by Workshop",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 10,
+    "query": "tq-wt-repair-orders",
+    "chart_type": "Row",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "vehicle_workshop",
+       "column_name": "vehicle_workshop",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Vehicle Throughput",
+         "data_type": "Integer",
+         "column_name": "is_throughput",
+         "aggregation": "sum"
+        }
+       }
+      ]
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Vehicle Throughput"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 20,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-pnl": {
+    "name": "tc-wt-pnl",
+    "title": "Workshop P&L",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 11,
+    "query": "tq-wt-facts",
+    "chart_type": "Table",
+    "config": {
+     "rows": [
+      {
+       "dimension_name": "Workshop",
+       "column_name": "vehicle_workshop",
+       "data_type": "String"
+      }
+     ],
+     "columns": [],
+     "values": [
+      {
+       "measure_name": "Total Sales",
+       "data_type": "Decimal",
+       "column_name": "total_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Labour Sales",
+       "data_type": "Decimal",
+       "column_name": "hourly_labour_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Package Sales",
+       "data_type": "Decimal",
+       "column_name": "package_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Part Sales",
+       "data_type": "Decimal",
+       "column_name": "part_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Lubricant Sales",
+       "data_type": "Decimal",
+       "column_name": "lubricant_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Consumable Sales",
+       "data_type": "Decimal",
+       "column_name": "consumable_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Paint Sales",
+       "data_type": "Decimal",
+       "column_name": "paint_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Sublet Sales",
+       "data_type": "Decimal",
+       "column_name": "sublet_sales_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Parts CoS",
+       "data_type": "Decimal",
+       "column_name": "parts_cogs",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Consumed Materials",
+       "data_type": "Decimal",
+       "column_name": "total_consumed_material_cost",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Labour Cost",
+       "data_type": "Decimal",
+       "column_name": "timesheet_costing_amount",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Sublet/Purchase Cost",
+       "data_type": "Decimal",
+       "column_name": "total_purchase_cost",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Total Cost",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(parts_cogs) + sum(total_consumed_material_cost) + sum(timesheet_costing_amount) + sum(total_purchase_cost)"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Parts GP",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(material_sales_amount) - sum(parts_cogs) - sum(total_consumed_material_cost)"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Parts GP %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(material_sales_amount) - sum(parts_cogs) - sum(total_consumed_material_cost)) / sum(material_sales_amount) * 100"
+       }
+      },
+      {
+       "measure_name": "Labour GP",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(hourly_labour_sales_amount) - sum(timesheet_costing_amount)"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Labour GP %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(hourly_labour_sales_amount) - sum(timesheet_costing_amount)) / sum(hourly_labour_sales_amount) * 100"
+       }
+      },
+      {
+       "measure_name": "Total GP",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(total_sales_amount) - (sum(parts_cogs) + sum(total_consumed_material_cost) + sum(timesheet_costing_amount) + sum(total_purchase_cost))"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Total GP %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(total_sales_amount) - (sum(parts_cogs) + sum(total_consumed_material_cost) + sum(timesheet_costing_amount) + sum(total_purchase_cost))) / sum(total_sales_amount) * 100"
+       }
+      },
+      {
+       "measure_name": "Hours Sold",
+       "data_type": "Decimal",
+       "column_name": "sold_time",
+       "aggregation": "sum"
+      },
+      {
+       "measure_name": "Effective Labour Rate",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(hourly_labour_sales_amount) / sum(sold_time)"
+       },
+       "format": "currency"
+      }
+     ],
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Total Sales"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 50,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-wt-unproductive": {
+    "name": "tc-wt-unproductive",
+    "title": "Unproductive Labour by Workshop",
+    "workbook": "template-automotive-workshop-turnover",
+    "folder": "tf-wt-charts",
+    "sort_order": 12,
+    "query": "tq-wt-unproductive",
+    "chart_type": "Bar",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "vehicle_workshop",
+       "column_name": "vehicle_workshop",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Unproductive Hours",
+         "data_type": "Decimal",
+         "column_name": "unproductive_hours",
+         "aggregation": "sum"
+        }
+       },
+       {
+        "measure": {
+         "measure_name": "Available Hours",
+         "data_type": "Decimal",
+         "column_name": "available_hours",
+         "aggregation": "sum"
+        }
+       }
+      ],
+      "show_data_labels": false
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Unproductive Hours"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 20,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   }
+  },
+  "dashboards": {
+   "td-wt-main": {
+    "name": "td-wt-main",
+    "title": "Workshop Turnover",
+    "workbook": "template-automotive-workshop-turnover",
+    "items": [
+     {
+      "type": "filter",
+      "filter_name": "Date Range",
+      "filter_type": "Date",
+      "icon": "calendar",
+      "links": {
+       "tc-wt-kpis": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-margin-kpis": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-trend": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-mix": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-by-workshop": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-gp-pct-workshop": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-elr": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-by-division": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-advisors": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-pnl": "`tq-wt-facts`.`entry_date`",
+       "tc-wt-ops-kpis": "`tq-wt-repair-orders`.`final_invoice_date`",
+       "tc-wt-throughput-workshop": "`tq-wt-repair-orders`.`final_invoice_date`",
+       "tc-wt-unproductive": "`tq-wt-unproductive`.`entry_date`"
+      },
+      "layout": {
+       "i": "filter-date",
+       "x": 0,
+       "y": 0,
+       "w": 5,
+       "h": 1
+      },
+      "default_operator": "within",
+      "default_value": "Current Month"
+     },
+     {
+      "type": "filter",
+      "filter_name": "Company",
+      "filter_type": "String",
+      "icon": "building-2",
+      "links": {
+       "tc-wt-kpis": "`tq-wt-facts`.`company`",
+       "tc-wt-margin-kpis": "`tq-wt-facts`.`company`",
+       "tc-wt-trend": "`tq-wt-facts`.`company`",
+       "tc-wt-mix": "`tq-wt-facts`.`company`",
+       "tc-wt-by-workshop": "`tq-wt-facts`.`company`",
+       "tc-wt-gp-pct-workshop": "`tq-wt-facts`.`company`",
+       "tc-wt-elr": "`tq-wt-facts`.`company`",
+       "tc-wt-by-division": "`tq-wt-facts`.`company`",
+       "tc-wt-advisors": "`tq-wt-facts`.`company`",
+       "tc-wt-pnl": "`tq-wt-facts`.`company`",
+       "tc-wt-ops-kpis": "`tq-wt-repair-orders`.`company`",
+       "tc-wt-throughput-workshop": "`tq-wt-repair-orders`.`company`",
+       "tc-wt-unproductive": "`tq-wt-unproductive`.`company`"
+      },
+      "layout": {
+       "i": "filter-company",
+       "x": 5,
+       "y": 0,
+       "w": 5,
+       "h": 1
+      }
+     },
+     {
+      "type": "filter",
+      "filter_name": "Vehicle Workshop",
+      "filter_type": "String",
+      "icon": "wrench",
+      "links": {
+       "tc-wt-kpis": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-margin-kpis": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-trend": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-mix": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-by-workshop": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-gp-pct-workshop": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-elr": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-by-division": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-advisors": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-pnl": "`tq-wt-facts`.`vehicle_workshop`",
+       "tc-wt-ops-kpis": "`tq-wt-repair-orders`.`vehicle_workshop`",
+       "tc-wt-throughput-workshop": "`tq-wt-repair-orders`.`vehicle_workshop`",
+       "tc-wt-unproductive": "`tq-wt-unproductive`.`vehicle_workshop`"
+      },
+      "layout": {
+       "i": "filter-workshop",
+       "x": 10,
+       "y": 0,
+       "w": 5,
+       "h": 1
+      }
+     },
+     {
+      "type": "filter",
+      "filter_name": "Workshop Division",
+      "filter_type": "String",
+      "icon": "layers",
+      "links": {
+       "tc-wt-kpis": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-margin-kpis": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-trend": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-mix": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-by-workshop": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-gp-pct-workshop": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-elr": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-by-division": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-advisors": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-pnl": "`tq-wt-facts`.`workshop_division`",
+       "tc-wt-ops-kpis": "`tq-wt-repair-orders`.`workshop_division`",
+       "tc-wt-throughput-workshop": "`tq-wt-repair-orders`.`workshop_division`"
+      },
+      "layout": {
+       "i": "filter-division",
+       "x": 15,
+       "y": 0,
+       "w": 5,
+       "h": 1
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-kpis",
+      "layout": {
+       "i": "i-kpis",
+       "x": 0,
+       "y": 1,
+       "w": 20,
+       "h": 3
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-margin-kpis",
+      "layout": {
+       "i": "i-margin",
+       "x": 0,
+       "y": 4,
+       "w": 14,
+       "h": 3
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-ops-kpis",
+      "layout": {
+       "i": "i-ops",
+       "x": 14,
+       "y": 4,
+       "w": 6,
+       "h": 3
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-trend",
+      "layout": {
+       "i": "i-trend",
+       "x": 0,
+       "y": 7,
+       "w": 13,
+       "h": 9
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-mix",
+      "layout": {
+       "i": "i-mix",
+       "x": 13,
+       "y": 7,
+       "w": 7,
+       "h": 9
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-by-workshop",
+      "layout": {
+       "i": "i-by-workshop",
+       "x": 0,
+       "y": 16,
+       "w": 10,
+       "h": 9
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-gp-pct-workshop",
+      "layout": {
+       "i": "i-gp-pct",
+       "x": 10,
+       "y": 16,
+       "w": 10,
+       "h": 9
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-elr",
+      "layout": {
+       "i": "i-elr",
+       "x": 0,
+       "y": 25,
+       "w": 10,
+       "h": 9
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-throughput-workshop",
+      "layout": {
+       "i": "i-throughput",
+       "x": 10,
+       "y": 25,
+       "w": 10,
+       "h": 9
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-by-division",
+      "layout": {
+       "i": "i-division",
+       "x": 0,
+       "y": 34,
+       "w": 10,
+       "h": 9
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-advisors",
+      "layout": {
+       "i": "i-advisors",
+       "x": 10,
+       "y": 34,
+       "w": 10,
+       "h": 9
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-pnl",
+      "layout": {
+       "i": "i-pnl",
+       "x": 0,
+       "y": 43,
+       "w": 20,
+       "h": 11
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-wt-unproductive",
+      "layout": {
+       "i": "i-unproductive",
+       "x": 0,
+       "y": 54,
+       "w": 20,
+       "h": 9
+      }
+     }
+    ]
+   }
+  }
+ }
+}

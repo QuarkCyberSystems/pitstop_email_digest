@@ -10,8 +10,8 @@ the rows. Every designation specific column, query and calculation lives in its
 own module:
 
     util_technician.py
-    util_reporting_authority.py
     util_service_advisor.py
+    util_team_lead.py
     util_job_controller.py
     util_quality_controller.py
     util_bodyshop_estimator.py
@@ -34,8 +34,8 @@ from . import (
     util_bodyshop_estimator,
     util_job_controller,
     util_quality_controller,
-    util_reporting_authority,
     util_service_advisor,
+    util_team_lead,
     util_technician,
 )
 from .html_generator_employee_incentive_calculation import (
@@ -46,7 +46,7 @@ from .html_generator_employee_incentive_calculation import (
 
 DESIGNATION_UTILS = {
     "Technician": util_technician,
-    "Reporting Authority": util_reporting_authority,
+    "Team Lead": util_team_lead,
     "Service Advisor": util_service_advisor,
     "Job Controller": util_job_controller,
     "Quality Controller": util_quality_controller,
