@@ -1,0 +1,1197 @@
+{
+ "version": "1.0",
+ "type": "Workbook",
+ "name": "template-erpnext-gross-profit",
+ "doc": {
+  "name": "template-erpnext-gross-profit",
+  "title": "Gross Profit"
+ },
+ "dependencies": {
+  "folders": [
+   {
+    "name": "tf-gp-queries",
+    "title": "Queries",
+    "type": "query",
+    "sort_order": 0
+   },
+   {
+    "name": "tf-gp-charts",
+    "title": "Charts",
+    "type": "chart",
+    "sort_order": 0
+   }
+  ],
+  "queries": {
+   "tq-gp-facts": {
+    "name": "tq-gp-facts",
+    "title": "Gross Profit Facts",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-queries",
+    "sort_order": 0,
+    "use_live_connection": 1,
+    "is_script_query": 0,
+    "is_builder_query": 0,
+    "is_native_query": 1,
+    "operations": [
+     {
+      "type": "sql",
+      "data_source": "Site DB",
+      "raw_sql": "with sle_rate as (\n    select\n        voucher_type,\n        voucher_detail_no,\n        case\n            when max(bundle_qty) then sum(stock_value_difference) / max(bundle_qty)\n            when sum(actual_qty)  then sum(stock_value_difference) / sum(actual_qty)\n            else 0\n        end as outgoing_rate\n    from `tabStock Ledger Entry`\n    where voucher_type in ('Sales Invoice', 'Delivery Note')\n    group by voucher_type, voucher_detail_no\n),\nsales_team as (\n    select parent, group_concat(distinct sales_person separator ', ') as sales_person\n    from `tabSales Team`\n    where parenttype = 'Sales Invoice'\n    group by parent\n),\nbundle_item as (\n    select distinct new_item_code from `tabProduct Bundle`\n),\nbase as (\n    select\n        si.name                                                        as invoice,\n        si_item.name                                                   as invoice_item,\n        si.posting_date,\n        si.company,\n        si.transaction_type,\n        coalesce(nullif(si.branch, ''), si_item.branch)                as branch,\n        coalesce(nullif(si.cost_center, ''), si_item.cost_center)      as cost_center,\n        coalesce(nullif(si_item.project, ''), si.project)              as project,\n        si.bill_to                                                     as customer,\n        si.bill_to_name                                                as customer_name,\n        c.customer_group,\n        si.territory,\n        st.sales_person,\n        si_item.item_code,\n        si_item.item_name,\n        i.item_group,\n        i.brand,\n        i.item_source,\n        case when i.is_stock_item = 1 or bi.new_item_code is not null\n             then 'Stock Item' else 'Non-Stock Item' end               as item_type,\n        coalesce(nullif(si.applies_to_variant_of, ''), si.applies_to_item) as vehicle_model,\n        si.applies_to_item                                             as vehicle_variant,\n        si_item.warehouse,\n        si_item.batch_no,\n        si_item.uom,\n        case when si.is_return = 1 then 'Return' else 'Sale' end       as entry_type,\n        si_item.qty,\n        si_item.stock_qty,\n        si_item.conversion_factor,\n        si_item.base_net_amount                                        as revenue,\n        -- the report's split: depreciation first, then the claim-customer share on top\n        (\n            case\n                when ifnull(si.depreciation_type, '') != '' and ifnull(si_item.ignore_depreciation, 0) = 0\n                then case\n                        when si.depreciation_type = 'After Depreciation Amount'\n                        then 100 - ifnull(si_item.depreciation_percentage, 0)\n                        else ifnull(si_item.depreciation_percentage, 0)\n                     end\n                else 100\n            end\n            *\n            case\n                when ifnull(dn_item.claim_customer, '') != ''\n                then case\n                        when dn_item.claim_customer != si.bill_to\n                        then ifnull(dn_item.discount_percentage, 0) / 100\n                        else 1 - ifnull(dn_item.discount_percentage, 0) / 100\n                     end\n                else 1\n            end\n        )                                                              as split_percentage,\n        -- unit cost: the stock ledger's own outgoing rate for this exact line\n        case\n            when i.is_stock_item != 1 and bi.new_item_code is null then 0\n            when si.update_stock = 1                                then ifnull(si_sle.outgoing_rate, 0)\n            when ifnull(si_item.delivery_note_item, '') != ''\n                 and (si.is_return = 0 or si.reopen_order = 1)      then ifnull(dn_sle.outgoing_rate, 0)\n            else 0\n        end                                                            as valuation_rate\n    from `tabSales Invoice` si\n    inner join `tabSales Invoice Item` si_item on si_item.parent = si.name\n    left  join `tabDelivery Note Item` dn_item on dn_item.name = si_item.delivery_note_item\n    left  join `tabCustomer` c                 on c.name = si.bill_to\n    left  join `tabItem` i                     on i.name = si_item.item_code\n    left  join bundle_item bi                  on bi.new_item_code = si_item.item_code\n    left  join sales_team st                   on st.parent = si.name\n    left  join sle_rate si_sle on si_sle.voucher_type = 'Sales Invoice' and si_sle.voucher_detail_no = si_item.name\n    left  join sle_rate dn_sle on dn_sle.voucher_type = 'Delivery Note'  and dn_sle.voucher_detail_no = si_item.delivery_note_item\n    where si.docstatus = 1\n      and si.is_opening != 'Yes'\n      and si.posting_date >= date_sub(curdate(), interval 24 month)\n)\nselect\n    base.*,\n    valuation_rate * conversion_factor * split_percentage / 100           as cogs_per_unit,\n    valuation_rate * conversion_factor * split_percentage / 100 * qty     as cogs,\n    revenue - (valuation_rate * conversion_factor * split_percentage / 100 * qty) as gross_profit\nfrom base\n"
+     }
+    ]
+   }
+  },
+  "charts": {
+   "tc-gp-kpis": {
+    "name": "tc-gp-kpis",
+    "title": "Gross Profit KPIs",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 0,
+    "query": "tq-gp-facts",
+    "chart_type": "Number",
+    "config": {
+     "number_columns": [
+      {
+       "measure_name": "Revenue",
+       "data_type": "Decimal",
+       "column_name": "revenue",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Cost of Goods Sold",
+       "data_type": "Decimal",
+       "column_name": "cogs",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Gross Profit",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(revenue) - sum(cogs)"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Gross Profit %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(revenue) - sum(cogs)) / sum(revenue) * 100"
+       }
+      }
+     ],
+     "number_column_options": [
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 1,
+       "shorten_numbers": false
+      }
+     ],
+     "comparison": true,
+     "sparkline": true,
+     "date_column": {
+      "dimension_name": "posting_date",
+      "column_name": "posting_date",
+      "data_type": "Date",
+      "granularity": "month"
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "posting_date"
+       },
+       "direction": "asc"
+      }
+     ],
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-unit-kpis": {
+    "name": "tc-gp-unit-kpis",
+    "title": "Per-Unit & Markup",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 1,
+    "query": "tq-gp-facts",
+    "chart_type": "Number",
+    "config": {
+     "number_columns": [
+      {
+       "measure_name": "Qty Sold",
+       "data_type": "Decimal",
+       "column_name": "qty",
+       "aggregation": "sum"
+      },
+      {
+       "measure_name": "Revenue / Unit",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(revenue) / sum(qty)"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Cost / Unit",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(cogs) / sum(qty)"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Markup %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(revenue) - sum(cogs)) / sum(cogs) * 100"
+       }
+      }
+     ],
+     "number_column_options": [
+      {
+       "decimal": 0,
+       "shorten_numbers": true
+      },
+      {
+       "decimal": 2,
+       "shorten_numbers": false
+      },
+      {
+       "decimal": 2,
+       "shorten_numbers": false
+      },
+      {
+       "decimal": 1,
+       "shorten_numbers": false
+      }
+     ],
+     "comparison": true,
+     "sparkline": false,
+     "date_column": {
+      "dimension_name": "posting_date",
+      "column_name": "posting_date",
+      "data_type": "Date",
+      "granularity": "month"
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "posting_date"
+       },
+       "direction": "asc"
+      }
+     ],
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-trend": {
+    "name": "tc-gp-trend",
+    "title": "Revenue & Gross Profit by Month",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 2,
+    "query": "tq-gp-facts",
+    "chart_type": "Line",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "posting_date",
+       "column_name": "posting_date",
+       "data_type": "Date",
+       "granularity": "month"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Revenue",
+         "data_type": "Decimal",
+         "column_name": "revenue",
+         "aggregation": "sum"
+        }
+       },
+       {
+        "measure": {
+         "measure_name": "Cost of Goods Sold",
+         "data_type": "Decimal",
+         "column_name": "cogs",
+         "aggregation": "sum"
+        }
+       },
+       {
+        "measure": {
+         "measure_name": "Gross Profit",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "sum(revenue) - sum(cogs)"
+         }
+        }
+       }
+      ],
+      "show_data_labels": false
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "posting_date"
+       },
+       "direction": "asc"
+      }
+     ],
+     "limit": 100,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-margin-trend": {
+    "name": "tc-gp-margin-trend",
+    "title": "Margin % by Month",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 3,
+    "query": "tq-gp-facts",
+    "chart_type": "Line",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "posting_date",
+       "column_name": "posting_date",
+       "data_type": "Date",
+       "granularity": "month"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Gross Profit %",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "(sum(revenue) - sum(cogs)) / sum(revenue) * 100"
+         }
+        }
+       }
+      ],
+      "show_data_labels": true
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "posting_date"
+       },
+       "direction": "asc"
+      }
+     ],
+     "limit": 100,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-mix": {
+    "name": "tc-gp-mix",
+    "title": "Revenue Mix by Item Group",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 4,
+    "query": "tq-gp-facts",
+    "chart_type": "Donut",
+    "config": {
+     "label_column": {
+      "dimension_name": "item_group",
+      "column_name": "item_group",
+      "data_type": "String"
+     },
+     "value_column": {
+      "measure_name": "Revenue",
+      "data_type": "Decimal",
+      "column_name": "revenue",
+      "aggregation": "sum"
+     },
+     "legend_position": "bottom",
+     "order_by": [],
+     "limit": 12,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-by-branch": {
+    "name": "tc-gp-by-branch",
+    "title": "Gross Profit by Branch",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 5,
+    "query": "tq-gp-facts",
+    "chart_type": "Bar",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "branch",
+       "column_name": "branch",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Revenue",
+         "data_type": "Decimal",
+         "column_name": "revenue",
+         "aggregation": "sum"
+        }
+       },
+       {
+        "measure": {
+         "measure_name": "Gross Profit",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "sum(revenue) - sum(cogs)"
+         }
+        }
+       }
+      ],
+      "show_data_labels": false
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Revenue"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 20,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-margin-branch": {
+    "name": "tc-gp-margin-branch",
+    "title": "Margin % by Branch",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 6,
+    "query": "tq-gp-facts",
+    "chart_type": "Bar",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "branch",
+       "column_name": "branch",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Gross Profit %",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "(sum(revenue) - sum(cogs)) / sum(revenue) * 100"
+         }
+        }
+       }
+      ],
+      "show_data_labels": true
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Gross Profit %"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 20,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-by-type": {
+    "name": "tc-gp-by-type",
+    "title": "Gross Profit by Transaction Type",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 7,
+    "query": "tq-gp-facts",
+    "chart_type": "Row",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "transaction_type",
+       "column_name": "transaction_type",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Gross Profit",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "sum(revenue) - sum(cogs)"
+         }
+        }
+       }
+      ],
+      "show_data_labels": false
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Gross Profit"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 15,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-by-item-type": {
+    "name": "tc-gp-by-item-type",
+    "title": "Stock vs Non-Stock",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 8,
+    "query": "tq-gp-facts",
+    "chart_type": "Row",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "item_type",
+       "column_name": "item_type",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Revenue",
+         "data_type": "Decimal",
+         "column_name": "revenue",
+         "aggregation": "sum"
+        }
+       },
+       {
+        "measure": {
+         "measure_name": "Gross Profit",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "sum(revenue) - sum(cogs)"
+         }
+        }
+       }
+      ],
+      "show_data_labels": false
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Revenue"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 5,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-top-customers": {
+    "name": "tc-gp-top-customers",
+    "title": "Top Customers by Gross Profit",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 9,
+    "query": "tq-gp-facts",
+    "chart_type": "Row",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "customer_name",
+       "column_name": "customer_name",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Gross Profit",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "sum(revenue) - sum(cogs)"
+         }
+        }
+       }
+      ],
+      "show_data_labels": false
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Gross Profit"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 15,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-sales-person": {
+    "name": "tc-gp-sales-person",
+    "title": "Gross Profit by Sales Person",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 10,
+    "query": "tq-gp-facts",
+    "chart_type": "Row",
+    "config": {
+     "x_axis": {
+      "dimension": {
+       "dimension_name": "sales_person",
+       "column_name": "sales_person",
+       "data_type": "String"
+      }
+     },
+     "y_axis": {
+      "series": [
+       {
+        "measure": {
+         "measure_name": "Gross Profit",
+         "data_type": "Decimal",
+         "expression": {
+          "type": "expression",
+          "expression": "sum(revenue) - sum(cogs)"
+         }
+        }
+       }
+      ],
+      "show_data_labels": false
+     },
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Gross Profit"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 15,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-item-group-table": {
+    "name": "tc-gp-item-group-table",
+    "title": "Margin by Item Group",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 11,
+    "query": "tq-gp-facts",
+    "chart_type": "Table",
+    "config": {
+     "rows": [
+      {
+       "dimension_name": "Item Group",
+       "column_name": "item_group",
+       "data_type": "String"
+      }
+     ],
+     "columns": [],
+     "values": [
+      {
+       "measure_name": "Revenue",
+       "data_type": "Decimal",
+       "column_name": "revenue",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Cost of Goods Sold",
+       "data_type": "Decimal",
+       "column_name": "cogs",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Gross Profit",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(revenue) - sum(cogs)"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Gross Profit %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(revenue) - sum(cogs)) / sum(revenue) * 100"
+       }
+      },
+      {
+       "measure_name": "Markup %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(revenue) - sum(cogs)) / sum(cogs) * 100"
+       }
+      }
+     ],
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Revenue"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 50,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-top-items": {
+    "name": "tc-gp-top-items",
+    "title": "Margin by Item",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 12,
+    "query": "tq-gp-facts",
+    "chart_type": "Table",
+    "config": {
+     "rows": [
+      {
+       "dimension_name": "Item",
+       "column_name": "item_code",
+       "data_type": "String"
+      },
+      {
+       "dimension_name": "Item Name",
+       "column_name": "item_name",
+       "data_type": "String"
+      }
+     ],
+     "columns": [],
+     "values": [
+      {
+       "measure_name": "Qty",
+       "data_type": "Decimal",
+       "column_name": "qty",
+       "aggregation": "sum"
+      },
+      {
+       "measure_name": "Revenue",
+       "data_type": "Decimal",
+       "column_name": "revenue",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Cost of Goods Sold",
+       "data_type": "Decimal",
+       "column_name": "cogs",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Gross Profit",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(revenue) - sum(cogs)"
+       },
+       "format": "currency"
+      },
+      {
+       "measure_name": "Gross Profit %",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "(sum(revenue) - sum(cogs)) / sum(revenue) * 100"
+       }
+      }
+     ],
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Gross Profit"
+       },
+       "direction": "desc"
+      }
+     ],
+     "limit": 50,
+     "filters": {
+      "logical_operator": "And",
+      "filters": []
+     }
+    }
+   },
+   "tc-gp-loss-makers": {
+    "name": "tc-gp-loss-makers",
+    "title": "Lines Sold Below Cost",
+    "workbook": "template-erpnext-gross-profit",
+    "folder": "tf-gp-charts",
+    "sort_order": 13,
+    "query": "tq-gp-facts",
+    "chart_type": "Table",
+    "config": {
+     "rows": [
+      {
+       "dimension_name": "Item",
+       "column_name": "item_code",
+       "data_type": "String"
+      },
+      {
+       "dimension_name": "Item Name",
+       "column_name": "item_name",
+       "data_type": "String"
+      },
+      {
+       "dimension_name": "Branch",
+       "column_name": "branch",
+       "data_type": "String"
+      }
+     ],
+     "columns": [],
+     "values": [
+      {
+       "measure_name": "Qty",
+       "data_type": "Decimal",
+       "column_name": "qty",
+       "aggregation": "sum"
+      },
+      {
+       "measure_name": "Revenue",
+       "data_type": "Decimal",
+       "column_name": "revenue",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Cost of Goods Sold",
+       "data_type": "Decimal",
+       "column_name": "cogs",
+       "aggregation": "sum",
+       "format": "currency"
+      },
+      {
+       "measure_name": "Gross Profit",
+       "data_type": "Decimal",
+       "expression": {
+        "type": "expression",
+        "expression": "sum(revenue) - sum(cogs)"
+       },
+       "format": "currency"
+      }
+     ],
+     "order_by": [
+      {
+       "column": {
+        "type": "column",
+        "column_name": "Gross Profit"
+       },
+       "direction": "asc"
+      }
+     ],
+     "limit": 50,
+     "filters": {
+      "logical_operator": "And",
+      "filters": [
+       {
+        "column": {
+         "type": "column",
+         "column_name": "gross_profit"
+        },
+        "operator": "<",
+        "value": 0
+       }
+      ]
+     }
+    }
+   }
+  },
+  "dashboards": {
+   "td-gp-main": {
+    "name": "td-gp-main",
+    "title": "Gross Profit",
+    "workbook": "template-erpnext-gross-profit",
+    "items": [
+     {
+      "type": "filter",
+      "filter_name": "Date Range",
+      "filter_type": "Date",
+      "icon": "calendar",
+      "links": {
+       "tc-gp-kpis": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-unit-kpis": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-trend": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-margin-trend": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-mix": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-by-branch": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-margin-branch": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-by-type": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-by-item-type": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-top-customers": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-sales-person": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-item-group-table": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-top-items": "`tq-gp-facts`.`posting_date`",
+       "tc-gp-loss-makers": "`tq-gp-facts`.`posting_date`"
+      },
+      "layout": {
+       "i": "filter-date",
+       "x": 0,
+       "y": 0,
+       "w": 4,
+       "h": 1
+      },
+      "default_operator": "within",
+      "default_value": "Current Month"
+     },
+     {
+      "type": "filter",
+      "filter_name": "Company",
+      "filter_type": "String",
+      "icon": "building-2",
+      "links": {
+       "tc-gp-kpis": "`tq-gp-facts`.`company`",
+       "tc-gp-unit-kpis": "`tq-gp-facts`.`company`",
+       "tc-gp-trend": "`tq-gp-facts`.`company`",
+       "tc-gp-margin-trend": "`tq-gp-facts`.`company`",
+       "tc-gp-mix": "`tq-gp-facts`.`company`",
+       "tc-gp-by-branch": "`tq-gp-facts`.`company`",
+       "tc-gp-margin-branch": "`tq-gp-facts`.`company`",
+       "tc-gp-by-type": "`tq-gp-facts`.`company`",
+       "tc-gp-by-item-type": "`tq-gp-facts`.`company`",
+       "tc-gp-top-customers": "`tq-gp-facts`.`company`",
+       "tc-gp-sales-person": "`tq-gp-facts`.`company`",
+       "tc-gp-item-group-table": "`tq-gp-facts`.`company`",
+       "tc-gp-top-items": "`tq-gp-facts`.`company`",
+       "tc-gp-loss-makers": "`tq-gp-facts`.`company`"
+      },
+      "layout": {
+       "i": "filter-company",
+       "x": 4,
+       "y": 0,
+       "w": 4,
+       "h": 1
+      }
+     },
+     {
+      "type": "filter",
+      "filter_name": "Branch",
+      "filter_type": "String",
+      "icon": "map-pin",
+      "links": {
+       "tc-gp-kpis": "`tq-gp-facts`.`branch`",
+       "tc-gp-unit-kpis": "`tq-gp-facts`.`branch`",
+       "tc-gp-trend": "`tq-gp-facts`.`branch`",
+       "tc-gp-margin-trend": "`tq-gp-facts`.`branch`",
+       "tc-gp-mix": "`tq-gp-facts`.`branch`",
+       "tc-gp-by-branch": "`tq-gp-facts`.`branch`",
+       "tc-gp-margin-branch": "`tq-gp-facts`.`branch`",
+       "tc-gp-by-type": "`tq-gp-facts`.`branch`",
+       "tc-gp-by-item-type": "`tq-gp-facts`.`branch`",
+       "tc-gp-top-customers": "`tq-gp-facts`.`branch`",
+       "tc-gp-sales-person": "`tq-gp-facts`.`branch`",
+       "tc-gp-item-group-table": "`tq-gp-facts`.`branch`",
+       "tc-gp-top-items": "`tq-gp-facts`.`branch`",
+       "tc-gp-loss-makers": "`tq-gp-facts`.`branch`"
+      },
+      "layout": {
+       "i": "filter-branch",
+       "x": 8,
+       "y": 0,
+       "w": 4,
+       "h": 1
+      }
+     },
+     {
+      "type": "filter",
+      "filter_name": "Item Type",
+      "filter_type": "String",
+      "icon": "package",
+      "links": {
+       "tc-gp-kpis": "`tq-gp-facts`.`item_type`",
+       "tc-gp-unit-kpis": "`tq-gp-facts`.`item_type`",
+       "tc-gp-trend": "`tq-gp-facts`.`item_type`",
+       "tc-gp-margin-trend": "`tq-gp-facts`.`item_type`",
+       "tc-gp-mix": "`tq-gp-facts`.`item_type`",
+       "tc-gp-by-branch": "`tq-gp-facts`.`item_type`",
+       "tc-gp-margin-branch": "`tq-gp-facts`.`item_type`",
+       "tc-gp-by-type": "`tq-gp-facts`.`item_type`",
+       "tc-gp-by-item-type": "`tq-gp-facts`.`item_type`",
+       "tc-gp-top-customers": "`tq-gp-facts`.`item_type`",
+       "tc-gp-sales-person": "`tq-gp-facts`.`item_type`",
+       "tc-gp-item-group-table": "`tq-gp-facts`.`item_type`",
+       "tc-gp-top-items": "`tq-gp-facts`.`item_type`",
+       "tc-gp-loss-makers": "`tq-gp-facts`.`item_type`"
+      },
+      "layout": {
+       "i": "filter-item-type",
+       "x": 12,
+       "y": 0,
+       "w": 4,
+       "h": 1
+      }
+     },
+     {
+      "type": "filter",
+      "filter_name": "Item Group",
+      "filter_type": "String",
+      "icon": "layers",
+      "links": {
+       "tc-gp-kpis": "`tq-gp-facts`.`item_group`",
+       "tc-gp-unit-kpis": "`tq-gp-facts`.`item_group`",
+       "tc-gp-trend": "`tq-gp-facts`.`item_group`",
+       "tc-gp-margin-trend": "`tq-gp-facts`.`item_group`",
+       "tc-gp-mix": "`tq-gp-facts`.`item_group`",
+       "tc-gp-by-branch": "`tq-gp-facts`.`item_group`",
+       "tc-gp-margin-branch": "`tq-gp-facts`.`item_group`",
+       "tc-gp-by-type": "`tq-gp-facts`.`item_group`",
+       "tc-gp-by-item-type": "`tq-gp-facts`.`item_group`",
+       "tc-gp-top-customers": "`tq-gp-facts`.`item_group`",
+       "tc-gp-sales-person": "`tq-gp-facts`.`item_group`",
+       "tc-gp-item-group-table": "`tq-gp-facts`.`item_group`",
+       "tc-gp-top-items": "`tq-gp-facts`.`item_group`",
+       "tc-gp-loss-makers": "`tq-gp-facts`.`item_group`"
+      },
+      "layout": {
+       "i": "filter-item-group",
+       "x": 16,
+       "y": 0,
+       "w": 4,
+       "h": 1
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-kpis",
+      "layout": {
+       "i": "i-kpis",
+       "x": 0,
+       "y": 1,
+       "w": 20,
+       "h": 3
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-unit-kpis",
+      "layout": {
+       "i": "i-unit-kpis",
+       "x": 0,
+       "y": 4,
+       "w": 20,
+       "h": 3
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-trend",
+      "layout": {
+       "i": "i-trend",
+       "x": 0,
+       "y": 7,
+       "w": 12,
+       "h": 6
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-margin-trend",
+      "layout": {
+       "i": "i-margin-trend",
+       "x": 12,
+       "y": 7,
+       "w": 8,
+       "h": 6
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-mix",
+      "layout": {
+       "i": "i-mix",
+       "x": 0,
+       "y": 13,
+       "w": 7,
+       "h": 7
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-by-branch",
+      "layout": {
+       "i": "i-by-branch",
+       "x": 7,
+       "y": 13,
+       "w": 7,
+       "h": 7
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-margin-branch",
+      "layout": {
+       "i": "i-margin-branch",
+       "x": 14,
+       "y": 13,
+       "w": 6,
+       "h": 7
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-by-type",
+      "layout": {
+       "i": "i-by-type",
+       "x": 0,
+       "y": 20,
+       "w": 7,
+       "h": 6
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-by-item-type",
+      "layout": {
+       "i": "i-by-item-type",
+       "x": 7,
+       "y": 20,
+       "w": 6,
+       "h": 6
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-sales-person",
+      "layout": {
+       "i": "i-sales-person",
+       "x": 13,
+       "y": 20,
+       "w": 7,
+       "h": 6
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-top-customers",
+      "layout": {
+       "i": "i-top-customers",
+       "x": 0,
+       "y": 26,
+       "w": 10,
+       "h": 7
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-item-group-table",
+      "layout": {
+       "i": "i-item-group-table",
+       "x": 10,
+       "y": 26,
+       "w": 10,
+       "h": 7
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-top-items",
+      "layout": {
+       "i": "i-top-items",
+       "x": 0,
+       "y": 33,
+       "w": 20,
+       "h": 8
+      }
+     },
+     {
+      "type": "chart",
+      "chart": "tc-gp-loss-makers",
+      "layout": {
+       "i": "i-loss-makers",
+       "x": 0,
+       "y": 41,
+       "w": 20,
+       "h": 8
+      }
+     }
+    ]
+   }
+  }
+ }
+}
