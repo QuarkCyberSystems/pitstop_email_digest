@@ -76,9 +76,7 @@ REQUIRE_SURPLUS = False
 MIN_REMAINDER = 1  # stock UOM units held back per warehouse when REQUIRE_SURPLUS is on
 QTY_PRECISION = 9  # matches the 21,9 decimals Bin and Stock Entry Detail store
 DEFAULT_BRANCH = "Sajja"  # fallback Branch when it cannot be derived from the warehouse
-DEFAULT_COST_CENTER = (
-    None  # fallback Cost Center when it cannot be derived from the warehouse
-)
+DEFAULT_COST_CENTER = "AutoWorks - PASLLC"  # fallback Cost Center when it cannot be derived from the warehouse
 # `Vehicle Workshop Division` is an Accounting Dimension flagged mandatory for both P&L and
 # Balance Sheet accounts, so every GL entry this script posts needs one. Repacking at an
 # explicit valuation_rate moves value, which means real GL entries - unlike a value-neutral
