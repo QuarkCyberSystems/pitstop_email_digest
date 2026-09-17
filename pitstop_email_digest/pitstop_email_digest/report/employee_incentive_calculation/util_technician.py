@@ -66,11 +66,12 @@ def get_leading_columns():
             "width": 150,
         },
         {
-            "label": "Reporting Manger",
+            "label": "Team Lead",
             "fieldname": "reports_to",
             "fieldtype": "Link",
             "options": "Employee",
             "width": 150,
+            "hidden": 1,
         },
     ]
 
