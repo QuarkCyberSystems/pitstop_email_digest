@@ -207,10 +207,11 @@ def apply_customer_feedback(filters, totals, cfb):
 
 
 def apply_wip_ageing(filters, totals, wip_average_age_rows, employee_field):
-    """Set the WIP ageing figures and amount from `wip_average_age_rows`.
+    """Rate the average WIP age against `wip_ageing_ladder`.
 
     Shared by Service Advisor and Job Controller, which differ only in the
-    field the rows are keyed by.
+    field the rows are keyed by and in the age their ladder allows: 46 days
+    for the Service Advisor, 45 for the Job Controller.
     """
     employee = totals.get(employee_field)
     totals["wip_ageing_amt"] = 0.0
@@ -220,14 +221,20 @@ def apply_wip_ageing(filters, totals, wip_average_age_rows, employee_field):
         if each_wip_average_age.get(employee_field) == employee:
             totals["wip_average_age"] = flt(each_wip_average_age.get("average_wip_age"))
             totals["wip_ro_count"] = flt(each_wip_average_age.get("ro_count"))
-            if flt(totals["wip_average_age"]) <= 46.0:
+            result = get_rate_ladder_result(
+                based_on=filters.get("based_on"),
+                percentage=flt(totals["wip_average_age"]),
+                ladder_field="wip_ageing_ladder",
+                top_cap=100.0,
+            )
+            if result:
                 totals["wip_ageing_amt"] = flt(
-                    weightage_amount(filters, "wip_ageing"), 3
+                    weightage_amount(filters, "wip_ageing") * (result / 100.0), 3
                 )
-                break
+            break
     else:
-        # No matching row: fall back to a zero age, which still earns the full
-        # WIP ageing weightage.
+        # No open repair orders at all: nothing is ageing, so the weightage
+        # is earned.
         totals["wip_ro_count"] = 0
         totals["wip_average_age"] = 0.0
         totals["wip_ageing_amt"] = flt(weightage_amount(filters, "wip_ageing"), 3)
