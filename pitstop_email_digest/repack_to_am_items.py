@@ -75,7 +75,7 @@ EXCLUDE_BIN_WAREHOUSES = (
 REQUIRE_SURPLUS = False
 MIN_REMAINDER = 1  # stock UOM units held back per warehouse when REQUIRE_SURPLUS is on
 QTY_PRECISION = 9  # matches the 21,9 decimals Bin and Stock Entry Detail store
-DEFAULT_BRANCH = None  # fallback Branch when it cannot be derived from the warehouse
+DEFAULT_BRANCH = "Sajja"  # fallback Branch when it cannot be derived from the warehouse
 DEFAULT_COST_CENTER = (
     None  # fallback Cost Center when it cannot be derived from the warehouse
 )
@@ -118,13 +118,6 @@ ITEM_FIELDS_TO_CLEAR = {
 
 DATA = [
     {
-        "new_item_code": 366100731,
-        "existing_item_code": "04152-38010",
-        "uom": "Pcs",
-        "balance_qty": 28,
-        "valuation_rate": 14.54,
-    },
-    {
         "new_item_code": 355014121,
         "existing_item_code": "04465-0K580",
         "uom": "Nos",
@@ -139,53 +132,11 @@ DATA = [
         "valuation_rate": 122.11,
     },
     {
-        "new_item_code": 355013151,
-        "existing_item_code": "04465-60280",
-        "uom": "Pcs",
-        "balance_qty": 2,
-        "valuation_rate": 149.91,
-    },
-    {
-        "new_item_code": 355040131,
-        "existing_item_code": "04466-26030",
-        "uom": "Nos",
-        "balance_qty": 1,
-        "valuation_rate": 95.58,
-    },
-    {
-        "new_item_code": 366101781,
-        "existing_item_code": "100180",
-        "uom": "Pcs",
-        "balance_qty": 80,
-        "valuation_rate": 10.08,
-    },
-    {
-        "new_item_code": 366102701,
-        "existing_item_code": "11427953125",
-        "uom": "Pcs",
-        "balance_qty": 2,
-        "valuation_rate": 15.86,
-    },
-    {
-        "new_item_code": 366130951,
-        "existing_item_code": "16546-ED500",
-        "uom": "Pcs",
-        "balance_qty": 30,
-        "valuation_rate": 21.81,
-    },
-    {
         "new_item_code": 366132851,
         "existing_item_code": "17801-BZ150",
         "uom": "Pcs",
         "balance_qty": 5,
         "valuation_rate": 17.45,
-    },
-    {
-        "new_item_code": 366120971,
-        "existing_item_code": "27277-1HDKE",
-        "uom": "Pcs",
-        "balance_qty": 100,
-        "valuation_rate": 17.55,
     },
     {
         "new_item_code": 366123481,
@@ -202,20 +153,6 @@ DATA = [
         "valuation_rate": 13.22,
     },
     {
-        "new_item_code": 366122311,
-        "existing_item_code": "88568-BZ060",
-        "uom": "Pcs",
-        "balance_qty": 19,
-        "valuation_rate": 15.1,
-    },
-    {
-        "new_item_code": 188706081,
-        "existing_item_code": "90919-01191",
-        "uom": "Pcs",
-        "balance_qty": 8,
-        "valuation_rate": 17.0,
-    },
-    {
         "new_item_code": 188705161,
         "existing_item_code": "90919-01275",
         "uom": "Pcs",
@@ -223,53 +160,11 @@ DATA = [
         "valuation_rate": 15.48,
     },
     {
-        "new_item_code": 366100801,
-        "existing_item_code": "9809532380",
+        "new_item_code": 366101211,
+        "existing_item_code": "SHFL-910S",
         "uom": "Pcs",
-        "balance_qty": 15,
-        "valuation_rate": 20.62,
-    },
-    {
-        "new_item_code": 366124371,
-        "existing_item_code": "B7277-EG01A",
-        "uom": "Pcs",
-        "balance_qty": 10,
-        "valuation_rate": 23.0,
-    },
-    {
-        "new_item_code": 355015981,
-        "existing_item_code": "D1060-1HA1A",
-        "uom": "Pcs",
-        "balance_qty": 1,
-        "valuation_rate": 75.54,
-    },
-    {
-        "new_item_code": 366100511,
-        "existing_item_code": "G1056025900",
-        "uom": "Pcs",
-        "balance_qty": 261,
-        "valuation_rate": 11.1,
-    },
-    {
-        "new_item_code": 366132191,
-        "existing_item_code": "G2032047000",
-        "uom": "Pcs",
-        "balance_qty": 30,
-        "valuation_rate": 26.44,
-    },
-    {
-        "new_item_code": 366124221,
-        "existing_item_code": "G8025530200",
-        "uom": "Pcs",
-        "balance_qty": 91,
-        "valuation_rate": 21.48,
-    },
-    {
-        "new_item_code": 366122101,
-        "existing_item_code": "G8025530600",
-        "uom": "Pcs",
-        "balance_qty": 30,
-        "valuation_rate": 43.62,
+        "balance_qty": 3,
+        "valuation_rate": 13.53,
     },
     {
         "new_item_code": 366100281,
@@ -277,27 +172,6 @@ DATA = [
         "uom": "Pcs",
         "balance_qty": 99,
         "valuation_rate": 9.8,
-    },
-    {
-        "new_item_code": 3594121,
-        "existing_item_code": "OSRAM-APO2825",
-        "uom": "Pcs",
-        "balance_qty": 7,
-        "valuation_rate": 0.53,
-    },
-    {
-        "new_item_code": 2073121,
-        "existing_item_code": "OSRAM-APO7506",
-        "uom": "Pcs",
-        "balance_qty": 8,
-        "valuation_rate": 0.75,
-    },
-    {
-        "new_item_code": 366101211,
-        "existing_item_code": "SHFL-910S",
-        "uom": "Pcs",
-        "balance_qty": 3,
-        "valuation_rate": 13.53,
     },
 ]
 
