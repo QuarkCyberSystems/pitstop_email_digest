@@ -1,0 +1,1002 @@
+{
+	"version": "1.0",
+	"type": "Workbook",
+	"name": "template-pitstop-employee-incentive",
+	"doc": {
+		"name": "template-pitstop-employee-incentive",
+		"title": "Employee Incentive"
+	},
+	"dependencies": {
+		"folders": [
+			{
+				"name": "tf-ei-queries",
+				"title": "Queries",
+				"type": "query",
+				"sort_order": 0
+			},
+			{
+				"name": "tf-ei-charts",
+				"title": "Charts",
+				"type": "chart",
+				"sort_order": 0
+			}
+		],
+		"queries": {
+			"tq-ei-facts": {
+				"name": "tq-ei-facts",
+				"title": "Employee Incentive Facts",
+				"workbook": "template-pitstop-employee-incentive",
+				"folder": "tf-ei-queries",
+				"sort_order": 0,
+				"use_live_connection": 1,
+				"is_script_query": 0,
+				"is_builder_query": 0,
+				"is_native_query": 1,
+				"operations": [
+					{
+						"type": "sql",
+						"data_source": "Site DB",
+						"raw_sql": "with months as (\n        select (curdate() - interval (day(curdate()) - 1) day) - interval 0 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 1 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 2 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 3 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 4 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 5 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 6 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 7 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 8 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 9 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 10 month as month_start\n        union all select (curdate() - interval (day(curdate()) - 1) day) - interval 11 month as month_start\n),\nmb as (\n        select\n            month_start,\n            last_day(month_start) as month_end,\n            timestamp(month_start) as from_dt,\n            timestamp(last_day(month_start), '23:59:59') as to_dt\n        from months\n),\nqc_types as (\n        select name from `tabTask Type` where locate('QC', name) > 0\n),\nsa_desig as (\n        select distinct designation\n        from `tabDesignation Details`\n        where parenttype = 'Incentive Calculation Setttings'\n          and parentfield = 'service_advisor_designation'\n          and designation is not null and designation != ''\n),\nqc_desig as (\n        select distinct designation\n        from `tabDesignation Details`\n        where parenttype = 'Incentive Calculation Setttings'\n          and parentfield = 'quality_controller_designation'\n          and designation is not null and designation != ''\n),\nbse_desig as (\n        select distinct designation\n        from `tabDesignation Details`\n        where parenttype = 'Incentive Calculation Setttings'\n          and parentfield = 'bodyshop_estimator_designation'\n          and designation is not null and designation != ''\n),\nibd_desig as (\n        select distinct designation\n        from `tabDesignation Details`\n        where parenttype = 'Incentive Calculation Setttings'\n          and parentfield = 'insurance_bd_designation'\n          and designation is not null and designation != ''\n),\nemp_info as (\n        select\n            name, employee_name, company, designation, status, is_technician,\n            user_id, vehicle_workshop, vehicle_workshop_division\n        from `tabEmployee`\n),\ntargets as (\n        select\n            mb.month_start,\n            tr.sales_person,\n            tr.employee,\n            tr.designation,\n            case month(mb.month_start)\n                when 1 then trd.january when 2 then trd.february when 3 then trd.march\n                when 4 then trd.april when 5 then trd.may when 6 then trd.june\n                when 7 then trd.july when 8 then trd.august when 9 then trd.september\n                when 10 then trd.october when 11 then trd.november else trd.december\n            end as target_amount\n        from `tabTarget Role Details` trd\n        inner join `tabTarget Role` tr on tr.name = trd.parent\n        inner join mb on trd.year = year(mb.month_start)\n        where trd.parenttype = 'Target Role'\n          and trd.parentfield = 'targets'\n),\nts_lines as (\n        select\n            mb.month_start,\n            ts.employee,\n            coalesce(task.reports_to, '') as reports_to,\n            coalesce(task.job_controller, '') as job_controller,\n            p.name as project,\n            case when qt.name is not null then 1 else 0 end as is_qc,\n            coalesce(tsd.hours, 0) as actual_time,\n            coalesce(p.sold_time, 0) as project_sold_time,\n            coalesce(p.actual_time, 0) as project_actual_time,\n            coalesce(task.expected_time, 0) as task_expected_time,\n            coalesce(task.actual_time, 0) as task_actual_time\n        from `tabTimesheet Detail` tsd\n        inner join `tabTimesheet` ts on ts.name = tsd.parent\n        inner join `tabTask` task on task.name = tsd.task\n        left join `tabProject` p on p.name = task.project\n        left join qc_types qt on qt.name = task.task_type\n        inner join mb on mb.month_start = date(tsd.from_time) - interval (day(tsd.from_time) - 1) day\n        where ts.docstatus < 2\n          and task.vehicle_workshop is not null\n          and task.vehicle_workshop != ''\n          and tsd.from_time >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n),\nts_facts as (\n        select\n            l.month_start,\n            l.employee,\n            l.reports_to,\n            l.job_controller,\n            l.project,\n            l.is_qc,\n            l.actual_time,\n            case when l.project_actual_time <> 0 then l.actual_time / l.project_actual_time else 0 end\n                as project_time_portion,\n            l.project_sold_time * coalesce(\n                nullif(case when l.project_actual_time <> 0 then l.actual_time / l.project_actual_time else 0 end, 0),\n                1.0\n            ) as sold_time,\n            l.task_expected_time * coalesce(\n                nullif(case when l.task_actual_time <> 0 then l.actual_time / l.task_actual_time else 0 end, 0),\n                1.0\n            ) as expected_time\n        from ts_lines l\n),\ngrain as (\n        select\n            month_start, employee, reports_to, job_controller, project, is_qc,\n            sum(actual_time) as actual_time,\n            sum(sold_time) as sold_time,\n            sum(project_time_portion) as no_of_repair_orders\n        from ts_facts\n        group by month_start, employee, reports_to, job_controller, project, is_qc\n),\nts_emp_month as (\n        select distinct\n            date(tsd.from_time) - interval (day(tsd.from_time) - 1) day as month_start,\n            ts.employee\n        from `tabTimesheet Detail` tsd\n        inner join `tabTimesheet` ts on ts.name = tsd.parent\n        where ts.docstatus < 2\n          and tsd.from_time >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n),\natt_raw as (\n        select\n            mb.month_start,\n            a.employee,\n            coalesce(a.reports_to, '') as reports_to,\n            coalesce(a.job_controller, '') as job_controller,\n            case when coalesce(a.working_hours, 0) = 0 and a.attendance_date = curdate()\n                 then coalesce(a.standard_working_hours, 0) else coalesce(a.working_hours, 0) end as w_hours,\n            case when coalesce(a.working_hours, 0) = 0 and a.attendance_date = curdate()\n                 then coalesce(a.standard_available_hours, 0) else coalesce(a.available_hours, 0) end as av_hours,\n            coalesce(a.standard_working_hours, 0) as std_w_hours\n        from `tabAttendance` a\n        inner join emp_info emp on emp.name = a.employee\n        inner join mb on a.attendance_date between mb.month_start and mb.month_end\n        left join ts_emp_month tem on tem.month_start = mb.month_start and tem.employee = a.employee\n        where a.docstatus = 1\n          and a.status in ('Present', 'Half Day')\n          and a.attendance_date <= curdate()\n          and a.attendance_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n          and (emp.is_technician = 1 or tem.employee is not null)\n),\natt_facts as (\n        select\n            month_start, employee, reports_to, job_controller,\n            sum(av_hours) as available_hours,\n            sum(greatest(0, w_hours - std_w_hours)) as out_of_shift_hours\n        from att_raw\n        group by month_start, employee, reports_to, job_controller\n),\ngrp_types as (\n        select 'emp' as grp_type union all select 'rt' union all select 'jc'\n),\nts_by_all as (\n        select\n            t.grp_type,\n            g.month_start,\n            case t.grp_type when 'emp' then g.employee when 'rt' then g.reports_to\n                 else g.job_controller end as grp,\n            sum(g.actual_time) as actual_time,\n            sum(g.sold_time) as sold_time,\n            sum(g.no_of_repair_orders) as no_of_repair_orders,\n            count(distinct case when g.is_qc = 1 then g.project end) as qc_ro_count,\n            count(distinct case when g.is_qc = 0 then g.project end) as non_qc_ro_count\n        from grain g\n        cross join grp_types t\n        group by t.grp_type, g.month_start, grp\n),\natt_by_all as (\n        select\n            t.grp_type,\n            a.month_start,\n            case t.grp_type when 'emp' then a.employee when 'rt' then a.reports_to\n                 else a.job_controller end as grp,\n            sum(a.available_hours) as available_hours,\n            sum(a.out_of_shift_hours) as out_of_shift_hours\n        from att_facts a\n        cross join grp_types t\n        group by t.grp_type, a.month_start, grp\n),\nprod_all as (\n        select\n            grp_type, month_start, grp,\n            sum(actual_time) as actual_time,\n            sum(sold_time) as sold_time,\n            sum(no_of_repair_orders) as no_of_repair_orders,\n            sum(qc_ro_count) as qc_ro_count,\n            sum(non_qc_ro_count) as non_qc_ro_count,\n            sum(available_hours) as available_hours,\n            sum(out_of_shift_hours) as out_of_shift_hours\n        from (\n            select grp_type, month_start, grp, actual_time, sold_time, no_of_repair_orders,\n                   qc_ro_count, non_qc_ro_count, 0 as available_hours, 0 as out_of_shift_hours\n            from ts_by_all\n            union all\n            select grp_type, month_start, grp, 0, 0, 0, 0, 0, available_hours, out_of_shift_hours\n            from att_by_all\n        ) u\n        group by grp_type, month_start, grp\n),\ntl_cfb as (\n        select\n            month_start, reports_to,\n            count(distinct project) as ro_count,\n            round(avg(rating), 2) as avg_rating\n        from (\n            select distinct\n                mb.month_start, task.reports_to, task.project,\n                cf.overall_satisfaction_rating as rating\n            from `tabTimesheet Detail` tsd\n            inner join `tabTimesheet` ts on ts.name = tsd.parent\n            inner join `tabTask` task on task.name = tsd.task\n            inner join `tabCustomer Feedback` cf on cf.project = task.project\n            inner join mb on mb.month_start = date(tsd.from_time) - interval (day(tsd.from_time) - 1) day\n            where cf.status = 'Completed'\n              and task.reports_to is not null and task.reports_to != ''\n              and ts.docstatus < 2\n              and tsd.from_time >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n        ) x\n        group by month_start, reports_to\n),\njc_wip as (\n        select\n            mb.month_start,\n            p.job_controller,\n            count(p.name) as ro_count,\n            round(avg(datediff(mb.month_end, date(p.project_date))), 2) as average_wip_age\n        from `tabProject` p\n        inner join mb on p.project_date <= mb.month_end\n        where p.status != 'Cancelled'\n          and p.project_status != 'Completed'\n          and p.job_controller is not null and p.job_controller != ''\n        group by mb.month_start, p.job_controller\n),\njc_k2k as (\n        select\n            month_start,\n            job_controller,\n            truncate(avg(case when division = 'Body Shop' then age end), 0) as bodyshop_days,\n            truncate(avg(case when division = 'Mechanical' then age end), 0) as mechanical_days\n        from (\n            select\n                mb.month_start,\n                p.job_controller,\n                p.vehicle_workshop_division as division,\n                coalesce(datediff(p.vehicle_delivered_date, p.vehicle_received_date), 0) as age\n            from `tabProject` p\n            inner join mb on p.vehicle_received_date between mb.month_start and mb.month_end\n            where p.status != 'Cancelled'\n              and p.job_controller is not null and p.job_controller != ''\n              and p.vehicle_received_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n              and exists (\n                  select 1 from `tabVehicle Service Receipt` vsr\n                  where vsr.project = p.name and vsr.docstatus = 1\n              )\n        ) x\n        group by month_start, job_controller\n),\nprod_rows as (\n        select\n            p.grp_type,\n            p.month_start,\n            p.grp,\n            p.actual_time,\n            p.sold_time,\n            p.available_hours,\n            p.out_of_shift_hours,\n            p.qc_ro_count,\n            p.non_qc_ro_count,\n            e.employee_name, e.company, e.vehicle_workshop, e.vehicle_workshop_division,\n            c.avg_rating,\n            c.ro_count as ro_count_cfb,\n            w.ro_count as wip_ro_count,\n            w.average_wip_age as wip_average_age,\n            k.bodyshop_days,\n            k.mechanical_days,\n            case when round(p.available_hours, 2) <> 0\n                 then p.actual_time / p.available_hours * 100 else 0 end as per_productivity,\n            case when round(p.actual_time, 2) <> 0\n                 then p.sold_time / p.actual_time * 100 else 0 end as per_efficiency,\n            case when round(p.available_hours, 2) <> 0\n                 then p.sold_time / p.available_hours * 100 else 0 end as per_proficiency,\n            case when p.sold_time <> 0 and p.available_hours <> 0\n                 then round(p.sold_time / p.available_hours * 100, 3) else 0 end as sold_hrs_percentage,\n            case when (p.qc_ro_count + p.non_qc_ro_count) <> 0\n                 then round(p.qc_ro_count / (p.qc_ro_count + p.non_qc_ro_count) * 100, 3)\n                 else 0 end as total_qc_ro_percentage,\n            case when p.grp_type = 'jc' and p.available_hours <> 0\n                 then round((p.available_hours - p.actual_time - p.out_of_shift_hours)\n                            / p.available_hours * 100, 3) end as total_idle_percentage\n        from prod_all p\n        inner join emp_info e on e.name = p.grp\n        left join tl_cfb c on p.grp_type = 'rt'\n            and c.month_start = p.month_start and c.reports_to = p.grp\n        left join jc_wip w on p.grp_type = 'jc'\n            and w.month_start = p.month_start and w.job_controller = p.grp\n        left join jc_k2k k on p.grp_type = 'jc'\n            and k.month_start = p.month_start and k.job_controller = p.grp\n        where p.grp != ''\n),\nsa_sales as (\n        select\n            mb.month_start,\n            p.service_advisor as sales_person,\n            sum(sii.base_net_amount) as total_sales_amount\n        from `tabSales Invoice Item` sii\n        inner join `tabSales Invoice` si on si.name = sii.parent\n        inner join `tabProject` p on p.name = sii.project\n        inner join mb on si.posting_date between mb.month_start and mb.month_end\n        where si.docstatus = 1\n          and p.service_advisor is not null and p.service_advisor != ''\n          and si.posting_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n        group by mb.month_start, p.service_advisor\n),\nsa_cfb as (\n        select\n            month_start, service_advisor,\n            count(distinct project) as ro_count,\n            round(avg(rating), 2) as avg_rating\n        from (\n            select distinct\n                mb.month_start, p.service_advisor, p.name as project,\n                cf.overall_satisfaction_rating as rating\n            from `tabSales Invoice` si\n            inner join `tabSales Invoice Item` sii on sii.parent = si.name\n            inner join `tabProject` p on p.name = sii.project\n            inner join `tabCustomer Feedback` cf on cf.project = p.name\n            inner join mb on si.posting_date between mb.month_start and mb.month_end\n            where cf.status = 'Completed'\n              and p.service_advisor is not null and p.service_advisor != ''\n              and si.docstatus = 1\n              and si.posting_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n        ) x\n        group by month_start, service_advisor\n),\nsa_wip as (\n        select\n            mb.month_start,\n            p.service_advisor,\n            count(p.name) as ro_count,\n            round(avg(datediff(mb.month_end, date(p.project_date))), 2) as average_wip_age\n        from `tabProject` p\n        inner join mb on p.project_date <= mb.month_end\n        where p.status != 'Cancelled'\n          and p.project_status != 'Completed'\n          and p.service_advisor is not null and p.service_advisor != ''\n        group by mb.month_start, p.service_advisor\n),\nsa_allowed as (\n        select sp.name as sales_person\n        from `tabSales Person` sp\n        inner join emp_info emp on emp.user_id = sp.user_id\n        inner join sa_desig d on d.designation = emp.designation\n        where sp.is_service_advisor = 1 and sp.enabled = 1\n),\nsa_rows as (\n        select\n            s.month_start,\n            s.sales_person,\n            coalesce(sp.sales_person_name, s.sales_person) as sales_person_name,\n            emp.company,\n            emp.vehicle_workshop,\n            emp.vehicle_workshop_division,\n            s.total_sales_amount,\n            coalesce(t.target_amount, 0) as target_revenue,\n            case when coalesce(t.target_amount, 0) <> 0\n                 then round(s.total_sales_amount / t.target_amount * 100, 3) else 0 end as revenue_percentage,\n            c.avg_rating,\n            c.ro_count as ro_count_cfb,\n            w.ro_count as wip_ro_count,\n            w.average_wip_age as wip_average_age\n        from sa_sales s\n        left join `tabSales Person` sp on sp.name = s.sales_person\n        left join emp_info emp on emp.user_id = sp.user_id\n        left join targets t on t.month_start = s.month_start and t.sales_person = s.sales_person\n        left join sa_cfb c on c.month_start = s.month_start and c.service_advisor = s.sales_person\n        left join sa_wip w on w.month_start = s.month_start and w.service_advisor = s.sales_person\n        where (select count(*) from sa_desig) = 0\n           or s.sales_person in (select sales_person from sa_allowed)\n),\nqc_techs as (\n        select emp.name as employee, emp.employee_name, emp.company,\n            emp.vehicle_workshop, emp.vehicle_workshop_division\n        from emp_info emp\n        inner join qc_desig d on d.designation = emp.designation\n        where emp.status = 'Active' and emp.is_technician = 1\n),\nqc_project_tasks as (\n        select\n            mb.month_start,\n            t.assigned_to as employee,\n            p.name as project,\n            max(case when qt.name is not null then 1 else 0 end) as has_qc,\n            max(case when qt.name is not null\n                      and p.billing_status not in ('Not Applicable', 'Not Billed')\n                     then 1 else 0 end) as has_qc_invoiced,\n            max(case when p.project_type = 'Comeback' then 1 else 0 end) as is_comeback\n        from `tabProject` p\n        inner join `tabTask` t on t.project = p.name\n        inner join qc_techs qe on qe.employee = t.assigned_to\n        inner join mb on p.project_date between mb.month_start and mb.month_end\n        left join qc_types qt on qt.name = t.task_type\n        where p.project_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n        group by mb.month_start, t.assigned_to, p.name\n),\nqc_counts as (\n        select\n            month_start, employee,\n            count(*) as total_ro_count,\n            sum(has_qc) as total_qc_ro_count,\n            sum(case when has_qc = 0 then 1 else 0 end) as total_ro_count_non_qc,\n            sum(has_qc_invoiced) as total_qc_invoice_ro_count,\n            sum(is_comeback) as total_comeback_ro_count\n        from qc_project_tasks\n        group by month_start, employee\n),\nqc_cfb as (\n        select\n            month_start, assigned_to,\n            count(distinct project) as ro_count,\n            round(avg(rating), 2) as avg_rating\n        from (\n            select distinct\n                mb.month_start, task.assigned_to, task.project,\n                cf.overall_satisfaction_rating as rating\n            from `tabTimesheet Detail` tsd\n            inner join `tabTimesheet` ts on ts.name = tsd.parent\n            inner join `tabTask` task on task.name = tsd.task\n            inner join emp_info te on te.name = task.assigned_to\n            inner join `tabProject` tp on tp.name = task.project\n            inner join `tabCustomer Feedback` cf on cf.project = task.project\n            inner join mb on tp.project_date between mb.month_start and mb.month_end\n            where te.status = 'Active'\n              and te.designation = 'Quality Controller'\n              and tp.project_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n        ) x\n        group by month_start, assigned_to\n),\nqc_rows as (\n        select\n            n.*,\n            e.employee_name, e.company, e.vehicle_workshop, e.vehicle_workshop_division,\n            c.avg_rating,\n            c.ro_count as ro_count_cfb,\n            case when n.total_qc_ro_count <> 0\n                 then round(n.total_qc_invoice_ro_count / n.total_qc_ro_count * 100, 3)\n                 else 0 end as qc_invoiced_ro_percentage,\n            case when n.total_ro_count <> 0\n                 then round(n.total_comeback_ro_count / n.total_ro_count * 100, 3)\n                 else 0 end as comeback_ro_percentage,\n            case when n.total_ro_count <> 0\n                 then round(n.total_qc_ro_count / n.total_ro_count * 100, 3)\n                 else 0 end as total_qc_ro_percentage\n        from qc_counts n\n        inner join qc_techs e on e.employee = n.employee\n        left join qc_cfb c on c.month_start = n.month_start and c.assigned_to = n.employee\n),\nest_invoiced as (\n        select\n            mb.month_start,\n            q.estimator_id as employee,\n            sum(si.base_net_total) as total_sales_amount,\n            count(distinct p.name) as total_ro_count\n        from `tabQuotation` q\n        inner join `tabProject` p on p.name = q.project\n        inner join `tabSales Invoice` si on si.project = p.name\n        inner join mb on si.posting_date between mb.month_start and mb.month_end\n        where si.docstatus = 1 and q.docstatus = 1\n          and q.estimator_id is not null and q.estimator_id != ''\n          and si.posting_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n        group by mb.month_start, q.estimator_id\n),\nest_gross_profit as (\n        select\n            month_start, employee,\n            sum(project_sales) as gp_sales,\n            sum(project_margin) as gp_margin\n        from (\n            select\n                mb.month_start,\n                q.estimator_id as employee,\n                p.name as project,\n                max(p.total_sales_amount) as project_sales,\n                max(p.gross_margin) as project_margin\n            from `tabQuotation` q\n            inner join `tabProject` p on p.name = q.project\n            inner join mb on p.project_date between mb.month_start and mb.month_end\n            where q.docstatus = 1\n              and p.status = 'Completed'\n              and q.estimator_id is not null and q.estimator_id != ''\n              and p.project_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n            group by mb.month_start, q.estimator_id, p.name\n        ) x\n        group by month_start, employee\n),\nest_approvals as (\n        select\n            mb.month_start,\n            q.estimator_id as employee,\n            count(*) as total_estimate_count,\n            sum(case when coalesce(a.sales_order_count, 0) > 0 then 1 else 0 end) as total_approved_estimate_count\n        from `tabQuotation` q\n        inner join mb on q.transaction_date between mb.month_start and mb.month_end\n        left join (\n            select soi.quotation, count(distinct so.name) as sales_order_count\n            from `tabSales Order Item` soi\n            inner join `tabSales Order` so on so.name = soi.parent\n            where so.docstatus = 1 and coalesce(soi.quotation, '') != ''\n            group by soi.quotation\n        ) a on a.quotation = q.name\n        where q.docstatus = 1\n          and q.estimator_id is not null and q.estimator_id != ''\n          and q.transaction_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n        group by mb.month_start, q.estimator_id\n),\nbse_emps as (\n        select emp.name as employee, emp.employee_name, emp.company,\n            emp.vehicle_workshop, emp.vehicle_workshop_division\n        from emp_info emp\n        inner join bse_desig d on d.designation = emp.designation\n        where emp.status = 'Active' and emp.vehicle_workshop_division = 'Body Shop'\n),\nbse_rows as (\n        select\n            mb.month_start,\n            e.*,\n            coalesce(i.total_sales_amount, 0) as total_sales_amount,\n            coalesce(t.target_amount, 0) as target_revenue,\n            case when coalesce(t.target_amount, 0) <> 0\n                 then round(coalesce(i.total_sales_amount, 0) / t.target_amount * 100, 3)\n                 else 0 end as revenue_percentage,\n            case when coalesce(g.gp_sales, 0) <> 0\n                 then round(g.gp_margin / g.gp_sales * 100, 3) else 0 end as gross_margin_percentage,\n            case when coalesce(ap.total_estimate_count, 0) <> 0\n                 then round(ap.total_approved_estimate_count / ap.total_estimate_count * 100, 3)\n                 else 0 end as estimate_to_approval_ratio\n        from bse_emps e\n        cross join mb\n        left join est_invoiced i on i.month_start = mb.month_start and i.employee = e.employee\n        left join est_gross_profit g on g.month_start = mb.month_start and g.employee = e.employee\n        left join est_approvals ap on ap.month_start = mb.month_start and ap.employee = e.employee\n        left join targets t on t.month_start = mb.month_start and t.employee = e.employee\n            and t.designation in (select designation from bse_desig)\n),\nibd_emps as (\n        select emp.name as employee, emp.employee_name, emp.company,\n            emp.vehicle_workshop, emp.vehicle_workshop_division\n        from emp_info emp\n        inner join ibd_desig d on d.designation = emp.designation\n        where emp.status = 'Active'\n),\nps_settings as (\n        select\n            max(case when field = 'materials_item_group' then value end) as materials_group,\n            max(case when field = 'paint_item_group' then value end) as paint_group\n        from `tabSingles`\n        where doctype = 'Projects Settings'\n),\nmix_group_flags as (\n        select\n            c.name as item_group,\n            max(case when r.role = 'labour' then 1 else 0 end) as in_labour,\n            max(case when r.role = 'parts' then 1 else 0 end) as in_parts\n        from `tabItem Group` c\n        inner join (\n            select 'labour' as role, 'Lumpsum Labour' as root\n            union all select 'labour', 'AutoCare Services'\n            union all select 'parts', materials_group from ps_settings\n            union all select 'parts', paint_group from ps_settings\n        ) r on r.root is not null and r.root != ''\n        inner join `tabItem Group` rg on rg.name = r.root and c.lft >= rg.lft and c.rgt <= rg.rgt\n        group by c.name\n),\nibd_mix as (\n        select\n            mb.month_start,\n            q.estimator_id as employee,\n            sum(sii.base_net_amount) as lp_total,\n            sum(case when coalesce(sii.uom, '') = 'Hour' or coalesce(sii.stock_uom, '') = 'Hour'\n                       or coalesce(g.in_labour, 0) = 1\n                     then sii.base_net_amount else 0 end) as labour_amount\n        from `tabQuotation` q\n        inner join `tabProject` p on p.name = q.project\n        inner join `tabSales Invoice` si on si.project = p.name\n        inner join `tabSales Invoice Item` sii on sii.parent = si.name\n        left join mix_group_flags g on g.item_group = sii.item_group\n        inner join mb on si.posting_date between mb.month_start and mb.month_end\n        where si.docstatus = 1 and q.docstatus = 1\n          and q.estimator_id is not null and q.estimator_id != ''\n          and si.posting_date >= ((curdate() - interval (day(curdate()) - 1) day) - interval 11 month)\n        group by mb.month_start, q.estimator_id\n),\nibd_rows as (\n        select\n            mb.month_start,\n            e.*,\n            coalesce(i.total_sales_amount, 0) as total_sales_amount,\n            coalesce(t.target_amount, 0) as target_revenue,\n            case when coalesce(t.target_amount, 0) <> 0\n                 then round(coalesce(i.total_sales_amount, 0) / t.target_amount * 100, 3)\n                 else 0 end as revenue_percentage,\n            case when coalesce(g.gp_sales, 0) <> 0\n                 then round(g.gp_margin / g.gp_sales * 100, 3) else 0 end as gross_margin_percentage,\n            case when coalesce(m.lp_total, 0) <> 0\n                 then round(m.labour_amount / m.lp_total * 100, 3)\n                 else 0 end as labour_perc_of_total_sales\n        from ibd_emps e\n        cross join mb\n        left join est_invoiced i on i.month_start = mb.month_start and i.employee = e.employee\n        left join est_gross_profit g on g.month_start = mb.month_start and g.employee = e.employee\n        left join ibd_mix m on m.month_start = mb.month_start and m.employee = e.employee\n        left join targets t on t.month_start = mb.month_start and t.employee = e.employee\n            and t.designation in (select designation from ibd_desig)\n)\nselect\n        month_start as month_start,\n        case when grp_type = 'emp' then 'Technician' when grp_type = 'rt' then 'Team Lead' when grp_type = 'jc' then 'Job Controller' else null end as based_on,\n        grp as employee_id,\n        employee_name as employee_name,\n        company as company,\n        vehicle_workshop as vehicle_workshop,\n        vehicle_workshop_division as workshop_division,\n        case when grp_type = 'emp' then 350 when grp_type = 'rt' then 600 when grp_type = 'jc' then 500 else null end as base_incentive,\n        available_hours as available_hours,\n        actual_time as actual_time,\n        sold_time as sold_time,\n        out_of_shift_hours as out_of_shift_hours,\n        sold_hrs_percentage as sold_hrs_percentage,\n        per_efficiency as per_efficiency,\n        per_productivity as per_productivity,\n        per_proficiency as per_proficiency,\n        total_idle_percentage as total_idle_percentage,\n        cast(null as decimal(21,6)) as total_ro_count,\n        qc_ro_count as total_qc_ro_count,\n        non_qc_ro_count as total_ro_count_non_qc,\n        cast(null as decimal(21,6)) as total_qc_invoice_ro_count,\n        cast(null as decimal(21,6)) as total_comeback_ro_count,\n        total_qc_ro_percentage as total_qc_ro_percentage,\n        cast(null as decimal(21,6)) as qc_invoiced_ro_percentage,\n        cast(null as decimal(21,6)) as comeback_ro_percentage,\n        case when grp_type = 'rt' then round(avg_rating / 2 * 10, 2) end as customer_rating,\n        ro_count_cfb as ro_count_cfb,\n        cast(null as decimal(21,6)) as total_sales_amount,\n        cast(null as decimal(21,6)) as target_revenue,\n        cast(null as decimal(21,6)) as revenue_percentage,\n        cast(null as decimal(21,6)) as gross_margin_percentage,\n        cast(null as decimal(21,6)) as estimate_to_approval_ratio,\n        cast(null as decimal(21,6)) as labour_perc_of_total_sales,\n        wip_ro_count as wip_ro_count,\n        wip_average_age as wip_average_age,\n        bodyshop_days as k2k_bodyshop_days,\n        mechanical_days as k2k_mechanical_days,\n        case when grp_type = 'emp' then round(175 * (case when sold_hrs_percentage < 80 then 0 when sold_hrs_percentage < 85 then 80 when sold_hrs_percentage < 90 then 85 when sold_hrs_percentage < 95 then 90 when sold_hrs_percentage < 100 then 95 when sold_hrs_percentage < 105 then 100 when sold_hrs_percentage < 115 then 105 when sold_hrs_percentage < 125 then 115 else 125 end) / 100.0, 3) else null end as sold_hrs_amt,\n        case when grp_type = 'emp' then round(87.5 * (case when per_efficiency < 90 then 0 when per_efficiency < 95 then 90 when per_efficiency < 100 then 95 when per_efficiency < 105 then 100 when per_efficiency < 110 then 105 when per_efficiency < 115 then 110 when per_efficiency < 120 then 115 when per_efficiency < 125 then 120 else 125 end) / 100.0, 3) when grp_type = 'rt' then round(180 * (case when per_efficiency < 85 then 0 when per_efficiency < 90 then 85 when per_efficiency < 95 then 90 when per_efficiency < 100 then 95 when per_efficiency < 105 then 100 when per_efficiency < 110 then 105 when per_efficiency < 115 then 110 when per_efficiency < 125 then 115 else 125 end) / 100.0, 3) else null end as efficiency_amt,\n        case when grp_type = 'emp' then round(87.5 * (case when per_productivity < 85 then 0 when per_productivity < 90 then 85 when per_productivity < 95 then 90 when per_productivity < 100 then 95 when per_productivity < 105 then 100 when per_productivity < 110 then 105 when per_productivity < 115 then 110 when per_productivity < 125 then 115 else 125 end) / 100.0, 3) when grp_type = 'jc' then round(150 * (case when per_productivity < 85 then 0 when per_productivity < 90 then 85 when per_productivity < 95 then 90 when per_productivity < 100 then 95 when per_productivity < 105 then 100 when per_productivity < 110 then 105 when per_productivity < 115 then 110 when per_productivity < 125 then 115 else 125 end) / 100.0, 3) else null end as productivity_amt,\n        case when grp_type = 'rt' then round(180 * (case when per_proficiency < 85 then 0 when per_proficiency < 90 then 85 when per_proficiency < 95 then 90 when per_proficiency < 100 then 95 when per_proficiency < 105 then 100 when per_proficiency < 110 then 105 when per_proficiency < 115 then 110 when per_proficiency < 125 then 115 else 125 end) / 100.0, 3) else null end as proficiency_amt,\n        case when grp_type = 'rt' then round(120 * (case when total_qc_ro_percentage >= 10 then 100 when total_qc_ro_percentage >= 9.9 then 0 else 0 end) / 100.0, 3) else null end as qc_ro_amt,\n        case when grp_type = 'rt' then round(120 * case when avg_rating is null or avg_rating = 0 then 0 else (case when round(avg_rating / 2 * 10, 2) >= 4.6 then 100 when round(avg_rating / 2 * 10, 2) >= 4.5 then 0 else 0 end) end / 100.0, 3) else null end as customer_feedback_amt,\n        cast(null as decimal(21,6)) as revenue_amt,\n        case when grp_type = 'jc' then round(100 * (case when coalesce(wip_average_age, 0) >= 45 then 0 when coalesce(wip_average_age, 0) >= 44.9 then 100 else 100 end) / 100.0, 3) else null end as wip_ageing_amt,\n        case when grp_type = 'jc' then round(200 * case when total_idle_percentage is null then 0 else (case when total_idle_percentage >= 18 then 0 when total_idle_percentage >= 17.25 then 80 when total_idle_percentage >= 16.5 then 85 when total_idle_percentage >= 15.75 then 90 when total_idle_percentage >= 15 then 95 when total_idle_percentage >= 14.5 then 100 when total_idle_percentage >= 14.25 then 105 when total_idle_percentage >= 13.5 then 110 when total_idle_percentage >= 12.75 then 115 when total_idle_percentage >= 12 then 120 when total_idle_percentage >= 0 then 125 else 125 end) end / 100.0, 3) else null end as idle_time_amt,\n        case when grp_type = 'jc' then round(50 * (case when (case when coalesce(bodyshop_days, 0) >= 11 then 0 when coalesce(bodyshop_days, 0) >= 10.9 then 100 else 100 end) <> 0 then (case when coalesce(bodyshop_days, 0) >= 11 then 0 when coalesce(bodyshop_days, 0) >= 10.9 then 100 else 100 end) else (case when coalesce(mechanical_days, 0) >= 2 then 0 when coalesce(mechanical_days, 0) >= 1.9 then 100 else 100 end) end) / 100.0, 3) else null end as key_to_key_amt,\n        cast(null as decimal(21,6)) as come_back_ro_amt,\n        cast(null as decimal(21,6)) as invoiced_ro_amt,\n        cast(null as decimal(21,6)) as gross_profit_amt,\n        cast(null as decimal(21,6)) as estimate_to_approval_amt,\n        cast(null as decimal(21,6)) as labour_parts_mix_amt,\n        case when grp_type = 'emp' then round(round(175 * (case when sold_hrs_percentage < 80 then 0 when sold_hrs_percentage < 85 then 80 when sold_hrs_percentage < 90 then 85 when sold_hrs_percentage < 95 then 90 when sold_hrs_percentage < 100 then 95 when sold_hrs_percentage < 105 then 100 when sold_hrs_percentage < 115 then 105 when sold_hrs_percentage < 125 then 115 else 125 end) / 100.0, 3) + round(87.5 * (case when per_efficiency < 90 then 0 when per_efficiency < 95 then 90 when per_efficiency < 100 then 95 when per_efficiency < 105 then 100 when per_efficiency < 110 then 105 when per_efficiency < 115 then 110 when per_efficiency < 120 then 115 when per_efficiency < 125 then 120 else 125 end) / 100.0, 3) + round(87.5 * (case when per_productivity < 85 then 0 when per_productivity < 90 then 85 when per_productivity < 95 then 90 when per_productivity < 100 then 95 when per_productivity < 105 then 100 when per_productivity < 110 then 105 when per_productivity < 115 then 110 when per_productivity < 125 then 115 else 125 end) / 100.0, 3), 2) when grp_type = 'rt' then round(round(180 * (case when per_efficiency < 85 then 0 when per_efficiency < 90 then 85 when per_efficiency < 95 then 90 when per_efficiency < 100 then 95 when per_efficiency < 105 then 100 when per_efficiency < 110 then 105 when per_efficiency < 115 then 110 when per_efficiency < 125 then 115 else 125 end) / 100.0, 3) + round(180 * (case when per_proficiency < 85 then 0 when per_proficiency < 90 then 85 when per_proficiency < 95 then 90 when per_proficiency < 100 then 95 when per_proficiency < 105 then 100 when per_proficiency < 110 then 105 when per_proficiency < 115 then 110 when per_proficiency < 125 then 115 else 125 end) / 100.0, 3) + round(120 * (case when total_qc_ro_percentage >= 10 then 100 when total_qc_ro_percentage >= 9.9 then 0 else 0 end) / 100.0, 3) + round(120 * case when avg_rating is null or avg_rating = 0 then 0 else (case when round(avg_rating / 2 * 10, 2) >= 4.6 then 100 when round(avg_rating / 2 * 10, 2) >= 4.5 then 0 else 0 end) end / 100.0, 3), 2) when grp_type = 'jc' then round(round(200 * case when total_idle_percentage is null then 0 else (case when total_idle_percentage >= 18 then 0 when total_idle_percentage >= 17.25 then 80 when total_idle_percentage >= 16.5 then 85 when total_idle_percentage >= 15.75 then 90 when total_idle_percentage >= 15 then 95 when total_idle_percentage >= 14.5 then 100 when total_idle_percentage >= 14.25 then 105 when total_idle_percentage >= 13.5 then 110 when total_idle_percentage >= 12.75 then 115 when total_idle_percentage >= 12 then 120 when total_idle_percentage >= 0 then 125 else 125 end) end / 100.0, 3) + round(150 * (case when per_productivity < 85 then 0 when per_productivity < 90 then 85 when per_productivity < 95 then 90 when per_productivity < 100 then 95 when per_productivity < 105 then 100 when per_productivity < 110 then 105 when per_productivity < 115 then 110 when per_productivity < 125 then 115 else 125 end) / 100.0, 3) + round(100 * (case when coalesce(wip_average_age, 0) >= 45 then 0 when coalesce(wip_average_age, 0) >= 44.9 then 100 else 100 end) / 100.0, 3) + round(50 * (case when (case when coalesce(bodyshop_days, 0) >= 11 then 0 when coalesce(bodyshop_days, 0) >= 10.9 then 100 else 100 end) <> 0 then (case when coalesce(bodyshop_days, 0) >= 11 then 0 when coalesce(bodyshop_days, 0) >= 10.9 then 100 else 100 end) else (case when coalesce(mechanical_days, 0) >= 2 then 0 when coalesce(mechanical_days, 0) >= 1.9 then 100 else 100 end) end) / 100.0, 3), 2) else null end as calculated_incentive\n    from prod_rows\nunion all\nselect\n        month_start as month_start,\n        'Service Advisor' as based_on,\n        sales_person as employee_id,\n        sales_person_name as employee_name,\n        company as company,\n        vehicle_workshop as vehicle_workshop,\n        vehicle_workshop_division as workshop_division,\n        700 as base_incentive,\n        cast(null as decimal(21,6)) as available_hours,\n        cast(null as decimal(21,6)) as actual_time,\n        cast(null as decimal(21,6)) as sold_time,\n        cast(null as decimal(21,6)) as out_of_shift_hours,\n        cast(null as decimal(21,6)) as sold_hrs_percentage,\n        cast(null as decimal(21,6)) as per_efficiency,\n        cast(null as decimal(21,6)) as per_productivity,\n        cast(null as decimal(21,6)) as per_proficiency,\n        cast(null as decimal(21,6)) as total_idle_percentage,\n        cast(null as decimal(21,6)) as total_ro_count,\n        cast(null as decimal(21,6)) as total_qc_ro_count,\n        cast(null as decimal(21,6)) as total_ro_count_non_qc,\n        cast(null as decimal(21,6)) as total_qc_invoice_ro_count,\n        cast(null as decimal(21,6)) as total_comeback_ro_count,\n        cast(null as decimal(21,6)) as total_qc_ro_percentage,\n        cast(null as decimal(21,6)) as qc_invoiced_ro_percentage,\n        cast(null as decimal(21,6)) as comeback_ro_percentage,\n        round(avg_rating / 2 * 10, 2) as customer_rating,\n        ro_count_cfb as ro_count_cfb,\n        total_sales_amount as total_sales_amount,\n        target_revenue as target_revenue,\n        revenue_percentage as revenue_percentage,\n        cast(null as decimal(21,6)) as gross_margin_percentage,\n        cast(null as decimal(21,6)) as estimate_to_approval_ratio,\n        cast(null as decimal(21,6)) as labour_perc_of_total_sales,\n        wip_ro_count as wip_ro_count,\n        wip_average_age as wip_average_age,\n        cast(null as decimal(21,6)) as k2k_bodyshop_days,\n        cast(null as decimal(21,6)) as k2k_mechanical_days,\n        cast(null as decimal(21,6)) as sold_hrs_amt,\n        cast(null as decimal(21,6)) as efficiency_amt,\n        cast(null as decimal(21,6)) as productivity_amt,\n        cast(null as decimal(21,6)) as proficiency_amt,\n        cast(null as decimal(21,6)) as qc_ro_amt,\n        round(245 * case when avg_rating is null or avg_rating = 0 then 0 else (case when round(avg_rating / 2 * 10, 2) >= 5 then 125 when round(avg_rating / 2 * 10, 2) >= 4.6 then 100 when round(avg_rating / 2 * 10, 2) >= 4.5 then 0 else 0 end) end / 100.0, 3) as customer_feedback_amt,\n        round(315 * (case when revenue_percentage < 85 then 0 when revenue_percentage < 90 then 85 when revenue_percentage < 95 then 90 when revenue_percentage < 100 then 95 when revenue_percentage < 105 then 100 when revenue_percentage < 110 then 105 when revenue_percentage < 115 then 110 when revenue_percentage < 125 then 115 else 125 end) / 100.0, 3) as revenue_amt,\n        round(140 * (case when coalesce(wip_average_age, 0) >= 46 then 0 when coalesce(wip_average_age, 0) >= 45 then 100 else 100 end) / 100.0, 3) as wip_ageing_amt,\n        cast(null as decimal(21,6)) as idle_time_amt,\n        cast(null as decimal(21,6)) as key_to_key_amt,\n        cast(null as decimal(21,6)) as come_back_ro_amt,\n        cast(null as decimal(21,6)) as invoiced_ro_amt,\n        cast(null as decimal(21,6)) as gross_profit_amt,\n        cast(null as decimal(21,6)) as estimate_to_approval_amt,\n        cast(null as decimal(21,6)) as labour_parts_mix_amt,\n        round(round(245 * case when avg_rating is null or avg_rating = 0 then 0 else (case when round(avg_rating / 2 * 10, 2) >= 5 then 125 when round(avg_rating / 2 * 10, 2) >= 4.6 then 100 when round(avg_rating / 2 * 10, 2) >= 4.5 then 0 else 0 end) end / 100.0, 3) + round(315 * (case when revenue_percentage < 85 then 0 when revenue_percentage < 90 then 85 when revenue_percentage < 95 then 90 when revenue_percentage < 100 then 95 when revenue_percentage < 105 then 100 when revenue_percentage < 110 then 105 when revenue_percentage < 115 then 110 when revenue_percentage < 125 then 115 else 125 end) / 100.0, 3) + round(140 * (case when coalesce(wip_average_age, 0) >= 46 then 0 when coalesce(wip_average_age, 0) >= 45 then 100 else 100 end) / 100.0, 3), 2) as calculated_incentive\n    from sa_rows\nunion all\nselect\n        month_start as month_start,\n        'Quality Controller' as based_on,\n        employee as employee_id,\n        employee_name as employee_name,\n        company as company,\n        vehicle_workshop as vehicle_workshop,\n        vehicle_workshop_division as workshop_division,\n        450 as base_incentive,\n        cast(null as decimal(21,6)) as available_hours,\n        cast(null as decimal(21,6)) as actual_time,\n        cast(null as decimal(21,6)) as sold_time,\n        cast(null as decimal(21,6)) as out_of_shift_hours,\n        cast(null as decimal(21,6)) as sold_hrs_percentage,\n        cast(null as decimal(21,6)) as per_efficiency,\n        cast(null as decimal(21,6)) as per_productivity,\n        cast(null as decimal(21,6)) as per_proficiency,\n        cast(null as decimal(21,6)) as total_idle_percentage,\n        total_ro_count as total_ro_count,\n        total_qc_ro_count as total_qc_ro_count,\n        total_ro_count_non_qc as total_ro_count_non_qc,\n        total_qc_invoice_ro_count as total_qc_invoice_ro_count,\n        total_comeback_ro_count as total_comeback_ro_count,\n        total_qc_ro_percentage as total_qc_ro_percentage,\n        qc_invoiced_ro_percentage as qc_invoiced_ro_percentage,\n        comeback_ro_percentage as comeback_ro_percentage,\n        round(avg_rating / 2 * 10, 2) as customer_rating,\n        ro_count_cfb as ro_count_cfb,\n        cast(null as decimal(21,6)) as total_sales_amount,\n        cast(null as decimal(21,6)) as target_revenue,\n        cast(null as decimal(21,6)) as revenue_percentage,\n        cast(null as decimal(21,6)) as gross_margin_percentage,\n        cast(null as decimal(21,6)) as estimate_to_approval_ratio,\n        cast(null as decimal(21,6)) as labour_perc_of_total_sales,\n        cast(null as decimal(21,6)) as wip_ro_count,\n        cast(null as decimal(21,6)) as wip_average_age,\n        cast(null as decimal(21,6)) as k2k_bodyshop_days,\n        cast(null as decimal(21,6)) as k2k_mechanical_days,\n        cast(null as decimal(21,6)) as sold_hrs_amt,\n        cast(null as decimal(21,6)) as efficiency_amt,\n        cast(null as decimal(21,6)) as productivity_amt,\n        cast(null as decimal(21,6)) as proficiency_amt,\n        round(180 * (case when qc_invoiced_ro_percentage >= 10 then 100 when qc_invoiced_ro_percentage >= 9.9 then 0 else 0 end) / 100.0, 3) as qc_ro_amt,\n        round(90 * case when avg_rating is null or avg_rating = 0 then 0 else (case when round(avg_rating / 2 * 10, 2) >= 4.6 then 100 when round(avg_rating / 2 * 10, 2) >= 4.5 then 0 else 0 end) end / 100.0, 3) as customer_feedback_amt,\n        cast(null as decimal(21,6)) as revenue_amt,\n        cast(null as decimal(21,6)) as wip_ageing_amt,\n        cast(null as decimal(21,6)) as idle_time_amt,\n        cast(null as decimal(21,6)) as key_to_key_amt,\n        round(180 * (case when comeback_ro_percentage >= 1 then 0 when comeback_ro_percentage >= 0.9 then 100 else 100 end) / 100.0, 3) as come_back_ro_amt,\n        cast(null as decimal(21,6)) as invoiced_ro_amt,\n        cast(null as decimal(21,6)) as gross_profit_amt,\n        cast(null as decimal(21,6)) as estimate_to_approval_amt,\n        cast(null as decimal(21,6)) as labour_parts_mix_amt,\n        round(round(180 * (case when qc_invoiced_ro_percentage >= 10 then 100 when qc_invoiced_ro_percentage >= 9.9 then 0 else 0 end) / 100.0, 3) + round(90 * case when avg_rating is null or avg_rating = 0 then 0 else (case when round(avg_rating / 2 * 10, 2) >= 4.6 then 100 when round(avg_rating / 2 * 10, 2) >= 4.5 then 0 else 0 end) end / 100.0, 3) + round(180 * (case when comeback_ro_percentage >= 1 then 0 when comeback_ro_percentage >= 0.9 then 100 else 100 end) / 100.0, 3), 2) as calculated_incentive\n    from qc_rows\nunion all\nselect\n        month_start as month_start,\n        'Bodyshop Estimator' as based_on,\n        employee as employee_id,\n        employee_name as employee_name,\n        company as company,\n        vehicle_workshop as vehicle_workshop,\n        vehicle_workshop_division as workshop_division,\n        600 as base_incentive,\n        cast(null as decimal(21,6)) as available_hours,\n        cast(null as decimal(21,6)) as actual_time,\n        cast(null as decimal(21,6)) as sold_time,\n        cast(null as decimal(21,6)) as out_of_shift_hours,\n        cast(null as decimal(21,6)) as sold_hrs_percentage,\n        cast(null as decimal(21,6)) as per_efficiency,\n        cast(null as decimal(21,6)) as per_productivity,\n        cast(null as decimal(21,6)) as per_proficiency,\n        cast(null as decimal(21,6)) as total_idle_percentage,\n        cast(null as decimal(21,6)) as total_ro_count,\n        cast(null as decimal(21,6)) as total_qc_ro_count,\n        cast(null as decimal(21,6)) as total_ro_count_non_qc,\n        cast(null as decimal(21,6)) as total_qc_invoice_ro_count,\n        cast(null as decimal(21,6)) as total_comeback_ro_count,\n        cast(null as decimal(21,6)) as total_qc_ro_percentage,\n        cast(null as decimal(21,6)) as qc_invoiced_ro_percentage,\n        cast(null as decimal(21,6)) as comeback_ro_percentage,\n        cast(null as decimal(21,6)) as customer_rating,\n        cast(null as decimal(21,6)) as ro_count_cfb,\n        total_sales_amount as total_sales_amount,\n        target_revenue as target_revenue,\n        revenue_percentage as revenue_percentage,\n        gross_margin_percentage as gross_margin_percentage,\n        estimate_to_approval_ratio as estimate_to_approval_ratio,\n        cast(null as decimal(21,6)) as labour_perc_of_total_sales,\n        cast(null as decimal(21,6)) as wip_ro_count,\n        cast(null as decimal(21,6)) as wip_average_age,\n        cast(null as decimal(21,6)) as k2k_bodyshop_days,\n        cast(null as decimal(21,6)) as k2k_mechanical_days,\n        cast(null as decimal(21,6)) as sold_hrs_amt,\n        cast(null as decimal(21,6)) as efficiency_amt,\n        cast(null as decimal(21,6)) as productivity_amt,\n        cast(null as decimal(21,6)) as proficiency_amt,\n        cast(null as decimal(21,6)) as qc_ro_amt,\n        cast(null as decimal(21,6)) as customer_feedback_amt,\n        cast(null as decimal(21,6)) as revenue_amt,\n        cast(null as decimal(21,6)) as wip_ageing_amt,\n        cast(null as decimal(21,6)) as idle_time_amt,\n        cast(null as decimal(21,6)) as key_to_key_amt,\n        cast(null as decimal(21,6)) as come_back_ro_amt,\n        round(240 * (case when revenue_percentage < 85 then 0 when revenue_percentage < 90 then 85 when revenue_percentage < 95 then 90 when revenue_percentage < 100 then 95 when revenue_percentage < 105 then 100 when revenue_percentage < 110 then 105 when revenue_percentage < 115 then 110 when revenue_percentage < 125 then 115 else 125 end) / 100.0, 3) as invoiced_ro_amt,\n        round(180 * case when gross_margin_percentage = 0 then 0 else (case when gross_margin_percentage >= 55 then 100 when gross_margin_percentage >= 54.9 then 0 else 0 end) end / 100.0, 3) as gross_profit_amt,\n        round(180 * case when estimate_to_approval_ratio = 0 then 0 else (case when estimate_to_approval_ratio >= 75 then 100 when estimate_to_approval_ratio >= 74.9 then 0 else 0 end) end / 100.0, 3) as estimate_to_approval_amt,\n        cast(null as decimal(21,6)) as labour_parts_mix_amt,\n        round(round(240 * (case when revenue_percentage < 85 then 0 when revenue_percentage < 90 then 85 when revenue_percentage < 95 then 90 when revenue_percentage < 100 then 95 when revenue_percentage < 105 then 100 when revenue_percentage < 110 then 105 when revenue_percentage < 115 then 110 when revenue_percentage < 125 then 115 else 125 end) / 100.0, 3) + round(180 * case when gross_margin_percentage = 0 then 0 else (case when gross_margin_percentage >= 55 then 100 when gross_margin_percentage >= 54.9 then 0 else 0 end) end / 100.0, 3) + round(180 * case when estimate_to_approval_ratio = 0 then 0 else (case when estimate_to_approval_ratio >= 75 then 100 when estimate_to_approval_ratio >= 74.9 then 0 else 0 end) end / 100.0, 3), 2) as calculated_incentive\n    from bse_rows\nunion all\nselect\n        month_start as month_start,\n        'Insurance BD' as based_on,\n        employee as employee_id,\n        employee_name as employee_name,\n        company as company,\n        vehicle_workshop as vehicle_workshop,\n        vehicle_workshop_division as workshop_division,\n        1750 as base_incentive,\n        cast(null as decimal(21,6)) as available_hours,\n        cast(null as decimal(21,6)) as actual_time,\n        cast(null as decimal(21,6)) as sold_time,\n        cast(null as decimal(21,6)) as out_of_shift_hours,\n        cast(null as decimal(21,6)) as sold_hrs_percentage,\n        cast(null as decimal(21,6)) as per_efficiency,\n        cast(null as decimal(21,6)) as per_productivity,\n        cast(null as decimal(21,6)) as per_proficiency,\n        cast(null as decimal(21,6)) as total_idle_percentage,\n        cast(null as decimal(21,6)) as total_ro_count,\n        cast(null as decimal(21,6)) as total_qc_ro_count,\n        cast(null as decimal(21,6)) as total_ro_count_non_qc,\n        cast(null as decimal(21,6)) as total_qc_invoice_ro_count,\n        cast(null as decimal(21,6)) as total_comeback_ro_count,\n        cast(null as decimal(21,6)) as total_qc_ro_percentage,\n        cast(null as decimal(21,6)) as qc_invoiced_ro_percentage,\n        cast(null as decimal(21,6)) as comeback_ro_percentage,\n        cast(null as decimal(21,6)) as customer_rating,\n        cast(null as decimal(21,6)) as ro_count_cfb,\n        total_sales_amount as total_sales_amount,\n        target_revenue as target_revenue,\n        revenue_percentage as revenue_percentage,\n        gross_margin_percentage as gross_margin_percentage,\n        cast(null as decimal(21,6)) as estimate_to_approval_ratio,\n        labour_perc_of_total_sales as labour_perc_of_total_sales,\n        cast(null as decimal(21,6)) as wip_ro_count,\n        cast(null as decimal(21,6)) as wip_average_age,\n        cast(null as decimal(21,6)) as k2k_bodyshop_days,\n        cast(null as decimal(21,6)) as k2k_mechanical_days,\n        cast(null as decimal(21,6)) as sold_hrs_amt,\n        cast(null as decimal(21,6)) as efficiency_amt,\n        cast(null as decimal(21,6)) as productivity_amt,\n        cast(null as decimal(21,6)) as proficiency_amt,\n        cast(null as decimal(21,6)) as qc_ro_amt,\n        cast(null as decimal(21,6)) as customer_feedback_amt,\n        cast(null as decimal(21,6)) as revenue_amt,\n        cast(null as decimal(21,6)) as wip_ageing_amt,\n        cast(null as decimal(21,6)) as idle_time_amt,\n        cast(null as decimal(21,6)) as key_to_key_amt,\n        cast(null as decimal(21,6)) as come_back_ro_amt,\n        round(875 * (case when revenue_percentage < 85 then 0 when revenue_percentage < 90 then 85 when revenue_percentage < 95 then 90 when revenue_percentage < 100 then 95 when revenue_percentage < 105 then 100 when revenue_percentage < 110 then 105 when revenue_percentage < 115 then 110 when revenue_percentage < 125 then 115 else 125 end) / 100.0, 3) as invoiced_ro_amt,\n        round(350 * case when gross_margin_percentage = 0 then 0 else (case when gross_margin_percentage >= 20 then 100 when gross_margin_percentage >= 19.9 then 0 else 0 end) end / 100.0, 3) as gross_profit_amt,\n        cast(null as decimal(21,6)) as estimate_to_approval_amt,\n        round(525 * case when labour_perc_of_total_sales = 0 then 0 else (case when labour_perc_of_total_sales >= 30 then 100 when labour_perc_of_total_sales >= 29.9 then 0 else 0 end) end / 100.0, 3) as labour_parts_mix_amt,\n        round(round(875 * (case when revenue_percentage < 85 then 0 when revenue_percentage < 90 then 85 when revenue_percentage < 95 then 90 when revenue_percentage < 100 then 95 when revenue_percentage < 105 then 100 when revenue_percentage < 110 then 105 when revenue_percentage < 115 then 110 when revenue_percentage < 125 then 115 else 125 end) / 100.0, 3) + round(350 * case when gross_margin_percentage = 0 then 0 else (case when gross_margin_percentage >= 20 then 100 when gross_margin_percentage >= 19.9 then 0 else 0 end) end / 100.0, 3) + round(525 * case when labour_perc_of_total_sales = 0 then 0 else (case when labour_perc_of_total_sales >= 30 then 100 when labour_perc_of_total_sales >= 29.9 then 0 else 0 end) end / 100.0, 3), 2) as calculated_incentive\n    from ibd_rows"
+					}
+				]
+			}
+		},
+		"charts": {
+			"tc-ei-kpis": {
+				"name": "tc-ei-kpis",
+				"title": "Incentive KPIs",
+				"workbook": "template-pitstop-employee-incentive",
+				"folder": "tf-ei-charts",
+				"sort_order": 0,
+				"query": "tq-ei-facts",
+				"chart_type": "Number",
+				"config": {
+					"number_columns": [
+						{
+							"measure_name": "Total Incentive",
+							"data_type": "Decimal",
+							"column_name": "calculated_incentive",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Employees Paid",
+							"data_type": "Decimal",
+							"expression": {
+								"type": "expression",
+								"expression": "distinct_count(employee_id)"
+							}
+						},
+						{
+							"measure_name": "Avg per Employee",
+							"data_type": "Decimal",
+							"expression": {
+								"type": "expression",
+								"expression": "sum(calculated_incentive) / distinct_count(employee_id)"
+							},
+							"format": "currency"
+						},
+						{
+							"measure_name": "Payout of Potential %",
+							"data_type": "Decimal",
+							"expression": {
+								"type": "expression",
+								"expression": "sum(calculated_incentive) / sum(base_incentive) * 100"
+							}
+						}
+					],
+					"number_column_options": [
+						{
+							"decimal": 0,
+							"shorten_numbers": true
+						},
+						{
+							"decimal": 0,
+							"shorten_numbers": false
+						},
+						{
+							"decimal": 0,
+							"shorten_numbers": false
+						},
+						{
+							"decimal": 1,
+							"shorten_numbers": false
+						}
+					],
+					"comparison": true,
+					"sparkline": true,
+					"date_column": {
+						"dimension_name": "month_start",
+						"column_name": "month_start",
+						"data_type": "Date",
+						"granularity": "month"
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "month_start"
+							},
+							"direction": "asc"
+						}
+					],
+					"limit": 100,
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					}
+				}
+			},
+			"tc-ei-trend": {
+				"name": "tc-ei-trend",
+				"title": "Monthly Payout by Role",
+				"workbook": "template-pitstop-employee-incentive",
+				"folder": "tf-ei-charts",
+				"sort_order": 1,
+				"query": "tq-ei-facts",
+				"chart_type": "Line",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "month_start",
+							"column_name": "month_start",
+							"data_type": "Date",
+							"granularity": "month"
+						}
+					},
+					"split_by": {
+						"dimension": {
+							"dimension_name": "based_on",
+							"column_name": "based_on",
+							"data_type": "String"
+						},
+						"max_split_values": 7
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Incentive",
+									"data_type": "Decimal",
+									"column_name": "calculated_incentive",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							}
+						],
+						"show_data_labels": false
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "month_start"
+							},
+							"direction": "asc"
+						}
+					],
+					"limit": 500,
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					}
+				}
+			},
+			"tc-ei-by-role": {
+				"name": "tc-ei-by-role",
+				"title": "Payout Share by Role",
+				"workbook": "template-pitstop-employee-incentive",
+				"folder": "tf-ei-charts",
+				"sort_order": 2,
+				"query": "tq-ei-facts",
+				"chart_type": "Donut",
+				"config": {
+					"label_column": {
+						"dimension_name": "based_on",
+						"column_name": "based_on",
+						"data_type": "String"
+					},
+					"value_column": {
+						"measure_name": "Incentive",
+						"data_type": "Decimal",
+						"column_name": "calculated_incentive",
+						"aggregation": "sum",
+						"format": "currency"
+					},
+					"legend_position": "right",
+					"order_by": [],
+					"limit": 10,
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					}
+				}
+			},
+			"tc-ei-components": {
+				"name": "tc-ei-components",
+				"title": "What Earned the Payout",
+				"workbook": "template-pitstop-employee-incentive",
+				"folder": "tf-ei-charts",
+				"sort_order": 3,
+				"query": "tq-ei-facts",
+				"chart_type": "Bar",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "based_on",
+							"column_name": "based_on",
+							"data_type": "String"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Sold Hrs",
+									"data_type": "Decimal",
+									"column_name": "sold_hrs_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Efficiency",
+									"data_type": "Decimal",
+									"column_name": "efficiency_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Productivity",
+									"data_type": "Decimal",
+									"column_name": "productivity_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Proficiency",
+									"data_type": "Decimal",
+									"column_name": "proficiency_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Idle Time",
+									"data_type": "Decimal",
+									"column_name": "idle_time_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "QC RO",
+									"data_type": "Decimal",
+									"column_name": "qc_ro_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Comeback RO",
+									"data_type": "Decimal",
+									"column_name": "come_back_ro_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Customer Feedback",
+									"data_type": "Decimal",
+									"column_name": "customer_feedback_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "WIP Ageing",
+									"data_type": "Decimal",
+									"column_name": "wip_ageing_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Key to Key",
+									"data_type": "Decimal",
+									"column_name": "key_to_key_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Revenue",
+									"data_type": "Decimal",
+									"column_name": "revenue_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Invoiced RO",
+									"data_type": "Decimal",
+									"column_name": "invoiced_ro_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Gross Profit",
+									"data_type": "Decimal",
+									"column_name": "gross_profit_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Estimate to Approval",
+									"data_type": "Decimal",
+									"column_name": "estimate_to_approval_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Labour/Parts Mix",
+									"data_type": "Decimal",
+									"column_name": "labour_parts_mix_amt",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							}
+						],
+						"stack": true,
+						"show_data_labels": false
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "based_on"
+							},
+							"direction": "asc"
+						}
+					],
+					"limit": 20,
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					}
+				}
+			},
+			"tc-ei-top-earners": {
+				"name": "tc-ei-top-earners",
+				"title": "Top Earners",
+				"workbook": "template-pitstop-employee-incentive",
+				"folder": "tf-ei-charts",
+				"sort_order": 4,
+				"query": "tq-ei-facts",
+				"chart_type": "Row",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "employee_name",
+							"column_name": "employee_name",
+							"data_type": "String"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Incentive",
+									"data_type": "Decimal",
+									"column_name": "calculated_incentive",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							}
+						]
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Incentive"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 12,
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					}
+				}
+			},
+			"tc-ei-by-workshop": {
+				"name": "tc-ei-by-workshop",
+				"title": "Payout by Workshop",
+				"workbook": "template-pitstop-employee-incentive",
+				"folder": "tf-ei-charts",
+				"sort_order": 5,
+				"query": "tq-ei-facts",
+				"chart_type": "Bar",
+				"config": {
+					"x_axis": {
+						"dimension": {
+							"dimension_name": "vehicle_workshop",
+							"column_name": "vehicle_workshop",
+							"data_type": "String"
+						}
+					},
+					"y_axis": {
+						"series": [
+							{
+								"measure": {
+									"measure_name": "Incentive",
+									"data_type": "Decimal",
+									"column_name": "calculated_incentive",
+									"aggregation": "sum",
+									"format": "currency"
+								}
+							},
+							{
+								"measure": {
+									"measure_name": "Employees",
+									"data_type": "Decimal",
+									"expression": {
+										"type": "expression",
+										"expression": "distinct_count(employee_id)"
+									}
+								}
+							}
+						],
+						"show_data_labels": false
+					},
+					"order_by": [
+						{
+							"column": {
+								"type": "column",
+								"column_name": "Incentive"
+							},
+							"direction": "desc"
+						}
+					],
+					"limit": 20,
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					}
+				}
+			},
+			"tc-ei-payout-table": {
+				"name": "tc-ei-payout-table",
+				"title": "Payout Detail",
+				"workbook": "template-pitstop-employee-incentive",
+				"folder": "tf-ei-charts",
+				"sort_order": 6,
+				"query": "tq-ei-facts",
+				"chart_type": "Table",
+				"config": {
+					"rows": [
+						{
+							"dimension_name": "Role",
+							"column_name": "based_on",
+							"data_type": "String"
+						},
+						{
+							"dimension_name": "Employee",
+							"column_name": "employee_name",
+							"data_type": "String"
+						},
+						{
+							"dimension_name": "Month",
+							"column_name": "month_start",
+							"data_type": "Date",
+							"granularity": "month"
+						}
+					],
+					"columns": [],
+					"values": [
+						{
+							"measure_name": "Base",
+							"data_type": "Decimal",
+							"column_name": "base_incentive",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Incentive",
+							"data_type": "Decimal",
+							"column_name": "calculated_incentive",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Sold Hrs",
+							"data_type": "Decimal",
+							"column_name": "sold_hrs_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Efficiency",
+							"data_type": "Decimal",
+							"column_name": "efficiency_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Productivity",
+							"data_type": "Decimal",
+							"column_name": "productivity_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Proficiency",
+							"data_type": "Decimal",
+							"column_name": "proficiency_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Idle Time",
+							"data_type": "Decimal",
+							"column_name": "idle_time_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "QC RO",
+							"data_type": "Decimal",
+							"column_name": "qc_ro_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Comeback RO",
+							"data_type": "Decimal",
+							"column_name": "come_back_ro_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Customer Feedback",
+							"data_type": "Decimal",
+							"column_name": "customer_feedback_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "WIP Ageing",
+							"data_type": "Decimal",
+							"column_name": "wip_ageing_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Key to Key",
+							"data_type": "Decimal",
+							"column_name": "key_to_key_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Revenue",
+							"data_type": "Decimal",
+							"column_name": "revenue_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Invoiced RO",
+							"data_type": "Decimal",
+							"column_name": "invoiced_ro_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Gross Profit",
+							"data_type": "Decimal",
+							"column_name": "gross_profit_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Estimate to Approval",
+							"data_type": "Decimal",
+							"column_name": "estimate_to_approval_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						},
+						{
+							"measure_name": "Labour/Parts Mix",
+							"data_type": "Decimal",
+							"column_name": "labour_parts_mix_amt",
+							"aggregation": "sum",
+							"format": "currency"
+						}
+					],
+					"show_row_totals": false,
+					"show_column_totals": true,
+					"show_filter_row": true,
+					"sticky_columns": [
+						"Role",
+						"Employee"
+					],
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					},
+					"order_by": [],
+					"limit": 1000
+				}
+			},
+			"tc-ei-attainment": {
+				"name": "tc-ei-attainment",
+				"title": "Achievement Behind the Ladders",
+				"workbook": "template-pitstop-employee-incentive",
+				"folder": "tf-ei-charts",
+				"sort_order": 7,
+				"query": "tq-ei-facts",
+				"chart_type": "Table",
+				"config": {
+					"rows": [
+						{
+							"dimension_name": "Role",
+							"column_name": "based_on",
+							"data_type": "String"
+						},
+						{
+							"dimension_name": "Employee",
+							"column_name": "employee_name",
+							"data_type": "String"
+						},
+						{
+							"dimension_name": "Month",
+							"column_name": "month_start",
+							"data_type": "Date",
+							"granularity": "month"
+						}
+					],
+					"columns": [],
+					"values": [
+						{
+							"measure_name": "Sold Hrs %",
+							"data_type": "Decimal",
+							"column_name": "sold_hrs_percentage",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "Efficiency %",
+							"data_type": "Decimal",
+							"column_name": "per_efficiency",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "Productivity %",
+							"data_type": "Decimal",
+							"column_name": "per_productivity",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "Proficiency %",
+							"data_type": "Decimal",
+							"column_name": "per_proficiency",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "Idle %",
+							"data_type": "Decimal",
+							"column_name": "total_idle_percentage",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "QC RO %",
+							"data_type": "Decimal",
+							"column_name": "total_qc_ro_percentage",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "Comeback RO %",
+							"data_type": "Decimal",
+							"column_name": "comeback_ro_percentage",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "CFB (of 5)",
+							"data_type": "Decimal",
+							"column_name": "customer_rating",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "Revenue %",
+							"data_type": "Decimal",
+							"column_name": "revenue_percentage",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "Gross Margin %",
+							"data_type": "Decimal",
+							"column_name": "gross_margin_percentage",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "Est to Approval %",
+							"data_type": "Decimal",
+							"column_name": "estimate_to_approval_ratio",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "Labour Mix %",
+							"data_type": "Decimal",
+							"column_name": "labour_perc_of_total_sales",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "WIP Age",
+							"data_type": "Decimal",
+							"column_name": "wip_average_age",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "K2K Body",
+							"data_type": "Decimal",
+							"column_name": "k2k_bodyshop_days",
+							"aggregation": "avg"
+						},
+						{
+							"measure_name": "K2K Mech",
+							"data_type": "Decimal",
+							"column_name": "k2k_mechanical_days",
+							"aggregation": "avg"
+						}
+					],
+					"show_row_totals": false,
+					"show_column_totals": false,
+					"show_filter_row": true,
+					"sticky_columns": [
+						"Role",
+						"Employee"
+					],
+					"filters": {
+						"logical_operator": "And",
+						"filters": []
+					},
+					"order_by": [],
+					"limit": 1000
+				}
+			}
+		},
+		"dashboards": {
+			"td-ei-main": {
+				"name": "td-ei-main",
+				"title": "Employee Incentive",
+				"workbook": "template-pitstop-employee-incentive",
+				"items": [
+					{
+						"type": "filter",
+						"filter_name": "Month",
+						"filter_type": "Date",
+						"icon": "calendar",
+						"links": {
+							"tc-ei-kpis": "`tq-ei-facts`.`month_start`",
+							"tc-ei-trend": "`tq-ei-facts`.`month_start`",
+							"tc-ei-by-role": "`tq-ei-facts`.`month_start`",
+							"tc-ei-components": "`tq-ei-facts`.`month_start`",
+							"tc-ei-top-earners": "`tq-ei-facts`.`month_start`",
+							"tc-ei-by-workshop": "`tq-ei-facts`.`month_start`",
+							"tc-ei-payout-table": "`tq-ei-facts`.`month_start`",
+							"tc-ei-attainment": "`tq-ei-facts`.`month_start`"
+						},
+						"layout": {
+							"i": "filter-month",
+							"x": 0,
+							"y": 0,
+							"w": 4,
+							"h": 1
+						}
+					},
+					{
+						"type": "filter",
+						"filter_name": "Role",
+						"filter_type": "String",
+						"icon": "users",
+						"links": {
+							"tc-ei-kpis": "`tq-ei-facts`.`based_on`",
+							"tc-ei-trend": "`tq-ei-facts`.`based_on`",
+							"tc-ei-by-role": "`tq-ei-facts`.`based_on`",
+							"tc-ei-components": "`tq-ei-facts`.`based_on`",
+							"tc-ei-top-earners": "`tq-ei-facts`.`based_on`",
+							"tc-ei-by-workshop": "`tq-ei-facts`.`based_on`",
+							"tc-ei-payout-table": "`tq-ei-facts`.`based_on`",
+							"tc-ei-attainment": "`tq-ei-facts`.`based_on`"
+						},
+						"layout": {
+							"i": "filter-role",
+							"x": 4,
+							"y": 0,
+							"w": 4,
+							"h": 1
+						}
+					},
+					{
+						"type": "filter",
+						"filter_name": "Company",
+						"filter_type": "String",
+						"icon": "building-2",
+						"links": {
+							"tc-ei-kpis": "`tq-ei-facts`.`company`",
+							"tc-ei-trend": "`tq-ei-facts`.`company`",
+							"tc-ei-by-role": "`tq-ei-facts`.`company`",
+							"tc-ei-components": "`tq-ei-facts`.`company`",
+							"tc-ei-top-earners": "`tq-ei-facts`.`company`",
+							"tc-ei-by-workshop": "`tq-ei-facts`.`company`",
+							"tc-ei-payout-table": "`tq-ei-facts`.`company`",
+							"tc-ei-attainment": "`tq-ei-facts`.`company`"
+						},
+						"layout": {
+							"i": "filter-company",
+							"x": 8,
+							"y": 0,
+							"w": 4,
+							"h": 1
+						}
+					},
+					{
+						"type": "filter",
+						"filter_name": "Workshop",
+						"filter_type": "String",
+						"icon": "wrench",
+						"links": {
+							"tc-ei-kpis": "`tq-ei-facts`.`vehicle_workshop`",
+							"tc-ei-trend": "`tq-ei-facts`.`vehicle_workshop`",
+							"tc-ei-by-role": "`tq-ei-facts`.`vehicle_workshop`",
+							"tc-ei-components": "`tq-ei-facts`.`vehicle_workshop`",
+							"tc-ei-top-earners": "`tq-ei-facts`.`vehicle_workshop`",
+							"tc-ei-by-workshop": "`tq-ei-facts`.`vehicle_workshop`",
+							"tc-ei-payout-table": "`tq-ei-facts`.`vehicle_workshop`",
+							"tc-ei-attainment": "`tq-ei-facts`.`vehicle_workshop`"
+						},
+						"layout": {
+							"i": "filter-workshop",
+							"x": 12,
+							"y": 0,
+							"w": 4,
+							"h": 1
+						}
+					},
+					{
+						"type": "filter",
+						"filter_name": "Workshop Division",
+						"filter_type": "String",
+						"icon": "layers",
+						"links": {
+							"tc-ei-kpis": "`tq-ei-facts`.`workshop_division`",
+							"tc-ei-trend": "`tq-ei-facts`.`workshop_division`",
+							"tc-ei-by-role": "`tq-ei-facts`.`workshop_division`",
+							"tc-ei-components": "`tq-ei-facts`.`workshop_division`",
+							"tc-ei-top-earners": "`tq-ei-facts`.`workshop_division`",
+							"tc-ei-by-workshop": "`tq-ei-facts`.`workshop_division`",
+							"tc-ei-payout-table": "`tq-ei-facts`.`workshop_division`",
+							"tc-ei-attainment": "`tq-ei-facts`.`workshop_division`"
+						},
+						"layout": {
+							"i": "filter-division",
+							"x": 16,
+							"y": 0,
+							"w": 4,
+							"h": 1
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-ei-kpis",
+						"layout": {
+							"i": "i-tc-ei-kpis",
+							"x": 0,
+							"y": 1,
+							"w": 20,
+							"h": 3
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-ei-trend",
+						"layout": {
+							"i": "i-tc-ei-trend",
+							"x": 0,
+							"y": 4,
+							"w": 13,
+							"h": 8
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-ei-by-role",
+						"layout": {
+							"i": "i-tc-ei-by-role",
+							"x": 13,
+							"y": 4,
+							"w": 7,
+							"h": 8
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-ei-components",
+						"layout": {
+							"i": "i-tc-ei-components",
+							"x": 0,
+							"y": 12,
+							"w": 13,
+							"h": 9
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-ei-top-earners",
+						"layout": {
+							"i": "i-tc-ei-top-earners",
+							"x": 13,
+							"y": 12,
+							"w": 7,
+							"h": 9
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-ei-by-workshop",
+						"layout": {
+							"i": "i-tc-ei-by-workshop",
+							"x": 0,
+							"y": 21,
+							"w": 20,
+							"h": 7
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-ei-payout-table",
+						"layout": {
+							"i": "i-tc-ei-payout-table",
+							"x": 0,
+							"y": 28,
+							"w": 20,
+							"h": 11
+						}
+					},
+					{
+						"type": "chart",
+						"chart": "tc-ei-attainment",
+						"layout": {
+							"i": "i-tc-ei-attainment",
+							"x": 0,
+							"y": 39,
+							"w": 20,
+							"h": 11
+						}
+					}
+				]
+			}
+		}
+	}
+}
