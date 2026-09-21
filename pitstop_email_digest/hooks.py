@@ -199,6 +199,13 @@ doctype_js = {"Asset": "public/js/asset.js"}
 # before_install = "pitstop_email_digest.install.before_install"
 after_install = "pitstop_email_digest.pitstop_email_digest.setup.master_asset.create_asset_custom_fields"
 
+# Migration
+# ------------
+
+after_migrate = [
+    "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_ro_sold_hours_to_workshop",
+]
+
 # Uninstallation
 # ------------
 

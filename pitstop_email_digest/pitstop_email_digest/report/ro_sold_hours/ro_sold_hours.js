@@ -42,6 +42,7 @@ frappe.query_reports["RO Sold Hours"] = {
 			label: __("RO Status"),
 			fieldtype: "Link",
 			options: "Project Status",
+			default: "Completed",
 		},
 		{
 			fieldname: "not_completed_ro_status",
