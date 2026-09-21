@@ -188,7 +188,7 @@ class ROSoldHours(object):
                 "fieldname": "hours_difference",
                 "fieldtype": "Float",
                 "precision": 2,
-                "width": 250,
+                "width": 270,
             },
         ]
 
