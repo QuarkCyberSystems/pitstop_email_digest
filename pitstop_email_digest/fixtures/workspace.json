@@ -4236,7 +4236,7 @@
     "parenttype": "Workspace"
    }
   ],
-  "content": "[{\"id\":\"QygYDIHJRs\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Accounting Module</b></span>\",\"col\":12}},{\"id\":\"IjoB2zivU7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"CnBPFtgkYI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Invoice\",\"col\":3}},{\"id\":\"G77TjlS0CK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Journal Entry\",\"col\":3}},{\"id\":\"FApyUqzepz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"General Ledger\",\"col\":3}},{\"id\":\"Z5UIfH8o1D\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Accounts Receivable\",\"col\":3}},{\"id\":\"6c8BbhfPE-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Accounts Payable\",\"col\":3}},{\"id\":\"GkhMFcLGr2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Expense Entry\",\"col\":3}},{\"id\":\"dp2g1GgQuy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Chart Of Accounts\",\"col\":3}},{\"id\":\"ynl6avM596\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Receivables, Payables & Cash\",\"col\":3}},{\"id\":\"DRkGjuWKeV\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"sjhmcxlih8\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Bank Balance\",\"col\":6}},{\"id\":\"Ags20RP9st\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Profit and Loss\",\"col\":6}},{\"id\":\"el3VCAEFz2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"Z6LeQEfcsZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Accounting Documents</b></span>\",\"col\":12}},{\"id\":\"lldyCXmXps\",\"type\":\"card\",\"data\":{\"card_name\":\"Accounts Receivable\",\"col\":3}},{\"id\":\"3ghGvwSoIg\",\"type\":\"card\",\"data\":{\"card_name\":\"Accounts Payable\",\"col\":3}},{\"id\":\"A2z_fb0pgr\",\"type\":\"card\",\"data\":{\"card_name\":\"Accounting Masters\",\"col\":3}},{\"id\":\"-90KAaAfPk\",\"type\":\"card\",\"data\":{\"card_name\":\"Payments\",\"col\":3}},{\"id\":\"vu21o8rHCo\",\"type\":\"card\",\"data\":{\"card_name\":\"General Ledger\",\"col\":3}},{\"id\":\"8Yc8F_UMcf\",\"type\":\"card\",\"data\":{\"card_name\":\"Taxes\",\"col\":3}},{\"id\":\"kFdWRySJHN\",\"type\":\"card\",\"data\":{\"card_name\":\"Tax Reports\",\"col\":3}},{\"id\":\"Y7BK-ZoBre\",\"type\":\"card\",\"data\":{\"card_name\":\"Cost Center and Budgeting\",\"col\":3}},{\"id\":\"x496aYXEAi\",\"type\":\"card\",\"data\":{\"card_name\":\"Financial Statements\",\"col\":3}},{\"id\":\"nhol5hH00H\",\"type\":\"card\",\"data\":{\"card_name\":\"More Reports\",\"col\":3}},{\"id\":\"df7raCJDfg\",\"type\":\"card\",\"data\":{\"card_name\":\"Opening and Closing\",\"col\":3}},{\"id\":\"Wj8b3OKwhm\",\"type\":\"card\",\"data\":{\"card_name\":\"Multi Currency\",\"col\":3}},{\"id\":\"tlKkZ0cf5G\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":3}},{\"id\":\"4l8nN4pJCj\",\"type\":\"card\",\"data\":{\"card_name\":\"Point of Sale\",\"col\":3}},{\"id\":\"rmxleXs9Ac\",\"type\":\"card\",\"data\":{\"card_name\":\"Subscription Management\",\"col\":3}},{\"id\":\"KQx8YRbnJd\",\"type\":\"card\",\"data\":{\"card_name\":\"Bank Reconciliation\",\"col\":3}},{\"id\":\"QRSWsBoo2n\",\"type\":\"card\",\"data\":{\"card_name\":\"Banking\",\"col\":3}},{\"id\":\"5lSiFjoWEt\",\"type\":\"card\",\"data\":{\"card_name\":\"Share Management\",\"col\":3}}]",
+  "content": "[{\"id\":\"QygYDIHJRs\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Accounting Module</b></span>\",\"col\":12}},{\"id\":\"IjoB2zivU7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"CnBPFtgkYI\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Invoice\",\"col\":3}},{\"id\":\"G77TjlS0CK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Journal Entry\",\"col\":3}},{\"id\":\"FApyUqzepz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"General Ledger\",\"col\":3}},{\"id\":\"Z5UIfH8o1D\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Accounts Receivable\",\"col\":3}},{\"id\":\"6c8BbhfPE-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Accounts Payable\",\"col\":3}},{\"id\":\"GkhMFcLGr2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Expense Entry\",\"col\":3}},{\"id\":\"dp2g1GgQuy\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Chart Of Accounts\",\"col\":3}},{\"id\":\"ynl6avM596\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Receivables, Payables & Cash\",\"col\":3}},{\"id\":\"rUDbVevHvm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gross Profit Insight\",\"col\":3}},{\"id\":\"DRkGjuWKeV\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"sjhmcxlih8\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Bank Balance\",\"col\":6}},{\"id\":\"Ags20RP9st\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Profit and Loss\",\"col\":6}},{\"id\":\"el3VCAEFz2\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"Z6LeQEfcsZ\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Accounting Documents</b></span>\",\"col\":12}},{\"id\":\"lldyCXmXps\",\"type\":\"card\",\"data\":{\"card_name\":\"Accounts Receivable\",\"col\":3}},{\"id\":\"3ghGvwSoIg\",\"type\":\"card\",\"data\":{\"card_name\":\"Accounts Payable\",\"col\":3}},{\"id\":\"A2z_fb0pgr\",\"type\":\"card\",\"data\":{\"card_name\":\"Accounting Masters\",\"col\":3}},{\"id\":\"-90KAaAfPk\",\"type\":\"card\",\"data\":{\"card_name\":\"Payments\",\"col\":3}},{\"id\":\"vu21o8rHCo\",\"type\":\"card\",\"data\":{\"card_name\":\"General Ledger\",\"col\":3}},{\"id\":\"8Yc8F_UMcf\",\"type\":\"card\",\"data\":{\"card_name\":\"Taxes\",\"col\":3}},{\"id\":\"kFdWRySJHN\",\"type\":\"card\",\"data\":{\"card_name\":\"Tax Reports\",\"col\":3}},{\"id\":\"Y7BK-ZoBre\",\"type\":\"card\",\"data\":{\"card_name\":\"Cost Center and Budgeting\",\"col\":3}},{\"id\":\"x496aYXEAi\",\"type\":\"card\",\"data\":{\"card_name\":\"Financial Statements\",\"col\":3}},{\"id\":\"nhol5hH00H\",\"type\":\"card\",\"data\":{\"card_name\":\"More Reports\",\"col\":3}},{\"id\":\"df7raCJDfg\",\"type\":\"card\",\"data\":{\"card_name\":\"Opening and Closing\",\"col\":3}},{\"id\":\"Wj8b3OKwhm\",\"type\":\"card\",\"data\":{\"card_name\":\"Multi Currency\",\"col\":3}},{\"id\":\"tlKkZ0cf5G\",\"type\":\"card\",\"data\":{\"card_name\":\"Settings\",\"col\":3}},{\"id\":\"4l8nN4pJCj\",\"type\":\"card\",\"data\":{\"card_name\":\"Point of Sale\",\"col\":3}},{\"id\":\"rmxleXs9Ac\",\"type\":\"card\",\"data\":{\"card_name\":\"Subscription Management\",\"col\":3}},{\"id\":\"KQx8YRbnJd\",\"type\":\"card\",\"data\":{\"card_name\":\"Bank Reconciliation\",\"col\":3}},{\"id\":\"QRSWsBoo2n\",\"type\":\"card\",\"data\":{\"card_name\":\"Banking\",\"col\":3}},{\"id\":\"5lSiFjoWEt\",\"type\":\"card\",\"data\":{\"card_name\":\"Share Management\",\"col\":3}}]",
   "creation": "2022-11-16 04:31:56.606346",
   "custom_blocks": [],
   "docstatus": 0,
@@ -6434,7 +6434,7 @@
     "type": "Link"
    }
   ],
-  "modified": "2026-09-14 22:45:15.841372",
+  "modified": "2026-09-22 20:29:49.882247",
   "module": "Accounts",
   "name": "Accounting",
   "number_cards": [],
@@ -6526,6 +6526,24 @@
     "stats_filter": "",
     "type": "URL",
     "url": "https://polaris.pitstopauto.ae/insights/dashboards/dt4nli2nh6"
+   },
+   {
+    "color": "Grey",
+    "creation": "2022-11-16 04:31:56.606346",
+    "doc_view": "List",
+    "format": null,
+    "icon": null,
+    "kanban_board": null,
+    "label": "Gross Profit Insight",
+    "link_to": null,
+    "parent": "Accounting",
+    "parentfield": "shortcuts",
+    "parenttype": "Workspace",
+    "report_ref_doctype": null,
+    "restrict_to_domain": null,
+    "stats_filter": "",
+    "type": "URL",
+    "url": "https://polaris.pitstopauto.ae/insights/dashboards/1s0vqff8ek"
    },
    {
     "color": "Yellow",
