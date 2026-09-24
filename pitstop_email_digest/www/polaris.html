@@ -1,0 +1,35 @@
+{% extends "templates/base.html" %}
+
+{% block title %}{{ _("Polaris") }}{% endblock %}
+
+{%- block banner -%}{%- endblock -%}
+{%- block navbar -%}{%- endblock -%}
+{%- block footer -%}{%- endblock -%}
+
+{%- block head_include %}
+<style>
+	html,
+	body {
+		margin: 0;
+		padding: 0;
+		height: 100%;
+		overflow: hidden;
+	}
+
+	#polaris-frame {
+		display: block;
+		border: 0;
+		width: 100vw;
+		height: 100vh;
+	}
+</style>
+{% endblock -%}
+
+{% block content %}
+<iframe
+	id="polaris-frame"
+	src="{{ iframe_src }}"
+	title="{{ _('Polaris') }}"
+	allowfullscreen
+></iframe>
+{% endblock %}
