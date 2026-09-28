@@ -39,4 +39,7 @@ frappe.query_reports["Item Selling Price by Pricing Rule"] = {
 
 		return value;
 	},
+	onload: function (report) {
+		frappe.breadcrumbs.add("Selling");
+	},
 };
