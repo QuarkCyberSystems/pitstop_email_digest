@@ -204,6 +204,7 @@ after_install = "pitstop_email_digest.pitstop_email_digest.setup.master_asset.cr
 
 after_migrate = [
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_ro_sold_hours_to_workshop",
+    "pitstop_email_digest.pitstop_email_digest.setup.doctype_permissions.apply_doctype_read_permissions",
 ]
 
 # Uninstallation
