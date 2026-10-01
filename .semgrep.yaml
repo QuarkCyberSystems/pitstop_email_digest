@@ -1,0 +1,22 @@
+rules:
+  - id: frappe-db-sql-injection
+    pattern-either:
+      # Catches f-strings inside frappe.db.sql()
+      - pattern: frappe.db.sql(f"...", ...)
+      # Catches standard string formatting (%) inside frappe.db.sql()
+      - pattern: frappe.db.sql("..." % ..., ...)
+      # Catches .format() inside frappe.db.sql()
+      - pattern: frappe.db.sql("...".format(...), ...)
+      # Catches string additions inside frappe.db.sql()
+      - pattern: frappe.db.sql("..." + ..., ...)
+    # The trailing `, ...` in each pattern is required: without it semgrep only
+    # matches calls whose argument list is exactly the query string, so every
+    # real call site -- `frappe.db.sql(query, values, as_dict=True)` -- is missed.
+    message: >-
+      Potential SQL injection detected. Avoid using string formatting or concatenation
+      inside `frappe.db.sql()`. Instead, use parameterized queries:
+      `frappe.db.sql("SELECT * FROM tabUser WHERE name = %s", (user_input,))` or use `frappe.qb`.
+      If the interpolated text is a hardcoded SQL fragment and contains no caller input, add
+      `# nosemgrep: frappe-db-sql-injection` on the call with a comment saying why.
+    languages: [python]
+    severity: ERROR
