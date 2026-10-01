@@ -36,6 +36,9 @@ def fetch_revenue_others_group_based_on_ro_wip(
     else:
         project_status_condition = ""
 
+    # The only text spliced in is one of the hardcoded condition fragments above;
+    # every caller-supplied value is bound through `values`.
+    # nosemgrep: frappe-db-sql-injection
     others_details = frappe.db.sql(
         """
 		SELECT
@@ -103,6 +106,9 @@ def fetch_revenue_vehicle_group_based_on_ro_wip(
     else:
         project_status_condition = ""
 
+    # The only text spliced in is one of the hardcoded condition fragments above;
+    # every caller-supplied value is bound through `values`.
+    # nosemgrep: frappe-db-sql-injection
     vehicle_group_details = frappe.db.sql(
         """
 		SELECT
@@ -163,6 +169,9 @@ def fetch_revenue_customer_group_based_on_ro_wip(
     else:
         project_status_condition = ""
 
+    # The only text spliced in is one of the hardcoded condition fragments above;
+    # every caller-supplied value is bound through `values`.
+    # nosemgrep: frappe-db-sql-injection
     customer_group_details = frappe.db.sql(
         """
 		SELECT
