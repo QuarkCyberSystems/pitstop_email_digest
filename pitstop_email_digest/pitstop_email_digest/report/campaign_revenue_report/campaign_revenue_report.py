@@ -102,23 +102,21 @@ def get_column(filters):
 
 
 def get_data(filters):
+    filters = filters or {}
     conditions = ""
+    values = {}
     if filters.get("from_date"):
-        conditions += "and tsi.posting_date>='{from_posting_date}'".format(
-            from_posting_date=filters.get("from_date")
-        )
+        conditions += " and tsi.posting_date >= %(from_date)s"
+        values["from_date"] = filters.get("from_date")
     if filters.get("to_date"):
-        conditions += "and tsi.posting_date<='{to_posting_date}'".format(
-            to_posting_date=filters.get("to_date")
-        )
+        conditions += " and tsi.posting_date <= %(to_date)s"
+        values["to_date"] = filters.get("to_date")
     if filters.get("campaign"):
-        conditions += "and tsi.campaign = '{campaign}'".format(
-            campaign=filters.get("campaign")
-        )
+        conditions += " and tsi.campaign = %(campaign)s"
+        values["campaign"] = filters.get("campaign")
     if filters.get("customer"):
-        conditions += "and tsi.customer = '{customer}'".format(
-            customer=filters.get("customer")
-        )
+        conditions += " and tsi.customer = %(customer)s"
+        values["customer"] = filters.get("customer")
     return frappe.db.sql(
         """
 		SELECT
@@ -157,5 +155,6 @@ def get_data(filters):
 		group by
 			tsi.name;
 	""".format(conditions=conditions),
+        values,
         as_dict=True,
     )

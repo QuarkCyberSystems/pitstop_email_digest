@@ -2,8 +2,14 @@ import frappe
 from frappe.utils.pdf import get_pdf
 
 
-def fetch_cashier_data_sql(selected_date):
-    return f"""
+def fetch_cashier_data_sql():
+    """
+    SQL for the cashier dashboard summary.
+
+    The date is a bind parameter (`%(selected_date)s`), so callers must pass
+    {"selected_date": ...} as the values argument of `frappe.db.sql`.
+    """
+    return """
 			SELECT
 				name,
 				pos_profile,
@@ -51,7 +57,7 @@ def fetch_cashier_data_sql(selected_date):
 					JOIN `tabSales Invoice Payment` tsip
 						ON tsip.parent = tsi.name
 					WHERE
-						tsi.posting_date = '{selected_date}'
+						tsi.posting_date = %(selected_date)s
 						AND tsi.docstatus = 1
 					GROUP BY tsi.pos_profile
 				) si_data
@@ -63,7 +69,7 @@ def fetch_cashier_data_sql(selected_date):
 						SUM(base_paid_amount) AS payment_entry_collected_amount
 					FROM `tabPayment Entry`
 					WHERE
-						posting_date = '{selected_date}'
+						posting_date = %(selected_date)s
 						AND docstatus = 1
 					GROUP BY pos_profile
 				) pe_data
@@ -79,20 +85,27 @@ def fetch_cashier_data_sql(selected_date):
 					ON
 						tpced.parent = tpce.name
 					WHERE
-						tpce.period_start_date = '{selected_date}'
+						tpce.period_start_date = %(selected_date)s
 						AND tpce.docstatus = 1
 					GROUP BY tpce.pos_profile
 				) pos_close_data
 					ON pos_close_data.pos_profile = tpoe.pos_profile
 				WHERE
 					tpoe.docstatus = 1
-					AND tpoe.period_start_date = '{selected_date}'
+					AND tpoe.period_start_date = %(selected_date)s
 				group by
 					tpoe.name, tpoe.pos_profile, tpoe.status) as x;
 			"""
 
 
-def fetch_group_by_payment_mode_data(placeholders):
+def fetch_group_by_payment_mode_data(pos_opening_entry_count):
+    """
+    SQL for the payment mode break up of the given POS Opening Entries.
+
+    Only the number of entries shapes the query: it expands to that many bind
+    placeholders, which the caller fills with the names as the values argument.
+    """
+    placeholders = ", ".join(["%s"] * pos_opening_entry_count)
     return f"""
 		select
 			tpced.mode_of_payment,

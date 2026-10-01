@@ -497,11 +497,13 @@ class PitstopEmailDigest(CoreDigest):
             ],
         ]
 
-    @frappe.whitelist()
-    def custom_method_send(self):
+    def run_custom_method(self):
         """
-        Custom method to send the email digest.
-        This method can be overridden in the custom method field of the Pitstop Email Digest.
+        Run the custom method configured on this digest.
+
+        Not whitelisted on purpose: `self.method` is a dotted path that gets
+        executed, so it must only ever come from a document loaded on the
+        server (see `send_digest`) and never from a client payload.
         """
         if self.method:
             try:
@@ -586,18 +588,7 @@ class PitstopEmailDigest(CoreDigest):
             if not email_digest_record.enable_custom_method:
                 email_digest_record.send()
             else:
-                if email_digest_record.method:
-                    try:
-                        frappe.get_attr(email_digest_record.method)(
-                            email_digest_record, show_html=False
-                        )
-                    except Exception as e:
-                        frappe.log_error(
-                            frappe.get_traceback(),
-                            _(
-                                f"Error in custom method for Pitstop Email Digest {str(e)}"
-                            ),
-                        )
+                email_digest_record.run_custom_method()
 
     @staticmethod
     def cron_auto_send_daily():
@@ -637,6 +628,25 @@ cron_auto_send_daily = PitstopEmailDigest.cron_auto_send_daily
 cron_auto_send_weekly = PitstopEmailDigest.cron_auto_send_weekly
 auto_send_daily = PitstopEmailDigest.auto_send_daily
 auto_send_weekly = PitstopEmailDigest.auto_send_weekly
+
+
+@frappe.whitelist()
+def send_digest(name: str):
+    """
+    Send the digest identified by `name`.
+
+    The document is loaded from the database rather than taken from the
+    client, so neither `enable_custom_method` nor the `method` dotted path
+    can be supplied or tampered with by the caller. Only the saved
+    configuration is ever executed.
+    """
+    frappe.has_permission("Pitstop Email Digest", "email", doc=name, throw=True)
+
+    email_digest_record = frappe.get_doc("Pitstop Email Digest", name)
+    if email_digest_record.enable_custom_method:
+        email_digest_record.run_custom_method()
+    else:
+        email_digest_record.send()
 
 
 @frappe.whitelist()

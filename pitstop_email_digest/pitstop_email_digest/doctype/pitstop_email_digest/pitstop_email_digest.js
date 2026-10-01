@@ -33,15 +33,26 @@ cur_frm.cscript.refresh = function (doc, dt, dn) {
 
 	if (!cur_frm.is_new()) {
 		cur_frm.add_custom_button(__("Send Now"), function () {
-			if (!cur_frm.doc.enable_custom_method) {
-				return cur_frm.call("send", null, (r) => {
-					frappe.show_alert(__("Message Sent"));
+			// Pass the name only: the server decides how to send from the
+			// saved document, so pending edits have to be persisted first.
+			var send_now = function () {
+				return frappe.call({
+					method: "pitstop_email_digest.pitstop_email_digest.doctype.pitstop_email_digest.pitstop_email_digest.send_digest",
+					args: {
+						name: cur_frm.doc.name,
+					},
+					freeze: true,
+					freeze_message: __("Sending..."),
+					callback: function (r) {
+						frappe.show_alert(__("Message Sent"));
+					},
 				});
-			} else {
-				return cur_frm.call("custom_method_send", null, (r) => {
-					frappe.show_alert(__("Message Sent"));
-				});
+			};
+
+			if (cur_frm.is_dirty()) {
+				return cur_frm.save().then(send_now);
 			}
+			return send_now();
 		});
 	}
 };

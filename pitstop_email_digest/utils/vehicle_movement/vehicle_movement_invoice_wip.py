@@ -10,26 +10,29 @@ def fetch_revenue_others_group_based_on_ro_wip(
     vehicle_group_list,
     project_status_list=None,
 ):
+    values = {
+        "from_date": from_date,
+        "to_date": to_date,
+        "cost_center": cost_center,
+    }
+
     if customer_group_list:
-        customer_group_condition = " AND tp.customer_group NOT IN ({})".format(
-            ", ".join("'{}'".format(cg) for cg in customer_group_list)
+        customer_group_condition = (
+            " AND tp.customer_group NOT IN %(customer_group_list)s"
         )
+        values["customer_group_list"] = tuple(customer_group_list)
     else:
         customer_group_condition = ""
 
     if vehicle_group_list:
-        vehicle_group_condition = " AND ti.brand NOT IN ({})".format(
-            ", ".join("'{}'".format(vg) for vg in vehicle_group_list)
-        )
+        vehicle_group_condition = " AND ti.brand NOT IN %(vehicle_group_list)s"
+        values["vehicle_group_list"] = tuple(vehicle_group_list)
     else:
         vehicle_group_condition = ""
 
     if project_status_list:
-        project_status_condition = " AND tp.project_status IN ({})".format(
-            ", ".join(
-                "'{}'".format(project_status) for project_status in project_status_list
-            )
-        )
+        project_status_condition = " AND tp.project_status IN %(project_status_list)s"
+        values["project_status_list"] = tuple(project_status_list)
     else:
         project_status_condition = ""
 
@@ -51,21 +54,19 @@ def fetch_revenue_others_group_based_on_ro_wip(
 		ON
 			ti.name = tv.variant_of
 		WHERE (
-				tp.project_date >= '{from_date}' AND
-				tp.project_date <= '{to_date}'  AND
-				tp.cost_center = '{cost_center}'
+				tp.project_date >= %(from_date)s AND
+				tp.project_date <= %(to_date)s  AND
+				tp.cost_center = %(cost_center)s
 				{vehicle_group_condition} {customer_group_condition} {project_status_condition}
 			)
 		GROUP BY
 			tp.branch
 	""".format(
-            from_date=from_date,
-            to_date=to_date,
-            cost_center=cost_center,
             vehicle_group_condition=vehicle_group_condition,
             customer_group_condition=customer_group_condition,
             project_status_condition=project_status_condition,
         ),
+        values,
         as_dict=True,
     )
 
@@ -80,23 +81,25 @@ def fetch_revenue_vehicle_group_based_on_ro_wip(
     customer_group_list=None,
     project_status_list=None,
 ):
+    values = {
+        "from_date": from_date,
+        "to_date": to_date,
+        "cost_center": cost_center,
+        "vehicle_variant": vehicle_variant,
+    }
+
     if customer_group_list:
-        customer_group_condition = " AND tp.customer_group NOT IN ({})".format(
-            ", ".join("'{}'".format(cg) for cg in customer_group_list)
+        customer_group_condition = (
+            " AND tp.customer_group NOT IN %(customer_group_list)s"
         )
+        values["customer_group_list"] = tuple(customer_group_list)
     else:
         customer_group_condition = ""
-    vehicle_group_condition = ""
-    vehicle_group_condition += " and ti.brand = '{vehicle_variant}'".format(
-        vehicle_variant=vehicle_variant
-    )
+    vehicle_group_condition = " and ti.brand = %(vehicle_variant)s"
 
     if project_status_list:
-        project_status_condition = " AND tp.project_status IN ({})".format(
-            ", ".join(
-                "'{}'".format(project_status) for project_status in project_status_list
-            )
-        )
+        project_status_condition = " AND tp.project_status IN %(project_status_list)s"
+        values["project_status_list"] = tuple(project_status_list)
     else:
         project_status_condition = ""
 
@@ -118,21 +121,19 @@ def fetch_revenue_vehicle_group_based_on_ro_wip(
 		ON
 			ti.name = tv.variant_of
 		WHERE (
-				tp.project_date >= '{from_date}' AND
-				tp.project_date <= '{to_date}'  AND
-				tp.cost_center = '{cost_center}'
+				tp.project_date >= %(from_date)s AND
+				tp.project_date <= %(to_date)s  AND
+				tp.cost_center = %(cost_center)s
 				{vehicle_group_condition} {customer_group_condition} {project_status_condition}
 			)
 		GROUP BY
 			vehicle_group, tp.branch
 	""".format(
-            from_date=from_date,
-            to_date=to_date,
-            cost_center=cost_center,
             vehicle_group_condition=vehicle_group_condition,
             customer_group_condition=customer_group_condition,
             project_status_condition=project_status_condition,
         ),
+        values,
         as_dict=True,
     )
 
@@ -147,17 +148,18 @@ def fetch_revenue_customer_group_based_on_ro_wip(
     customer_group_list=None,
     project_status_list=None,
 ):
-    customer_group_condition = ""
-    customer_group_condition += " and gp.name = '{customer_group}'".format(
-        customer_group=customer_group
-    )
+    values = {
+        "from_date": from_date,
+        "to_date": to_date,
+        "cost_center": cost_center,
+        "customer_group": customer_group,
+    }
+
+    customer_group_condition = " and gp.name = %(customer_group)s"
 
     if project_status_list:
-        project_status_condition = " AND tp.project_status IN ({})".format(
-            ", ".join(
-                "'{}'".format(project_status) for project_status in project_status_list
-            )
-        )
+        project_status_condition = " AND tp.project_status IN %(project_status_list)s"
+        values["project_status_list"] = tuple(project_status_list)
     else:
         project_status_condition = ""
 
@@ -181,19 +183,17 @@ def fetch_revenue_customer_group_based_on_ro_wip(
 		AND
 			gp.rgt >= cg.rgt
 		WHERE (
-				tp.project_date >= '{from_date}' AND
-				tp.project_date <= '{to_date}'  AND
-				tp.cost_center = '{cost_center}' {customer_group_condition} {project_status_condition}
+				tp.project_date >= %(from_date)s AND
+				tp.project_date <= %(to_date)s  AND
+				tp.cost_center = %(cost_center)s {customer_group_condition} {project_status_condition}
 			)
 		GROUP BY
 			customer_group, tp.branch
 	""".format(
-            from_date=from_date,
-            to_date=to_date,
-            cost_center=cost_center,
             customer_group_condition=customer_group_condition,
             project_status_condition=project_status_condition,
         ),
+        values,
         as_dict=True,
     )
     return customer_group_details
@@ -202,10 +202,6 @@ def fetch_revenue_customer_group_based_on_ro_wip(
 def fetch_revenue_customer_group_based_on_costcenter(
     from_date, to_date, cost_center, customer_group, customer_group_list=None
 ):
-    customer_group_condition = ""
-    customer_group_condition += " and gp.name = '{customer_group}'".format(
-        customer_group=customer_group
-    )
     customer_group_details = frappe.db.sql(
         """
 		SELECT
@@ -238,19 +234,21 @@ def fetch_revenue_customer_group_based_on_costcenter(
 			sii.item_group = ig.name
 		WHERE (
 				si.docstatus = 1 AND
-				si.posting_date >= '{from_date}' AND
-				si.posting_date <= '{to_date}'  AND
+				si.posting_date >= %(from_date)s AND
+				si.posting_date <= %(to_date)s  AND
 				sii.project IS NOT NULL AND
-				tp.cost_center = '{cost_center}' {customer_group_condition}
+				tp.cost_center = %(cost_center)s AND
+				gp.name = %(customer_group)s
 			)
 		GROUP BY
 			customer_group
-	""".format(
-            from_date=from_date,
-            to_date=to_date,
-            cost_center=cost_center,
-            customer_group_condition=customer_group_condition,
-        ),
+	""",
+        {
+            "from_date": from_date,
+            "to_date": to_date,
+            "cost_center": cost_center,
+            "customer_group": customer_group,
+        },
         as_dict=True,
     )
     return customer_group_details
@@ -269,16 +267,21 @@ def fetch_revenue_branchwise(from_date, to_date, cost_center):
 			ON tp.name = sii.project
 		WHERE (
 				si.docstatus = 1 AND
-				si.posting_date >= '{from_date}' AND
-				si.posting_date <= '{to_date}'  AND
+				si.posting_date >= %(from_date)s AND
+				si.posting_date <= %(to_date)s  AND
 				sii.project IS NOT NULL AND
-				tp.cost_center = '{cost_center}'
+				tp.cost_center = %(cost_center)s
 			)
 		GROUP BY
 			tp.branch
 		ORDER BY
 			tp.branch
-	""".format(from_date=from_date, to_date=to_date, cost_center=cost_center),
+	""",
+        {
+            "from_date": from_date,
+            "to_date": to_date,
+            "cost_center": cost_center,
+        },
         as_dict=True,
     )
 
