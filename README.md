@@ -26,7 +26,14 @@ Pre-commit is configured to use the following tools for checking and formatting 
 - ruff
 - eslint
 - prettier
-- pyupgrade
+- semgrep
+
+To check without committing:
+
+```bash
+cd apps/pitstop_email_digest
+pre-commit run semgrep --all-files
+```
 
 ### License
 
