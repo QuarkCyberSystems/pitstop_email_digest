@@ -2,7 +2,8 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe import _
+from frappe import _, qb
+from frappe.query_builder import Criterion
 from frappe.utils import flt, getdate, nowdate
 
 from pitstop_email_digest.utils.pricing import (
@@ -153,40 +154,36 @@ class ItemSellingPriceByPricingRule:
     def get_items(self):
         """Items any valid rule reaches, walked in name order so a capped run is
         stable rather than an arbitrary slice."""
-        conditions = []
-        values = {}
+        Item = qb.DocType("Item")
 
+        scope = []
         if self.by_item_code:
-            conditions.append("i.name in %(item_codes)s")
-            values["item_codes"] = list(self.by_item_code.keys())
+            scope.append(Item.name.isin(list(self.by_item_code.keys())))
         if self.by_item_group:
-            conditions.append("i.item_group in %(item_groups)s")
-            values["item_groups"] = list(self.by_item_group.keys())
+            scope.append(Item.item_group.isin(list(self.by_item_group.keys())))
         if self.by_brand:
-            conditions.append("i.brand in %(brands)s")
-            values["brands"] = list(self.by_brand.keys())
+            scope.append(Item.brand.isin(list(self.by_brand.keys())))
 
-        where = "({0})".format(" or ".join(conditions))
+        query = (
+            qb.from_(Item)
+            .select(
+                Item.name.as_("item_code"),
+                Item.item_name,
+                Item.item_group,
+                Item.brand,
+                Item.valuation_rate,
+                Item.last_purchase_rate,
+            )
+            .where(Criterion.any(scope))
+            .orderby(Item.name)
+        )
 
         limit = MAX_ITEMS + 1
         if self.filters.item_code:
-            where += " and i.name = %(item_code)s"
-            values["item_code"] = self.filters.item_code
+            query = query.where(Item.name == self.filters.item_code)
             limit = 1
 
-        items = frappe.db.sql(
-            f"""
-            select
-                i.name as item_code, i.item_name, i.item_group, i.brand,
-                i.valuation_rate, i.last_purchase_rate
-            from `tabItem` i
-            where {where}
-            order by i.name
-            limit {limit}
-        """,
-            values,
-            as_dict=1,
-        )
+        items = query.limit(limit).run(as_dict=True)
 
         if len(items) > MAX_ITEMS:
             self.truncated = True

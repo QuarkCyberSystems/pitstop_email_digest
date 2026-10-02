@@ -52,6 +52,106 @@ def generate_weightage_table(based_on, base_incentive):
         """
 
 
+def generate_employee_weightage_table(template_data, base_incentive=0.0):
+    employee_weightages = (template_data or {}).get("employee_weightages", [])
+
+    if not employee_weightages:
+        return None
+
+    acronyms = {"tat", "gp", "cs", "qc"}
+
+    # Fields and their labels, in order of first appearance in the data
+    labels = {}
+
+    for employee in employee_weightages:
+        for field in employee.get("weightage", {}):
+            if field not in labels:
+                labels[field] = " ".join(
+                    word.upper() if word.lower() in acronyms else word.title()
+                    for word in field.split("_")
+                )
+
+    fields = list(labels)
+
+    header_cells = ""
+
+    for field in fields:
+        label = labels[field]
+
+        header_cells += f"""
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                            {label}
+                        </th>
+        """
+
+    rows = ""
+
+    for employee in employee_weightages:
+        weightages = employee.get("weightage", {})
+        cells = ""
+
+        for field in fields:
+            percentage = weightages.get(field)
+
+            if percentage is None:
+                cells += """
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                            -
+                        </td>
+                """
+                continue
+
+            amount = base_incentive * percentage / 100
+
+            cells += f"""
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                            <strong>{percentage}%</strong><br>
+                            {amount:.2f}
+                        </td>
+            """
+
+        total_percentage = sum(weightages.values())
+        total_amount = base_incentive * total_percentage / 100
+
+        rows += f"""
+                    <tr>
+                        <td style="border: 1px solid #ddd; padding: 8px;">
+                            {employee.get("employee_id", "")}
+                        </td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">
+                            {employee.get("employee_name", "")}
+                        </td>
+                        {cells}
+                        <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                            <strong>{total_percentage}%</strong><br>
+                            {total_amount:.2f}
+                        </td>
+                    </tr>
+        """
+
+    return f"""
+            <table style="border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 14px;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">
+                            Employee ID
+                        </th>
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">
+                            Employee Name
+                        </th>
+                        {header_cells}
+                        <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">
+                            Total
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows}
+                </tbody>
+            </table>
+        """
+
+
 def generate_ladder_html(based_on, ladder_field, header):
     from .employee_incentive_calculation import BASED_ON_TEMPLATE_DATA
 

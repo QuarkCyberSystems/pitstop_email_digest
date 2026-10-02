@@ -1,8 +1,8 @@
 # Copyright (c) 2025, QCS and contributors
 # For license information, please see license.txt
 
-import frappe
-from frappe import _
+from frappe import _, qb
+from frappe.query_builder.functions import Sum
 
 
 def execute(filters=None):
@@ -95,54 +95,48 @@ def get_column(filters):
 
 
 def get_data(filters):
-    conditions = ""
-    if filters.get("from_date"):
-        conditions += "and tsi.posting_date>='{from_posting_date}'".format(
-            from_posting_date=filters.get("from_date")
-        )
-    if filters.get("to_date"):
-        conditions += "and tsi.posting_date<='{to_posting_date}'".format(
-            to_posting_date=filters.get("to_date")
-        )
+    filters = filters or {}
 
-    if filters.get("customer"):
-        conditions += "and tsi.customer = '{customer}'".format(
-            customer=filters.get("customer")
+    Invoice = qb.DocType("Sales Invoice")
+    Item = qb.DocType("Sales Invoice Item")
+    Tax = qb.DocType("Sales Taxes and Charges")
+
+    tax_table = (
+        qb.from_(Tax)
+        .select(Tax.parent, Sum(Tax.tax_amount).as_("total_taxes_and_charges"))
+        .where(Tax.charge_type != "Actual")
+        .groupby(Tax.parent)
+    ).as_("tax_table")
+
+    query = (
+        qb.from_(Invoice)
+        .inner_join(Item)
+        .on(Item.parent == Invoice.name)
+        .left_join(tax_table)
+        .on(tax_table.parent == Invoice.name)
+        .select(
+            Invoice.name.as_("sales_invoice"),
+            Invoice.customer,
+            Invoice.customer_name,
+            Invoice.customer_group,
+            Invoice.vehicle_chassis_no,
+            Invoice.project,
+            Sum(Item.base_amount_before_discount).as_("total_before_discount"),
+            Sum(Item.base_total_discount).as_("discount_amount"),
+            Sum(Item.base_amount).as_("total_after_discount"),
+            tax_table.total_taxes_and_charges,
+            Invoice.discount_amount.as_("additional_discount"),
+            Invoice.grand_total,
         )
-    return frappe.db.sql(
-        """
-		SELECT
-			tsi.name as sales_invoice,
-			tsi.customer,
-			tsi.customer_name,
-			tsi.customer_group,
-			tsi.vehicle_chassis_no,
-			tsi.project,
-			sum(tsii.base_amount_before_discount) as total_before_discount,
-			sum(tsii.base_total_discount) as discount_amount,
-			sum(tsii.base_amount) as total_after_discount,
-			tax_table.total_taxes_and_charges,
-			tsi.discount_amount as additional_discount,
-			tsi.grand_total
-		FROM
-			`tabSales Invoice` tsi
-		Join
-			`tabSales Invoice Item` tsii
-		on
-			tsii.parent = tsi.name
-		LEFT JOIN (
-			SELECT
-				parent,
-				SUM(tax_amount) AS total_taxes_and_charges
-			FROM `tabSales Taxes and Charges`
-			WHERE charge_type != 'Actual'
-			GROUP BY parent
-		) AS tax_table
-			ON tax_table.parent = tsi.name
-		WHERE
-			tsi.docstatus=1 {conditions}
-		group by
-			tsi.name;
-	""".format(conditions=conditions),
-        as_dict=True,
+        .where(Invoice.docstatus == 1)
+        .groupby(Invoice.name)
     )
+
+    if filters.get("from_date"):
+        query = query.where(Invoice.posting_date >= filters.get("from_date"))
+    if filters.get("to_date"):
+        query = query.where(Invoice.posting_date <= filters.get("to_date"))
+    if filters.get("customer"):
+        query = query.where(Invoice.customer == filters.get("customer"))
+
+    return query.run(as_dict=True)

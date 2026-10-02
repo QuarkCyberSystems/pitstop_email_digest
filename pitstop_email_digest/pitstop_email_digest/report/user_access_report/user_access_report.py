@@ -22,6 +22,21 @@ PERMISSION_FIELDS = [
     "delete_perm",
 ]
 
+# Filters bound into the query. Blank ones are passed as NULL, which switches
+# their condition off.
+FILTER_FIELDS = (
+    "user",
+    "role",
+    "doctype",
+    "read_permission",
+    "write_permission",
+    "create_permission",
+    "submit_permission",
+    "cancel_permission",
+    "amend_permission",
+    "delete_permission",
+)
+
 
 def execute(filters=None):
     filters = frappe._dict(filters or {})
@@ -141,15 +156,8 @@ def get_column(filters):
 
 
 def get_data(filters):
-    (
-        condition_values_dict,
-        condition,
-        doc_permission_condition,
-        has_role_condition,
-    ) = get_conditions_and_values(filters)
-
     return frappe.db.sql(
-        f"""
+        """
 		SELECT
 			u.name AS user,
 			u.role_profile_name,
@@ -175,7 +183,8 @@ def get_data(filters):
 		FROM `tabUser` u
 		JOIN `tabHas Role` hr
 			ON hr.parent = u.name
-			AND hr.parenttype = 'User' {has_role_condition}
+			AND hr.parenttype = 'User'
+			AND (%(role)s is null or hr.role = %(role)s)
 		JOIN (
 			SELECT
 				'DocType' AS parenttype,
@@ -225,66 +234,29 @@ def get_data(filters):
 				AND cdp.permlevel = dp.permlevel
 			)
 		) dp
-			ON dp.role = hr.role {doc_permission_condition}
-		WHERE u.enabled = 1 {condition}
+			ON dp.role = hr.role
+			AND (%(doctype)s is null or dp.parent = %(doctype)s)
+			AND (%(read_permission)s is null or dp.`read` = %(read_permission)s)
+			AND (%(write_permission)s is null or dp.`write` = %(write_permission)s)
+			AND (%(create_permission)s is null or dp.`create` = %(create_permission)s)
+			AND (%(submit_permission)s is null or dp.`submit` = %(submit_permission)s)
+			AND (%(cancel_permission)s is null or dp.`cancel` = %(cancel_permission)s)
+			AND (%(amend_permission)s is null or dp.`amend` = %(amend_permission)s)
+			AND (%(delete_permission)s is null or dp.`delete` = %(delete_permission)s)
+		WHERE u.enabled = 1
+			AND (%(user)s is null or u.name = %(user)s)
 		ORDER BY u.name, hr.role, dp.parent;
 	""",
-        condition_values_dict,
+        get_filter_values(filters),
         as_dict=True,
     )
 
 
-def get_conditions_and_values(filters):
-    condition_values_dict = {}
-    condition = ""
-    doc_permission_condition = ""
-    has_role_condition = ""
-    if filters.get("user"):
-        condition += " and u.name = %(user)s"
-        condition_values_dict["user"] = filters.get("user")
+def get_filter_values(filters):
+    """Bind every supported filter, passing NULL for the ones left blank."""
+    filters = filters or {}
 
-    if filters.get("doctype"):
-        doc_permission_condition += " and dp.parent = %(doctype)s"
-        condition_values_dict["doctype"] = filters.get("doctype")
-
-    if filters.get("submit_permission"):
-        doc_permission_condition += " and dp.`submit` = %(submit_permission)s"
-        condition_values_dict["submit_permission"] = filters.get("submit_permission")
-
-    if filters.get("cancel_permission"):
-        doc_permission_condition += " and dp.`cancel` = %(cancel_permission)s"
-        condition_values_dict["cancel_permission"] = filters.get("cancel_permission")
-
-    if filters.get("amend_permission"):
-        doc_permission_condition += " and dp.`amend` = %(amend_permission)s"
-        condition_values_dict["amend_permission"] = filters.get("amend_permission")
-
-    if filters.get("write_permission"):
-        doc_permission_condition += " and dp.`write` = %(write_permission)s"
-        condition_values_dict["write_permission"] = filters.get("write_permission")
-
-    if filters.get("read_permission"):
-        doc_permission_condition += " and dp.`read` = %(read_permission)s"
-        condition_values_dict["read_permission"] = filters.get("read_permission")
-
-    if filters.get("create_permission"):
-        doc_permission_condition += " and dp.`create` = %(create_permission)s"
-        condition_values_dict["create_permission"] = filters.get("create_permission")
-
-    if filters.get("delete_permission"):
-        doc_permission_condition += " and dp.`delete` = %(delete_permission)s"
-        condition_values_dict["delete_permission"] = filters.get("delete_permission")
-
-    if filters.get("role"):
-        has_role_condition += "and hr.role = %(role)s"
-        condition_values_dict["role"] = filters.get("role")
-
-    return (
-        condition_values_dict,
-        condition,
-        doc_permission_condition,
-        has_role_condition,
-    )
+    return {fieldname: filters.get(fieldname) or None for fieldname in FILTER_FIELDS}
 
 
 def post_process(data):

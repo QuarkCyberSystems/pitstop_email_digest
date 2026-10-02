@@ -2,7 +2,8 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe import _
+from frappe import _, qb
+from frappe.query_builder.functions import Sum
 from frappe.utils import flt
 
 
@@ -38,73 +39,65 @@ def get_columns():
     ]
 
 
+def get_tree_condition(field, doctype, value):
+    """Match `value`, and everything under it when it is a group node."""
+    lft, rgt = frappe.db.get_value(doctype, value, ["lft", "rgt"]) or (None, None)
+    if lft is None or rgt is None:
+        return field == value
+
+    Tree = qb.DocType(doctype)
+    return field.isin(
+        qb.from_(Tree).select(Tree.name).where((Tree.lft >= lft) & (Tree.rgt <= rgt))
+    )
+
+
 def get_data(filters):
     from_date = filters.get("from_date")
     to_date = filters.get("to_date")
     if not from_date or not to_date:
         frappe.throw(_("From Date and To Date are required."))
 
-    conditions = [
-        "inv.docstatus = 1",
-        "inv.posting_date between %(from_date)s and %(to_date)s",
-    ]
-    params = {"from_date": from_date, "to_date": to_date}
+    Invoice = qb.DocType("Sales Invoice")
+    Item = qb.DocType("Sales Invoice Item")
+    Team = qb.DocType("Sales Team")
+    Person = qb.DocType("Sales Person")
+
+    query = (
+        qb.from_(Invoice)
+        .inner_join(Item)
+        .on(Item.parent == Invoice.name)
+        .inner_join(Team)
+        .on((Team.parent == Invoice.name) & (Team.parenttype == "Sales Invoice"))
+        .inner_join(Person)
+        .on(Person.name == Team.sales_person)
+        .select(
+            Team.sales_person.as_("sales_person"),
+            Item.item_group.as_("item_group"),
+            Sum(Item.base_net_amount * Team.allocated_percentage / 100).as_("revenue"),
+        )
+        .where(Invoice.docstatus == 1)
+        .where(Invoice.posting_date.between(from_date, to_date))
+        .groupby(Team.sales_person, Item.item_group)
+        .orderby(Team.sales_person, Item.item_group)
+    )
 
     item_group = filters.get("item_group")
     if item_group:
-        lft, rgt = frappe.db.get_value("Item Group", item_group, ["lft", "rgt"]) or (
-            None,
-            None,
+        query = query.where(
+            get_tree_condition(Item.item_group, "Item Group", item_group)
         )
-        if lft is not None and rgt is not None:
-            conditions.append(
-                "i.item_group in (select name from `tabItem Group` where lft >= %(ig_lft)s and rgt <= %(ig_rgt)s)"
-            )
-            params["ig_lft"] = lft
-            params["ig_rgt"] = rgt
-        else:
-            conditions.append("i.item_group = %(item_group)s")
-            params["item_group"] = item_group
 
     sales_person = filters.get("sales_person")
     if sales_person:
-        lft, rgt = frappe.db.get_value(
-            "Sales Person", sales_person, ["lft", "rgt"]
-        ) or (None, None)
-        if lft is not None and rgt is not None:
-            conditions.append(
-                "st.sales_person in (select name from `tabSales Person` where lft >= %(sp_lft)s and rgt <= %(sp_rgt)s)"
-            )
-            params["sp_lft"] = lft
-            params["sp_rgt"] = rgt
-        else:
-            conditions.append("st.sales_person = %(sales_person)s")
-            params["sales_person"] = sales_person
+        query = query.where(
+            get_tree_condition(Team.sales_person, "Sales Person", sales_person)
+        )
 
     department = filters.get("department")
     if department:
-        conditions.append("sp.department = %(department)s")
-        params["department"] = department
+        query = query.where(Person.department == department)
 
-    where_clause = " and ".join(conditions)
-
-    rows = frappe.db.sql(
-        """
-        select
-            st.sales_person as sales_person,
-            i.item_group as item_group,
-            sum(i.base_net_amount * st.allocated_percentage / 100) as revenue
-        from `tabSales Invoice` inv
-        inner join `tabSales Invoice Item` i on i.parent = inv.name
-        inner join `tabSales Team` st on st.parent = inv.name and st.parenttype = 'Sales Invoice'
-        inner join `tabSales Person` sp on sp.name = st.sales_person
-        where {where_clause}
-        group by st.sales_person, i.item_group
-        order by st.sales_person, i.item_group
-        """.format(where_clause=where_clause),
-        params,
-        as_dict=1,
-    )
+    rows = query.run(as_dict=True)
 
     data = []
     last_sales_person = None

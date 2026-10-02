@@ -35,12 +35,15 @@ from . import (
     util_bodyshop_estimator,
     util_insurance_bd,
     util_job_controller,
+    util_parts_advisor,
     util_quality_controller,
     util_service_advisor,
     util_team_lead,
     util_technician,
 )
+from .helper_parts_advisor import TEMPLATE_DATA
 from .html_generator_employee_incentive_calculation import (
+    generate_employee_weightage_table,
     generate_ladder_html,
     generate_weightage_table,
     rate_based_generate_ladder_html,
@@ -54,6 +57,7 @@ DESIGNATION_UTILS = {
     "Quality Controller": util_quality_controller,
     "Bodyshop Estimator": util_bodyshop_estimator,
     "Insurance BD": util_insurance_bd,
+    "Parts Advisor": util_parts_advisor,
 }
 
 # Assembled from the designation modules so each one owns its own weightages
@@ -218,7 +222,12 @@ class EmployeeIncentiveCalculationReport:
         based_on = self.filters.get("based_on")
         base_incentive = self.filters.get("base_incentive") or 0.0
 
-        based_on_html_table = generate_weightage_table(based_on, base_incentive)
+        if based_on != "Parts Advisor":
+            based_on_html_table = generate_weightage_table(based_on, base_incentive)
+        else:
+            based_on_html_table = generate_employee_weightage_table(
+                TEMPLATE_DATA, base_incentive
+            )
 
         ladder_html_tables = []
         for ladder_field, label, kind, suffix in LADDER_SPECS:

@@ -128,9 +128,8 @@ def apply_dynamic_ageing(data, filters):
 
 
 def get_base_data(filters):
-    condition_dict, condition_values = get_condition(filters)
     return frappe.db.sql(
-        f"""
+        """
 		select
 			tse2.project as ro,
 			tp.project_status as ro_status,
@@ -139,9 +138,9 @@ def get_base_data(filters):
 			tse2.posting_date,
 			sum(
 				case
-					when tse2.stock_entry_type = "Material Issue"
+					when tse2.stock_entry_type = %(material_issue)s
 						then abs(tsle.stock_value_difference)   -- make positive
-					when tse2.stock_entry_type = "Material Receipt"
+					when tse2.stock_entry_type = %(material_receipt)s
 						then -abs(tsle.stock_value_difference)  -- make negative
 					else 0
 				end
@@ -151,12 +150,18 @@ def get_base_data(filters):
 		join tabProject tp on tp.name = tse2.project
 		where
 			tse2.docstatus = 1
-			and tse2.stock_entry_type in ("Material Issue", "Material Receipt")
-			{condition_values}
+			and tse2.stock_entry_type in (%(material_issue)s, %(material_receipt)s)
+			and tsle.posting_date >= coalesce(%(from_date)s, '1900-01-01')
+			and tsle.posting_date <= coalesce(%(to_date)s, '2999-12-31')
+			and (%(company)s is null or tsle.company = %(company)s)
+			and (%(ro)s is null or tp.name = %(ro)s)
+			and (%(branch)s is null or tp.branch = %(branch)s)
+			and (%(exclude_ro_status)s is null or tp.project_status != %(exclude_ro_status)s)
+			and (%(ro_status)s is null or tp.project_status = %(ro_status)s)
 		group by
 			tse2.project, tse2.posting_date
 		""",
-        condition_dict,
+        get_filter_values(filters),
         as_dict=True,
     )
 
@@ -207,34 +212,25 @@ def validate_age_ranges(filters):
     return cleaned
 
 
-def get_condition(filters):
-    condition_values_dict = {}
-    condition = ""
-    if filters.get("company"):
-        condition += "and tsle.company = %(company)s"
-        condition_values_dict["company"] = filters.get("company")
-    if filters.get("from_date"):
-        condition += "and tsle.posting_date >= %(from_date)s"
-        condition_values_dict["from_date"] = filters.get("from_date")
-    if filters.get("to_date"):
-        condition += "and tsle.posting_date <= %(to_date)s"
-        condition_values_dict["to_date"] = filters.get("to_date")
-    if filters.get("to_date"):
-        condition += "and tsle.posting_date <= %(to_date)s"
-        condition_values_dict["to_date"] = filters.get("to_date")
+def get_filter_values(filters):
+    """Bind every supported filter, passing NULL for the ones left blank."""
+    filters = filters or {}
 
+    values = {
+        fieldname: filters.get(fieldname) or None
+        for fieldname in ("company", "from_date", "to_date", "ro", "branch")
+    }
+
+    values["material_issue"] = "Material Issue"
+    values["material_receipt"] = "Material Receipt"
+
+    # "Not Completed RO" excludes completed orders; otherwise the hidden RO Status
+    # filter selects one status. The two are never applied together.
     if filters.get("not_completed_ro_status"):
-        condition += "and tp.project_status != %(ro_status)s"
-        condition_values_dict["ro_status"] = "Completed"
+        values["exclude_ro_status"] = "Completed"
+        values["ro_status"] = None
     else:
-        if filters.get("ro_status"):
-            condition += "and tp.project_status = %(ro_status)s"
-            condition_values_dict["ro_status"] = filters.get("ro_status")
+        values["exclude_ro_status"] = None
+        values["ro_status"] = filters.get("ro_status") or None
 
-    if filters.get("ro"):
-        condition += "and tp.name = %(ro)s"
-        condition_values_dict["ro"] = filters.get("ro")
-    if filters.get("branch"):
-        condition += "and tp.branch = %(branch)s"
-        condition_values_dict["branch"] = filters.get("branch")
-    return condition_values_dict, condition
+    return values

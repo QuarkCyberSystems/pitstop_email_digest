@@ -135,10 +135,8 @@ def get_column(filters):
 
 
 def get_data(filters):
-    conditions, condition_values_dict = get_conditions_and_values(filters)
-
     return frappe.db.sql(
-        f"""
+        """
 		select
 			to2.name as opportunity,
             to2.opportunity_type,
@@ -173,47 +171,35 @@ def get_data(filters):
 		on
 			tsi.name = tsii.parent
 		where
-			tsi.docstatus=1  {conditions}
+			tsi.docstatus = 1
+			and tsi.posting_date >= coalesce(%(from_date)s, '1900-01-01')
+			and tsi.posting_date <= coalesce(%(to_date)s, '2999-12-31')
+			and (%(bill_to_customer_group)s is null or tsi.customer_group = %(bill_to_customer_group)s)
+			and (%(pdi_non_pdi)s is null or tp.custom_pdi__non_pdi = %(pdi_non_pdi)s)
+			and (%(sales_person)s is null or to2.sales_person = %(sales_person)s)
+			and (%(opportunity_type)s is null or to2.opportunity_type = %(opportunity_type)s)
+			and (%(cost_center)s is null or tsi.cost_center = %(cost_center)s)
 		group by
 			tsi.name, tsii.project;
 	    """,
-        condition_values_dict,
+        get_filter_values(filters),
         as_dict=True,
     )
 
 
-def get_conditions_and_values(filters):
-    condition_values_dict = {}
-    conditions = ""
+def get_filter_values(filters):
+    """Bind every supported filter, passing NULL for the ones left blank."""
+    filters = filters or {}
 
-    if filters.get("from_date"):
-        conditions += "and tsi.posting_date>= %(from_posting_date)s"
-        condition_values_dict["from_posting_date"] = filters.get("from_date")
-
-    if filters.get("to_date"):
-        conditions += "and tsi.posting_date<= %(to_posting_date)s"
-        condition_values_dict["to_posting_date"] = filters.get("to_date")
-
-    if filters.get("bill_to_customer_group"):
-        conditions += "and tsi.customer_group = %(bill_to_customer_group)s"
-        condition_values_dict["bill_to_customer_group"] = filters.get(
-            "bill_to_customer_group"
+    return {
+        fieldname: filters.get(fieldname) or None
+        for fieldname in (
+            "from_date",
+            "to_date",
+            "bill_to_customer_group",
+            "pdi_non_pdi",
+            "sales_person",
+            "opportunity_type",
+            "cost_center",
         )
-
-    if filters.get("pdi_non_pdi"):
-        conditions += "and tp.custom_pdi__non_pdi = %(pdi_non_pdi)s"
-        condition_values_dict["pdi_non_pdi"] = filters.get("pdi_non_pdi")
-
-    if filters.get("sales_person"):
-        conditions += "and to2.sales_person = %(sales_person)s"
-        condition_values_dict["sales_person"] = filters.get("sales_person")
-
-    if filters.get("opportunity_type"):
-        conditions += "and to2.opportunity_type = %(opportunity_type)s"
-        condition_values_dict["opportunity_type"] = filters.get("opportunity_type")
-
-    if filters.get("cost_center"):
-        conditions += "and tsi.cost_center = %(cost_center)s"
-        condition_values_dict["cost_center"] = filters.get("cost_center")
-
-    return conditions, condition_values_dict
+    }

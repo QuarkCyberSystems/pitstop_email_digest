@@ -3,7 +3,7 @@
 
 import frappe
 from erpnext.stock.doctype.item.item import convert_item_uom_for
-from frappe import _
+from frappe import _, qb
 from frappe.utils import flt, getdate
 
 
@@ -29,46 +29,48 @@ class ROSoldHours(object):
 
         return self.get_columns(), self.data
 
-    def get_conditions(self):
+    def get_conditions(self, project):
         conditions = []
 
         if self.filters.company:
-            conditions.append("p.company = %(company)s")
+            conditions.append(project.company == self.filters.company)
 
         if self.filters.from_date:
-            conditions.append("p.project_date >= %(from_date)s")
+            conditions.append(project.project_date >= self.filters.from_date)
 
         if self.filters.to_date:
-            conditions.append("p.project_date <= %(to_date)s")
+            conditions.append(project.project_date <= self.filters.to_date)
 
         if self.filters.repair_order:
-            conditions.append("p.name = %(repair_order)s")
+            conditions.append(project.name == self.filters.repair_order)
 
         if self.filters.branch:
-            conditions.append("p.branch = %(branch)s")
+            conditions.append(project.branch == self.filters.branch)
 
         if self.filters.not_completed_ro_status:
-            conditions.append("p.project_status != 'Completed'")
+            conditions.append(project.project_status != "Completed")
         elif self.filters.ro_status:
-            conditions.append("p.project_status = %(ro_status)s")
+            conditions.append(project.project_status == self.filters.ro_status)
 
-        return "and {0}".format(" and ".join(conditions)) if conditions else ""
+        return conditions
 
     def get_repair_orders(self):
-        conditions = self.get_conditions()
+        project = qb.DocType("Project")
 
-        self.data = frappe.db.sql(
-            """
-			select
-				p.name as repair_order,
-				p.project_status as repair_order_status
-			from `tabProject` p
-			where p.status != 'Cancelled' {0}
-			order by p.project_date, p.creation
-		""".format(conditions),
-            self.filters,
-            as_dict=1,
+        query = (
+            qb.from_(project)
+            .select(
+                project.name.as_("repair_order"),
+                project.project_status.as_("repair_order_status"),
+            )
+            .where(project.status != "Cancelled")
+            .orderby(project.project_date, project.creation)
         )
+
+        for condition in self.get_conditions(project):
+            query = query.where(condition)
+
+        self.data = query.run(as_dict=True)
 
         self.repair_orders = [d.repair_order for d in self.data]
         self.ro_map = {d.repair_order: d for d in self.data}

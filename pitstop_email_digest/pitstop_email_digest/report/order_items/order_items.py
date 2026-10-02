@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe import _
+from frappe import _, qb
 from frappe.utils import getdate
 
 
@@ -180,66 +180,59 @@ class OrderItems:
         ]
 
     def get_data(self):
-        conditions = self.get_conditions()
-        conditions_str = (
-            "and {0}".format(" and ".join(conditions)) if conditions else ""
-        )
-        order_doctype = self.config["order_doctype"]
-        item_doctype = self.config["item_doctype"]
-        party_field = self.config["party_field"]
-        party_name_field = self.config["party_name_field"]
+        # Doctype and fieldnames come from VOUCHER_CONFIG, which `__init__` has
+        # already checked the filter against.
+        order = qb.DocType(self.config["order_doctype"])
+        order_item = qb.DocType(self.config["item_doctype"])
 
-        return frappe.db.sql(
-            f"""
-			select
-				o.transaction_date,
-				o.name as order_no,
-				o.{party_field} as party,
-                o.{party_name_field} as party_name,
-				o.project as repair_order,
-				o.branch as branch,
-				oi.item_code,
-				oi.item_name,
-				oi.uom,
-				oi.base_rate,
-				oi.qty,
-				oi.base_amount,
-				oi.stock_uom,
-				oi.conversion_factor
-			from
-				`tab{item_doctype}` oi
-			join
-				`tab{order_doctype}` o
-			on
-				o.name = oi.parent
-			where
-				o.docstatus = 1 {conditions_str}
-			order by
-				o.transaction_date;
-		""",
-            self.filters,
-            as_dict=True,
+        query = (
+            qb.from_(order_item)
+            .inner_join(order)
+            .on(order.name == order_item.parent)
+            .select(
+                order.transaction_date,
+                order.name.as_("order_no"),
+                order[self.config["party_field"]].as_("party"),
+                order[self.config["party_name_field"]].as_("party_name"),
+                order.project.as_("repair_order"),
+                order.branch,
+                order_item.item_code,
+                order_item.item_name,
+                order_item.uom,
+                order_item.base_rate,
+                order_item.qty,
+                order_item.base_amount,
+                order_item.stock_uom,
+                order_item.conversion_factor,
+            )
+            .where(order.docstatus == 1)
+            .orderby(order.transaction_date)
         )
 
-    def get_conditions(self):
+        for condition in self.get_conditions(order, order_item):
+            query = query.where(condition)
+
+        return query.run(as_dict=True)
+
+    def get_conditions(self, order, order_item):
         conditions = []
 
         if self.filters.company:
-            conditions.append("o.company = %(company)s")
+            conditions.append(order.company == self.filters.company)
         if self.filters.from_date:
-            conditions.append("o.transaction_date >= %(from_date)s")
+            conditions.append(order.transaction_date >= self.filters.from_date)
         if self.filters.to_date:
-            conditions.append("o.transaction_date <= %(to_date)s")
+            conditions.append(order.transaction_date <= self.filters.to_date)
         if self.filters.branch:
-            conditions.append("o.branch = %(branch)s")
+            conditions.append(order.branch == self.filters.branch)
         if self.filters.item_code:
-            conditions.append("oi.item_code = %(item_code)s")
+            conditions.append(order_item.item_code == self.filters.item_code)
 
         # Apply the party filter that matches the selected voucher type:
         # `customer` for Sales Order, `supplier` for Purchase Order.
         party_field = self.config["party_field"]
         party_value = self.filters.get(party_field)
         if party_value:
-            conditions.append(f"o.{party_field} = %({party_field})s")
+            conditions.append(order[party_field] == party_value)
 
         return conditions

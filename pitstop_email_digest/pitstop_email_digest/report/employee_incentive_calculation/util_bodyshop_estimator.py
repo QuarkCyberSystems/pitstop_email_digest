@@ -6,10 +6,14 @@ margin of the ROs that completed.
 """
 
 import frappe
-from frappe.utils import flt, getdate
+from frappe import qb
+from frappe.query_builder import Case
+from frappe.query_builder.functions import Count, IfNull, Max, Sum
+from frappe.utils import flt
 
 from .util_employee_incentive_calculation import (
     compute_incentive,
+    fetch_month_targets,
     get_ladder_result,
     get_rate_ladder_result,
     weightage_amount,
@@ -90,8 +94,6 @@ def get_trailing_columns():
     return []
 
 
-# Trailing comma is required: ("Completed") is a str, not a tuple, and breaks
-# `in %(...)s`
 COMPLETED_PROJECT_STATUSES = ("Completed",)
 
 
@@ -131,61 +133,57 @@ def fetch_approved_estimate(filters):
     if not estimators:
         return []
 
-    conditions = ""
-    values = {
-        "from_dt": filters.get("from_date"),
-        "to_dt": filters.get("to_date"),
-        "estimators": tuple(estimators),
-    }
+    Quotation = qb.DocType("Quotation")
+    SalesOrder = qb.DocType("Sales Order")
+    SalesOrderItem = qb.DocType("Sales Order Item")
+
+    approved = (
+        qb.from_(SalesOrderItem)
+        .inner_join(SalesOrder)
+        .on(SalesOrder.name == SalesOrderItem.parent)
+        .select(
+            SalesOrderItem.quotation.as_("quotation"),
+            Count(SalesOrder.name).distinct().as_("sales_order_count"),
+            Sum(SalesOrderItem.base_net_amount).as_("approved_net_amount"),
+        )
+        .where(SalesOrder.docstatus == 1)
+        .where(IfNull(SalesOrderItem.quotation, "") != "")
+        .groupby(SalesOrderItem.quotation)
+    ).as_("approved")
+
+    query = (
+        qb.from_(Quotation)
+        .left_join(approved)
+        .on(approved.quotation == Quotation.name)
+        .select(
+            Quotation.estimator_id.as_("bodyshop_estimator_id"),
+            Quotation.estimator_name.as_("bodyshop_estimator_name"),
+            Quotation.name.as_("quotation"),
+            Quotation.transaction_date.as_("quotation_date"),
+            Quotation.status.as_("quotation_status"),
+            Quotation.project,
+            Quotation.base_net_total.as_("estimate_net_amount"),
+            Quotation.base_grand_total.as_("estimate_grand_amount"),
+            IfNull(approved.sales_order_count, 0).as_("sales_order_count"),
+            IfNull(approved.approved_net_amount, 0).as_("approved_net_amount"),
+            Case()
+            .when(IfNull(approved.sales_order_count, 0) > 0, 1)
+            .else_(0)
+            .as_("is_approved"),
+        )
+        .where(Quotation.docstatus == 1)
+        .where(
+            Quotation.transaction_date.between(
+                filters.get("from_date"), filters.get("to_date")
+            )
+        )
+        .where(Quotation.estimator_id.isin(estimators))
+    )
 
     if filters.get("company"):
-        conditions += " and q.company = %(company)s"
-        values["company"] = filters.get("company")
+        query = query.where(Quotation.company == filters.get("company"))
 
-    rows = frappe.db.sql(
-        f"""
-		select
-			q.estimator_id as bodyshop_estimator_id,
-			q.estimator_name as bodyshop_estimator_name,
-			q.name as quotation,
-			q.transaction_date as quotation_date,
-			q.status as quotation_status,
-			q.project,
-			q.base_net_total as estimate_net_amount,
-			q.base_grand_total as estimate_grand_amount,
-			ifnull(approved.sales_order_count, 0) as sales_order_count,
-			ifnull(approved.approved_net_amount, 0) as approved_net_amount,
-			case when ifnull(approved.sales_order_count, 0) > 0 then 1 else 0 end as is_approved
-		from
-			`tabQuotation` q
-		left join (
-			select
-				soi.quotation as quotation,
-				count(distinct so.name) as sales_order_count,
-				sum(soi.base_net_amount) as approved_net_amount
-			from
-				`tabSales Order Item` soi
-			join
-				`tabSales Order` so
-			on
-				so.name = soi.parent
-			where
-				so.docstatus = 1
-				and ifnull(soi.quotation, '') != ''
-			group by
-				soi.quotation
-		) approved
-		on
-			approved.quotation = q.name
-		where
-			q.docstatus = 1
-			and q.transaction_date between %(from_dt)s and %(to_dt)s
-			and q.estimator_id in %(estimators)s
-			{conditions}
-		""",
-        values,
-        as_dict=True,
-    )
+    rows = query.run(as_dict=True)
 
     groups = {}
     for row in rows:
@@ -252,53 +250,46 @@ def fetch_invoiced_ro(filters):
     if not estimators:
         return []
 
-    conditions = ""
-    values = {
-        "from_dt": filters.get("from_date"),
-        "to_dt": filters.get("to_date"),
-        "estimators": tuple(estimators),
-    }
+    Quotation = qb.DocType("Quotation")
+    Project = qb.DocType("Project")
+    Invoice = qb.DocType("Sales Invoice")
+
+    query = (
+        qb.from_(Quotation)
+        .inner_join(Project)
+        .on(Project.name == Quotation.project)
+        .inner_join(Invoice)
+        .on(Invoice.project == Project.name)
+        .select(
+            Quotation.estimator_id.as_("bodyshop_estimator_id"),
+            Quotation.estimator_name.as_("bodyshop_estimator_name"),
+            Quotation.name.as_("quotation"),
+            Quotation.transaction_date.as_("quotation_date"),
+            Quotation.status.as_("quotation_status"),
+            Quotation.net_total.as_("quotation_net_total"),
+            Project.name.as_("project"),
+            Project.project_date,
+            Project.project_type.as_("service_type"),
+            Project.project_status,
+            Invoice.name.as_("sales_invoice"),
+            Invoice.posting_date,
+            Invoice.base_net_total.as_("invoiced_net_amount"),
+            Invoice.base_grand_total.as_("invoiced_grand_amount"),
+        )
+        .where(Invoice.docstatus == 1)
+        .where(Quotation.docstatus == 1)
+        .where(
+            Invoice.posting_date.between(
+                filters.get("from_date"), filters.get("to_date")
+            )
+        )
+        .where(Quotation.estimator_id.isin(estimators))
+    )
 
     if filters.get("company"):
-        conditions += " and si.company = %(company)s"
-        values["company"] = filters.get("company")
+        query = query.where(Invoice.company == filters.get("company"))
 
-    rows = frappe.db.sql(
-        f"""
-		select
-			q.estimator_id as bodyshop_estimator_id,
-			q.estimator_name as bodyshop_estimator_name,
-			q.name as quotation,
-			q.transaction_date as quotation_date,
-			q.status as quotation_status,
-			q.net_total as quotation_net_total,
-			p.name as project,
-			p.project_date,
-			p.project_type as service_type,
-			p.project_status,
-			si.name as sales_invoice,
-			si.posting_date,
-			si.base_net_total as invoiced_net_amount,
-			si.base_grand_total as invoiced_grand_amount
-		from
-			`tabQuotation` q
-		join
-			`tabProject` p
-		on
-			p.name = q.project
-		join
-			`tabSales Invoice` si
-		on
-			si.project = p.name
-		where
-			si.docstatus = 1 and q.docstatus = 1
-			and si.posting_date between %(from_dt)s and %(to_dt)s
-			and q.estimator_id in %(estimators)s
-			{conditions}
-		""",
-        values,
-        as_dict=True,
-    )
+    rows = query.run(as_dict=True)
 
     groups = {}
     for row in rows:
@@ -348,49 +339,40 @@ def fetch_gross_profit_margin(filters):
     if not estimators:
         return []
 
-    conditions = ""
-    values = {
-        "from_dt": filters.get("from_date"),
-        "to_dt": filters.get("to_date"),
-        "estimators": tuple(estimators),
-        "completed_statuses": COMPLETED_PROJECT_STATUSES,
-    }
+    Quotation = qb.DocType("Quotation")
+    Project = qb.DocType("Project")
+
+    query = (
+        qb.from_(Quotation)
+        .inner_join(Project)
+        .on(Project.name == Quotation.project)
+        .select(
+            Quotation.estimator_id.as_("bodyshop_estimator_id"),
+            Quotation.estimator_name.as_("bodyshop_estimator_name"),
+            Project.name.as_("project"),
+            Max(Project.project_date).as_("project_date"),
+            Max(Project.status).as_("status"),
+            Max(Project.project_status).as_("project_status"),
+            Max(Project.project_type).as_("service_type"),
+            Max(Project.total_sales_amount).as_("total_sales_amount"),
+            Max(Project.gross_margin).as_("gross_margin"),
+            Max(Project.per_gross_margin).as_("per_gross_margin"),
+        )
+        .where(Quotation.docstatus == 1)
+        .where(Project.status.isin(list(COMPLETED_PROJECT_STATUSES)))
+        .where(
+            Project.project_date.between(
+                filters.get("from_date"), filters.get("to_date")
+            )
+        )
+        .where(Quotation.estimator_id.isin(estimators))
+        .groupby(Quotation.estimator_id, Project.name)
+    )
 
     if filters.get("company"):
-        conditions += " and p.company = %(company)s"
-        values["company"] = filters.get("company")
+        query = query.where(Project.company == filters.get("company"))
 
-    rows = frappe.db.sql(
-        f"""
-		select
-			q.estimator_id as bodyshop_estimator_id,
-			q.estimator_name as bodyshop_estimator_name,
-			p.name as project,
-			max(p.project_date) as project_date,
-			max(p.status) as status,
-			max(p.project_status) as project_status,
-			max(p.project_type) as service_type,
-			max(p.total_sales_amount) as total_sales_amount,
-			max(p.gross_margin) as gross_margin,
-			max(p.per_gross_margin) as per_gross_margin
-		from
-			`tabQuotation` q
-		join
-			`tabProject` p
-		on
-			p.name = q.project
-		where
-			q.docstatus = 1
-			and p.status in %(completed_statuses)s
-			and p.project_date between %(from_dt)s and %(to_dt)s
-			and q.estimator_id in %(estimators)s
-			{conditions}
-		group by
-			q.estimator_id, p.name
-		""",
-        values,
-        as_dict=True,
-    )
+    rows = query.run(as_dict=True)
 
     groups = {}
     for row in rows:
@@ -487,10 +469,6 @@ def apply_approved_estimate(filters, totals):
 
 
 def fetch_targets(filters):
-    to_date = getdate(filters.get("to_date") or getdate())
-    year = to_date.year
-    month_field = to_date.strftime("%B").lower()
-
     settings = frappe.get_cached_doc("Incentive Calculation Setttings")
     designations = [
         d.designation
@@ -500,30 +478,9 @@ def fetch_targets(filters):
     if not designations:
         return None
 
-    rows = frappe.db.sql(
-        f"""
-		select
-			tr.employee as bodyshop_estimator_id,
-			trd.{month_field} as target_amount
-		from
-			`tabTarget Role Details` trd
-		inner join
-			`tabTarget Role` tr on tr.name = trd.parent
-		where
-			trd.parenttype = 'Target Role'
-			and trd.parentfield = 'targets'
-			and trd.year = %(year)s
-			and tr.employee is not null
-			and tr.employee != ''
-            and tr.designation in %(designations)s
-		""",
-        {"year": year, "designations": tuple(designations)},
-        as_dict=True,
+    return fetch_month_targets(
+        designations, filters.get("to_date"), "bodyshop_estimator_id"
     )
-
-    return {
-        row.get("bodyshop_estimator_id"): flt(row.get("target_amount")) for row in rows
-    }
 
 
 def compute_revenue_amount(filters, totals):

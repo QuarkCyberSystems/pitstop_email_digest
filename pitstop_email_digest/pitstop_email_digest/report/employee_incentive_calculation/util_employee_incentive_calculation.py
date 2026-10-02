@@ -6,7 +6,64 @@ Productivity report. Designation specific logic lives in the sibling
 ``util_<designation>.py`` modules.
 """
 
-from frappe.utils import flt
+import frappe
+from frappe import qb
+from frappe.utils import flt, getdate
+
+# `Target Role Details` holds one target column per month, so the monthly target
+# has to be picked by column name. A column name cannot be passed as a query
+# parameter, so the name is checked against this set before it reaches the
+# query. Matches `date.strftime("%B").lower()`.
+TARGET_MONTH_FIELDS = frozenset(
+    (
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+    )
+)
+
+
+def fetch_month_targets(designations, to_date, id_field):
+    """Each employee's target for the month `to_date` falls in, keyed by employee.
+
+    `id_field` is the key the caller wants the employee under, so the result
+    merges into whatever column names its own queries use.
+    """
+    to_date = getdate(to_date or getdate())
+    month_field = to_date.strftime("%B").lower()
+    if month_field not in TARGET_MONTH_FIELDS:
+        frappe.throw(frappe._("Unknown target month column {0}").format(month_field))
+
+    TargetRole = qb.DocType("Target Role")
+    TargetRoleDetails = qb.DocType("Target Role Details")
+
+    rows = (
+        qb.from_(TargetRoleDetails)
+        .inner_join(TargetRole)
+        .on(TargetRole.name == TargetRoleDetails.parent)
+        .select(
+            TargetRole.employee.as_(id_field),
+            TargetRoleDetails[month_field].as_("target_amount"),
+        )
+        .where(TargetRoleDetails.parenttype == "Target Role")
+        .where(TargetRoleDetails.parentfield == "targets")
+        .where(TargetRoleDetails.year == to_date.year)
+        .where(TargetRole.employee.notnull())
+        .where(TargetRole.employee != "")
+        .where(TargetRole.designation.isin(designations))
+        .run(as_dict=True)
+    )
+
+    return {row.get(id_field): flt(row.get("target_amount")) for row in rows}
 
 
 def get_ladder_result(based_on, sold_hrs_percentage, ladder_field, top_cap):
