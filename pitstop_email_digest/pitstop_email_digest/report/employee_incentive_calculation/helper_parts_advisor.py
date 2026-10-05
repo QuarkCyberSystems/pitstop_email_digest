@@ -7,6 +7,7 @@ TEMPLATE_DATA = {
             "employee_id": "29732",
             "employee_name": "Zahid Gul",
             "branch": "Sajja",
+            "filters": {},
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 30,
@@ -19,6 +20,7 @@ TEMPLATE_DATA = {
             "employee_id": "28876",
             "employee_name": "Jery Mascarenha",
             "branch": "Sharjah Industrial Area 12",
+            "filters": {"applies_to_item_brand": "TESLA"},
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 40,
@@ -30,6 +32,7 @@ TEMPLATE_DATA = {
             "employee_id": "29982",
             "employee_name": "Milind Shridhar Kutal",
             "branch": "Sajja",
+            "filters": {"vehicle_workshop_division": "Mechanical"},
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 40,
@@ -41,6 +44,10 @@ TEMPLATE_DATA = {
             "employee_id": "31724",
             "employee_name": "Thoufeekh Karayampully AbdulRasheed",
             "branch": "Sajja",
+            "filters": {
+                "vehicle_workshop_division": "Body Shop",
+                "applies_to_item_brand": ["!=", "TESLA"],
+            },
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 40,
@@ -52,6 +59,7 @@ TEMPLATE_DATA = {
             "employee_id": "28893",
             "employee_name": "Vishnu Kondakath Valappil Bharathan",
             "branch": "Al Quoz 4",
+            "filters": {},
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 40,
@@ -63,6 +71,7 @@ TEMPLATE_DATA = {
             "employee_id": "28811",
             "employee_name": "Arul Jyothi",
             "branch": "Sajja",
+            "filters": {"applies_to_item_brand": "TESLA"},
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 40,
@@ -74,6 +83,7 @@ TEMPLATE_DATA = {
             "employee_id": "30716",
             "employee_name": "Fazal Abbas",
             "branch": "Musaffah",
+            "filters": {},
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 40,
@@ -85,6 +95,7 @@ TEMPLATE_DATA = {
             "employee_id": "29684",
             "employee_name": "Usman Noor",
             "branch": "Al Ain",
+            "filters": {},
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 40,
@@ -96,6 +107,7 @@ TEMPLATE_DATA = {
             "employee_id": "28824",
             "employee_name": "Mohammed Saeed Poothamkottil",
             "branch": "Rashidiya",
+            "filters": {},
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 40,
@@ -107,6 +119,7 @@ TEMPLATE_DATA = {
             "employee_id": "28852",
             "employee_name": "Mohammad Zeeshan Shaikh",
             "branch": "Sajja",
+            "filters": {},
             "weightage": {
                 "parts_sales": 20,
                 "parts_gp": 40,
@@ -118,6 +131,7 @@ TEMPLATE_DATA = {
             "employee_id": "28836",
             "employee_name": "Mohammed Aslam",
             "branch": "Al Quoz 4",
+            "filters": {},
             "weightage": {
                 "tat": 30,
                 "stock_turn": 30,
@@ -128,6 +142,7 @@ TEMPLATE_DATA = {
             "employee_id": "30666",
             "employee_name": "Aziz Ur Rehman Lubab Shah",
             "branch": "Sajja",
+            "filters": {},
             "weightage": {
                 "tat": 30,
                 "stock_turn": 30,
@@ -138,6 +153,7 @@ TEMPLATE_DATA = {
             "employee_id": "27033",
             "employee_name": "Mohammed Mueed Hussain",
             "branch": "Sajja",
+            "filters": {},
             "weightage": {
                 "tat": 30,
                 "stock_turn": 30,
@@ -148,6 +164,7 @@ TEMPLATE_DATA = {
             "employee_id": "29779",
             "employee_name": "Mohammad Tarique",
             "branch": "Sajja",
+            "filters": {},
             "weightage": {
                 "tat": 30,
                 "stock_turn": 30,
@@ -158,6 +175,7 @@ TEMPLATE_DATA = {
             "employee_id": "29579",
             "employee_name": "Mohammad Zaid Khan",
             "branch": "Sajja",
+            "filters": {},
             "weightage": {
                 "tat": 30,
                 "stock_turn": 30,
@@ -168,11 +186,36 @@ TEMPLATE_DATA = {
             "employee_id": "30665",
             "employee_name": "Mo Laraib Khan",
             "branch": "Sajja",
+            "filters": {},
             "weightage": {
                 "tat": 30,
                 "stock_turn": 30,
                 "physical_inventory": 40,
             },
         },
-    ]
+    ],
+    "parts_sales_ladder": {
+        85: 0,
+        90: 85,
+        95: 90,
+        100: 95,
+        105: 100,
+        110: 105,
+        115: 110,
+        125: 115,
+    },
+    "parts_gp_ladder": [
+        {
+            "employee_id": "29732",
+            "employee_name": "Zahid Gul",
+            "branch": "Sajja",
+            "criteria": {29.9: 0, 30: 100.0},
+        },
+        {
+            "employee_id": "28876",
+            "employee_name": "Jery Mascarenha",
+            "branch": "Sharjah Industrial Area 12",
+            "criteria": {39.9: 0, 40: 100.0},
+        },
+    ],
 }

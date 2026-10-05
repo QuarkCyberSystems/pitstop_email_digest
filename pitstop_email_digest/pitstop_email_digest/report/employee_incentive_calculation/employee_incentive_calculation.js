@@ -47,7 +47,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 				"Quality Controller",
 				"Bodyshop Estimator",
 				"Insurance BD",
-			], // "Bodyshop Estimator"
+			], // "Parts Advisor"
 			default: "Technician",
 			reqd: 1,
 			on_change: function () {

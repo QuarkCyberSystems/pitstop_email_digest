@@ -43,6 +43,8 @@ from . import (
 )
 from .helper_parts_advisor import TEMPLATE_DATA
 from .html_generator_employee_incentive_calculation import (
+    employee_rate_based_generate_ladder_html,
+    generate_employee_ladder_html,
     generate_employee_weightage_table,
     generate_ladder_html,
     generate_weightage_table,
@@ -106,7 +108,11 @@ LADDER_SPECS = [
     ("gross_profit_ladder", "Gross Profit", "rate", "%"),
     ("estimate_to_approval_ladder", "Estimate to Approval", "rate", "%"),
     ("labour_parts_mix_ladder", "Labour Parts Mix", "rate", "%"),
+    ("parts_sales_ladder", "Parts Sales %", "percent", None),
 ]
+
+# Ladders kept per employee (a list of `{employee_id, employee_name, criteria}`)
+EMPLOYEE_LADDER_SPECS = [("parts_gp_ladder", "Parts GP", "rate", "%")]
 
 
 def execute(filters=None):
@@ -134,6 +140,8 @@ class EmployeeIncentiveCalculationReport:
         self.module = DESIGNATION_UTILS.get(self.filters.get("based_on"))
         self.columns = []
         self.source_data = []
+        self.vehicle_brand_source_data = []
+        self.workshop_division_source_data = []
         self.source_columns = []
         self.qc_task_types = set()
         self.lookups = {}
@@ -163,6 +171,15 @@ class EmployeeIncentiveCalculationReport:
             productivity_report = WorkshopProductivityReport(self.filters).run()
             self.source_data = productivity_report[1]
             self.source_columns = productivity_report[0]
+        elif source_report == "turnover_parts_advisors":
+            self.filters.update(self.module.REPORT_FILTERS_1)
+            turnover_report = WorkshopTurnoverReport(self.filters).run()
+            self.vehicle_brand_source_data = turnover_report[1]
+            self.vehicle_brand_source_columns = turnover_report[0]
+            self.filters.update(self.module.REPORT_FILTERS_2)
+            turnover_report = WorkshopTurnoverReport(self.filters).run()
+            self.workshop_division_source_data = turnover_report[1]
+            self.workshop_division_source_columns = turnover_report[0]
 
     def _update_columns(self):
         for column in self.source_columns:
@@ -176,6 +193,16 @@ class EmployeeIncentiveCalculationReport:
             columns.extend(self.module.get_trailing_columns())
 
             weightages = self.module.TEMPLATE_DATA.get("weightages") or {}
+            if not weightages:
+                weightages = self.module.TEMPLATE_DATA.get("employee_weightages") or {}
+                if weightages:
+                    emp_weightages = set()
+                    for each_emp_weightage in weightages:
+                        for each_weightage_key in each_emp_weightage.get("weightage"):
+                            emp_weightages.add(each_weightage_key)
+                    if emp_weightages:
+                        weightages = emp_weightages
+
             columns.extend(
                 {
                     "label": format_label(field) + " Amt",
@@ -210,7 +237,15 @@ class EmployeeIncentiveCalculationReport:
     def _process_rows(self):
         if not self.module:
             return iter([])
-
+        based_on = self.filters.get("based_on")
+        if based_on == "Parts Advisor":
+            return self.module.process_rows(
+                self.filters,
+                self.vehicle_brand_source_data,
+                self.workshop_division_source_data,
+                self.qc_task_types,
+                self.lookups,
+            )
         return self.module.process_rows(
             self.filters,
             self.source_data,
@@ -239,6 +274,20 @@ class EmployeeIncentiveCalculationReport:
                 )
             else:
                 html = rate_based_generate_ladder_html(based_on, ladder_field, label)
+            if html:
+                ladder_html_tables.append(html)
+
+        for ladder_field, label, kind, suffix in EMPLOYEE_LADDER_SPECS:
+            if kind == "percent":
+                html = generate_employee_ladder_html(based_on, ladder_field, label)
+            elif suffix is not None:
+                html = employee_rate_based_generate_ladder_html(
+                    based_on, ladder_field, label, suffix
+                )
+            else:
+                html = employee_rate_based_generate_ladder_html(
+                    based_on, ladder_field, label
+                )
             if html:
                 ladder_html_tables.append(html)
 

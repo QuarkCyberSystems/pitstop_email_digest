@@ -14,16 +14,28 @@ import frappe
 from frappe.utils import flt
 
 from .helper_parts_advisor import TEMPLATE_DATA
-from .util_employee_incentive_calculation import fetch_month_targets
+from .util_employee_incentive_calculation import (
+    employee_weightage_amount,
+    fetch_month_targets,
+    get_employee_ladder_result,
+    get_ladder_result,
+)
 
 TEMPLATE_DATA = TEMPLATE_DATA
 
-REPORT_FILTERS = {
+REPORT_FILTERS = {}
+
+REPORT_FILTERS_1 = {
     "group_by_1": "Group by Branch",
-    "include_tasks": 1,
+    "group_by_2": "Group by Vehicle Brand",
 }
 
-SOURCE_REPORT = "turnover"
+REPORT_FILTERS_2 = {
+    "group_by_1": "Group by Branch",
+    "group_by_2": "Group by Workshop Division",
+}
+
+SOURCE_REPORT = "turnover_parts_advisor"
 
 # The branch figures copied onto each of the branch's advisors. Taken by name so
 # the group's internal keys (`_bold`, `_group_idx`, `reference`, ...) stay out of
@@ -84,12 +96,14 @@ def get_leading_columns():
             "fieldname": "parts_gross_profit",
             "fieldtype": "Currency",
             "width": 130,
+            "hidden": 1,
         },
         {
             "label": frappe._("Parts GP %"),
             "fieldname": "parts_profit_margin",
             "fieldtype": "Percent",
             "width": 120,
+            "hidden": 0,
         },
     ]
 
@@ -137,6 +151,49 @@ def prepare_lookups(filters):
     }
 
 
+def compute_revenue_amount(filters, totals):
+    totals["parts_sales_amt"] = 0.0
+
+    revenue_percentage = totals.get("parts_sales_percentage")
+
+    result = get_ladder_result(
+        based_on=filters.get("based_on"),
+        sold_hrs_percentage=revenue_percentage,
+        ladder_field="parts_sales_ladder",
+        top_cap=125.0,
+    )
+
+    if result:
+        totals["parts_sales_amt"] = flt(
+            employee_weightage_amount(
+                filters, totals.get("parts_advisor"), "parts_sales"
+            )
+            * (result / 100.0),
+            3,
+        )
+
+
+def compute_gp_amount(filters, totals):
+    totals["parts_gp_amt"] = 0.0
+
+    gp_percentage = totals.get("parts_profit_margin")
+
+    result = get_employee_ladder_result(
+        based_on=filters.get("based_on"),
+        employee_id=totals.get("parts_advisor"),
+        percentage=gp_percentage,
+        ladder_field="parts_gp_ladder",
+        top_cap=30.0,
+    )
+
+    if result:
+        totals["parts_gp_amt"] = flt(
+            employee_weightage_amount(filters, totals.get("parts_advisor"), "parts_gp")
+            * (result / 100.0),
+            3,
+        )
+
+
 def fetch_targets(filters):
     settings = frappe.get_cached_doc("Incentive Calculation Setttings")
     designations = [
@@ -172,39 +229,52 @@ def index_branch_totals(source_data):
     return branch_totals
 
 
-def process_rows(filters, source_data, qc_task_types, lookups):
-    allowed_parts_advisors = lookups.get("allowed_parts_advisors") or []
-    targets = lookups.get("targets") or {}
-    branch_totals = index_branch_totals(source_data)
+def process_rows(
+    filters,
+    vehicle_brand_source_data,
+    workshop_division_source_data,
+    qc_task_types,
+    lookups,
+):
+    pass
+    # allowed_parts_advisors = lookups.get("allowed_parts_advisors") or []
+    # targets = lookups.get("targets") or {}
+    # branch_totals = index_branch_totals(vehicle_brand_source_data)
+    # print(allowed_parts_advisors)
+    # print(targets)
+    # print(branch_totals)
 
-    for each_parts_advisor in allowed_parts_advisors:
-        parts_advisor = each_parts_advisor.get("name")
-        branch = each_parts_advisor.get("branch")
+    # for each_parts_advisor in allowed_parts_advisors:
+    #     parts_advisor = each_parts_advisor.get("name")
+    #     branch = each_parts_advisor.get("branch")
 
-        totals_dict = frappe._dict(
-            {
-                "parts_advisor": parts_advisor,
-                "parts_advisor_name": each_parts_advisor.get("employee_name"),
-                "branch": branch,
-            }
-        )
+    #     totals_dict = frappe._dict(
+    #         {
+    #             "parts_advisor": parts_advisor,
+    #             "parts_advisor_name": each_parts_advisor.get("employee_name"),
+    #             "branch": branch,
+    #         }
+    #     )
 
-        branch_row = branch_totals.get(branch) or {}
-        for field in BRANCH_TOTAL_FIELDS:
-            totals_dict[field] = flt(branch_row.get(field))
+    #     branch_row = branch_totals.get(branch) or {}
+    #     for field in BRANCH_TOTAL_FIELDS:
+    #         totals_dict[field] = flt(branch_row.get(field))
 
-        target = flt(targets.get(parts_advisor))
-        totals_dict["pa_target_revenue"] = target
-        totals_dict["parts_sales_percentage"] = (
-            flt((totals_dict["part_sales_amount"] / target) * 100.0, 3)
-            if target
-            else 0.0
-        )
+    #     target = flt(targets.get(parts_advisor))
+    #     totals_dict["pa_target_revenue"] = target
+    #     totals_dict["parts_sales_percentage"] = (
+    #         flt((totals_dict["part_sales_amount"] / target) * 100.0, 3)
+    #         if target
+    #         else 0.0
+    #     )
 
-        # Nothing is scored yet: TEMPLATE_DATA carries the per employee
-        # weightages but none of the ladders the parts sales, parts GP, TAT,
-        # stock turn and physical inventory results would be read off, and TAT,
-        # stock turn and physical inventory have no source at all.
-        totals_dict["calculated_incentive"] = 0.0
+    #     compute_revenue_amount(filters, totals_dict)
+    #     compute_gp_amount(filters, totals_dict)
 
-        yield totals_dict
+    #     # Nothing is scored yet: TEMPLATE_DATA carries the per employee
+    #     # weightages but none of the ladders the parts sales, parts GP, TAT,
+    #     # stock turn and physical inventory results would be read off, and TAT,
+    #     # stock turn and physical inventory have no source at all.
+    #     totals_dict["calculated_incentive"] = 0.0
+
+    yield {}

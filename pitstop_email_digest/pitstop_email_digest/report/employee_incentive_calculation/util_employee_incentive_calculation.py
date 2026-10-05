@@ -91,10 +91,72 @@ def get_weightage_amount(based_on, base_incentive, field_name):
                 return amount
 
 
+def get_employee_weightage_amount(based_on, base_incentive, employee_id, field_name):
+    """Like `get_weightage_amount`, for templates that carry a weightage per
+    employee (`employee_weightages`) instead of one for the whole designation."""
+    from .employee_incentive_calculation import BASED_ON_TEMPLATE_DATA
+
+    if BASED_ON_TEMPLATE_DATA.get(based_on):
+        employee_weightages = BASED_ON_TEMPLATE_DATA.get(based_on).get(
+            "employee_weightages", []
+        )
+
+        for employee in employee_weightages:
+            if str(employee.get("employee_id")) == str(employee_id):
+                percentage = employee.get("weightage", {}).get(field_name)
+                if percentage is not None:
+                    return base_incentive * percentage / 100
+                return None
+
+
 def get_rate_ladder_result(based_on, percentage, ladder_field, top_cap):
     from .employee_incentive_calculation import BASED_ON_TEMPLATE_DATA
 
     ladder = BASED_ON_TEMPLATE_DATA.get(based_on, {}).get(ladder_field, {})
+
+    if not ladder:
+        return None
+
+    thresholds = sorted(ladder.keys())
+
+    for threshold in reversed(thresholds):
+        if percentage >= threshold:
+            return ladder[threshold]
+
+    # Less than the lowest threshold
+    return ladder[thresholds[0]]
+
+
+def get_employee_ladder_criteria(based_on, employee_id, ladder_field):
+    """The `criteria` of `employee_id` in a ladder kept per employee: a list of
+    `{"employee_id", "employee_name", "criteria": {threshold: result}}`."""
+    from .employee_incentive_calculation import BASED_ON_TEMPLATE_DATA
+
+    employee_ladders = BASED_ON_TEMPLATE_DATA.get(based_on, {}).get(ladder_field) or []
+
+    for employee in employee_ladders:
+        if str(employee.get("employee_id")) == str(employee_id):
+            return employee.get("criteria") or {}
+
+    return {}
+
+
+def get_employee_ladder_result(
+    based_on, employee_id, percentage, ladder_field, top_cap
+):
+    """Like `get_ladder_result`, for ladders kept per employee."""
+    ladder = get_employee_ladder_criteria(based_on, employee_id, ladder_field)
+
+    if ladder:
+        for threshold, result in ladder.items():
+            if percentage < threshold:
+                return result
+        return top_cap
+
+
+def get_employee_rate_ladder_result(based_on, employee_id, percentage, ladder_field):
+    """Like `get_rate_ladder_result`, for ladders kept per employee."""
+    ladder = get_employee_ladder_criteria(based_on, employee_id, ladder_field)
 
     if not ladder:
         return None
@@ -152,6 +214,18 @@ def weightage_amount(filters, field_name):
         get_weightage_amount(
             based_on=filters.get("based_on"),
             base_incentive=filters.get("base_incentive") or 0.0,
+            field_name=field_name,
+        )
+        or 0
+    )
+
+
+def employee_weightage_amount(filters, employee_id, field_name):
+    return (
+        get_employee_weightage_amount(
+            based_on=filters.get("based_on"),
+            base_incentive=filters.get("base_incentive") or 0.0,
+            employee_id=employee_id,
             field_name=field_name,
         )
         or 0
