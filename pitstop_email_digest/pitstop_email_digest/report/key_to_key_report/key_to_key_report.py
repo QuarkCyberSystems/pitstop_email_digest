@@ -49,31 +49,24 @@ class VehicleKeyToKeyReport(object):
         conditions = ""
 
         if self.filters.to_date:
-            conditions += " and p.vehicle_received_date <= '{to_date}'".format(
-                to_date=self.filters.get("to_date")
-            )
+            conditions += " and p.vehicle_received_date <= %(to_date)s"
 
         if self.filters.from_date:
-            conditions += " and p.vehicle_received_date >= '{from_date}'".format(
-                from_date=self.filters.get("from_date")
-            )
+            conditions += " and p.vehicle_received_date >= %(from_date)s"
 
         if self.filters.workshop_division:
-            conditions += " and p.vehicle_workshop_division = '{vehicle_workshop_division}'".format(
-                vehicle_workshop_division=self.filters.workshop_division
-            )
+            conditions += " and p.vehicle_workshop_division = %(workshop_division)s"
 
         if self.filters.repair_order:
-            conditions += " and p.name = '{repair_order}'".format(
-                repair_order=self.filters.repair_order
-            )
+            conditions += " and p.name = %(repair_order)s"
 
         return conditions
 
     def get_data(self):
         conditions = self.get_conditions()
 
-        self.data = frappe.db.sql(
+        # conditions only contains hardcoded SQL fragments; filter values are passed as query parameters
+        self.data = frappe.db.sql(  # nosemgrep: frappe-db-sql-injection
             """
 			select p.name as project, p.project_name, p.project_type, p.project_date,
 				p.vehicle_workshop, p.vehicle_workshop_division, p.company,
@@ -146,9 +139,10 @@ class VehicleKeyToKeyReport(object):
 			) sii ON sii.project = p.name
 
 			left join `tabItem` item on item.name = p.applies_to_item
-			where status != 'Cancelled' {0}
+			where p.status != 'Cancelled' {0}
 			order by p.vehicle_received_date, p.vehicle_received_time, p.project_date
 		""".format(conditions),
+            self.filters,
             as_dict=1,
         )
 
