@@ -171,15 +171,6 @@ class EmployeeIncentiveCalculationReport:
             productivity_report = WorkshopProductivityReport(self.filters).run()
             self.source_data = productivity_report[1]
             self.source_columns = productivity_report[0]
-        elif source_report == "turnover_parts_advisors":
-            self.filters.update(self.module.REPORT_FILTERS_1)
-            turnover_report = WorkshopTurnoverReport(self.filters).run()
-            self.vehicle_brand_source_data = turnover_report[1]
-            self.vehicle_brand_source_columns = turnover_report[0]
-            self.filters.update(self.module.REPORT_FILTERS_2)
-            turnover_report = WorkshopTurnoverReport(self.filters).run()
-            self.workshop_division_source_data = turnover_report[1]
-            self.workshop_division_source_columns = turnover_report[0]
 
     def _update_columns(self):
         for column in self.source_columns:
@@ -237,15 +228,7 @@ class EmployeeIncentiveCalculationReport:
     def _process_rows(self):
         if not self.module:
             return iter([])
-        based_on = self.filters.get("based_on")
-        if based_on == "Parts Advisor":
-            return self.module.process_rows(
-                self.filters,
-                self.vehicle_brand_source_data,
-                self.workshop_division_source_data,
-                self.qc_task_types,
-                self.lookups,
-            )
+
         return self.module.process_rows(
             self.filters,
             self.source_data,

@@ -23,19 +23,14 @@ from .util_employee_incentive_calculation import (
 
 TEMPLATE_DATA = TEMPLATE_DATA
 
-REPORT_FILTERS = {}
-
-REPORT_FILTERS_1 = {
-    "group_by_1": "Group by Branch",
-    "group_by_2": "Group by Vehicle Brand",
-}
-
-REPORT_FILTERS_2 = {
+REPORT_FILTERS = {
     "group_by_1": "Group by Branch",
     "group_by_2": "Group by Workshop Division",
+    "group_by_3": "Group by Vehicle Brand",
+    "totals_only": 1,
 }
 
-SOURCE_REPORT = "turnover_parts_advisor"
+SOURCE_REPORT = "turnover"
 
 # The branch figures copied onto each of the branch's advisors. Taken by name so
 # the group's internal keys (`_bold`, `_group_idx`, `reference`, ...) stay out of
@@ -207,11 +202,42 @@ def fetch_targets(filters):
     return fetch_month_targets(designations, filters.get("to_date"), "parts_advisor_id")
 
 
+def copy_totals(totals):
+    """A copy of just the `BRANCH_TOTAL_FIELDS` of a group's totals."""
+    return frappe._dict(
+        {field: flt(totals.get(field)) for field in BRANCH_TOTAL_FIELDS}
+    )
+
+
+def add_totals(target, totals):
+    """Add `totals` into `target`, recomputing the margin from the summed figures.
+
+    `parts_profit_margin` is a ratio, so it is not summed: it is worked out again
+    the way the turnover report does, GP over material sales.
+    """
+    for field in BRANCH_TOTAL_FIELDS:
+        if field != "parts_profit_margin":
+            target[field] = flt(target.get(field)) + flt(totals.get(field))
+
+    target["parts_profit_margin"] = (
+        target["parts_gross_profit"] / target["material_sales_amount"] * 100.0
+        if target["material_sales_amount"]
+        else 0.0
+    )
+
+
 def index_branch_totals(source_data):
     """Each branch's turnover totals, keyed by branch.
 
-    The source report is grouped by branch, so every group under the top level
-    is one branch and its `totals` carry that branch's figures.
+    The source report is grouped by branch > workshop division > vehicle brand,
+    so every group under the top level is one branch, its `rows` are that
+    branch's divisions and theirs are the brand totals within each division.
+
+    Besides the branch figures, each branch carries:
+      - `workshop_divisions`: the totals of each division, keyed by division,
+        each with its own `vehicle_brands` (the brand totals within it)
+      - `vehicle_brands`: the totals of each brand, keyed by brand, summed
+        across the branch's divisions
     """
     branch_totals = {}
 
@@ -223,58 +249,151 @@ def index_branch_totals(source_data):
             totals = each_group_data.get("totals") or {}
             branch = totals.get("branch") or each_group_data.get("group_value")
 
-            if branch:
-                branch_totals[branch] = totals
+            if not branch:
+                continue
+
+            branch_row = copy_totals(totals)
+            branch_row["workshop_divisions"] = {}
+            branch_row["vehicle_brands"] = {}
+
+            for each_division_data in each_group_data.get("rows") or []:
+                division_totals = each_division_data.get("totals") or {}
+                division = division_totals.get(
+                    "vehicle_workshop_division"
+                ) or each_division_data.get("group_value")
+
+                division_row = None
+                if division:
+                    division_row = copy_totals(division_totals)
+                    division_row["vehicle_brands"] = {}
+                    branch_row["workshop_divisions"][division] = division_row
+
+                for each_brand_data in each_division_data.get("rows") or []:
+                    # With `totals_only` the last level is the totals rows
+                    # themselves rather than groups wrapping them.
+                    brand_totals = each_brand_data.get("totals") or each_brand_data
+                    brand = brand_totals.get(
+                        "applies_to_item_brand"
+                    ) or each_brand_data.get("group_value")
+
+                    if brand:
+                        if division_row is not None:
+                            add_totals(
+                                division_row["vehicle_brands"].setdefault(
+                                    brand, frappe._dict()
+                                ),
+                                brand_totals,
+                            )
+                        add_totals(
+                            branch_row["vehicle_brands"].setdefault(
+                                brand, frappe._dict()
+                            ),
+                            brand_totals,
+                        )
+
+            branch_totals[branch] = branch_row
 
     return branch_totals
 
 
-def process_rows(
-    filters,
-    vehicle_brand_source_data,
-    workshop_division_source_data,
-    qc_task_types,
-    lookups,
-):
-    pass
-    # allowed_parts_advisors = lookups.get("allowed_parts_advisors") or []
-    # targets = lookups.get("targets") or {}
-    # branch_totals = index_branch_totals(vehicle_brand_source_data)
+def matches_filter(value, condition):
+    """Whether `value` passes one employee filter condition.
+
+    `condition` is either a plain value (equality) or an `[operator, value]`
+    pair, with `=`, `!=`, `in` and `not in` understood.
+    """
+    if not isinstance(condition, (list, tuple)):
+        return value == condition
+
+    operator, expected = condition
+    if operator == "=":
+        return value == expected
+    if operator == "!=":
+        return value != expected
+    if operator == "in":
+        return value in expected
+    if operator == "not in":
+        return value not in expected
+
+    frappe.throw(frappe._("Unsupported filter operator: {0}").format(operator))
+
+
+def filter_branch_totals(branch_row, employee_filter):
+    """The `BRANCH_TOTAL_FIELDS` of `branch_row`, narrowed to `employee_filter`.
+
+    The filter may set `vehicle_workshop_division`, `applies_to_item_brand` or
+    both. Divisions are picked first; within each, either the whole division is
+    taken or, when a brand condition is set, only its matching brands.
+    """
+    division_condition = employee_filter.get("vehicle_workshop_division")
+    brand_condition = employee_filter.get("applies_to_item_brand")
+
+    filtered = frappe._dict({field: 0.0 for field in BRANCH_TOTAL_FIELDS})
+
+    for division, division_row in (branch_row.get("workshop_divisions") or {}).items():
+        if division_condition is not None and not matches_filter(
+            division, division_condition
+        ):
+            continue
+
+        if brand_condition is None:
+            add_totals(filtered, division_row)
+            continue
+
+        for brand, brand_row in (division_row.get("vehicle_brands") or {}).items():
+            if matches_filter(brand, brand_condition):
+                add_totals(filtered, brand_row)
+
+    return filtered
+
+
+def process_rows(filters, source_data, qc_task_types, lookups):
+    allowed_parts_advisors = lookups.get("allowed_parts_advisors") or []
+    targets = lookups.get("targets") or {}
+    branch_totals = index_branch_totals(source_data)
     # print(allowed_parts_advisors)
     # print(targets)
     # print(branch_totals)
 
-    # for each_parts_advisor in allowed_parts_advisors:
-    #     parts_advisor = each_parts_advisor.get("name")
-    #     branch = each_parts_advisor.get("branch")
+    for each_parts_advisor in allowed_parts_advisors:
+        parts_advisor = each_parts_advisor.get("name")
+        branch = each_parts_advisor.get("branch")
+        employee_filter = {}
+        for each_weightage in TEMPLATE_DATA.get("employee_weightages"):
+            if each_weightage.get("employee_id") == parts_advisor:
+                employee_filter = each_weightage.get("filters")
+                break
+        else:
+            continue
+        totals_dict = frappe._dict(
+            {
+                "parts_advisor": parts_advisor,
+                "parts_advisor_name": each_parts_advisor.get("employee_name"),
+                "branch": branch,
+            }
+        )
+        branch_row = branch_totals.get(branch) or {}
+        if employee_filter:
+            branch_row = filter_branch_totals(branch_row, employee_filter)
 
-    #     totals_dict = frappe._dict(
-    #         {
-    #             "parts_advisor": parts_advisor,
-    #             "parts_advisor_name": each_parts_advisor.get("employee_name"),
-    #             "branch": branch,
-    #         }
-    #     )
+        for field in BRANCH_TOTAL_FIELDS:
+            totals_dict[field] = flt(branch_row.get(field))
 
-    #     branch_row = branch_totals.get(branch) or {}
-    #     for field in BRANCH_TOTAL_FIELDS:
-    #         totals_dict[field] = flt(branch_row.get(field))
+        target = flt(targets.get(parts_advisor))
+        totals_dict["pa_target_revenue"] = target
+        totals_dict["parts_sales_percentage"] = (
+            flt((totals_dict["part_sales_amount"] / target) * 100.0, 3)
+            if target
+            else 0.0
+        )
 
-    #     target = flt(targets.get(parts_advisor))
-    #     totals_dict["pa_target_revenue"] = target
-    #     totals_dict["parts_sales_percentage"] = (
-    #         flt((totals_dict["part_sales_amount"] / target) * 100.0, 3)
-    #         if target
-    #         else 0.0
-    #     )
+        compute_revenue_amount(filters, totals_dict)
+        compute_gp_amount(filters, totals_dict)
 
-    #     compute_revenue_amount(filters, totals_dict)
-    #     compute_gp_amount(filters, totals_dict)
+        #     # Nothing is scored yet: TEMPLATE_DATA carries the per employee
+        #     # weightages but none of the ladders the parts sales, parts GP, TAT,
+        #     # stock turn and physical inventory results would be read off, and TAT,
+        #     # stock turn and physical inventory have no source at all.
+        totals_dict["calculated_incentive"] = 0.0
 
-    #     # Nothing is scored yet: TEMPLATE_DATA carries the per employee
-    #     # weightages but none of the ladders the parts sales, parts GP, TAT,
-    #     # stock turn and physical inventory results would be read off, and TAT,
-    #     # stock turn and physical inventory have no source at all.
-    #     totals_dict["calculated_incentive"] = 0.0
-
-    yield {}
+        yield totals_dict
