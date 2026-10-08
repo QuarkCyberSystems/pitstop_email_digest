@@ -11,7 +11,7 @@ stays 0 until the ladders land.
 """
 
 import frappe
-from frappe.utils import flt
+from frappe.utils import evaluate_filters, flt
 
 from .helper_parts_advisor import TEMPLATE_DATA
 from .util_employee_incentive_calculation import (
@@ -28,6 +28,8 @@ REPORT_FILTERS = {
     "group_by_2": "Group by Workshop Division",
     "group_by_3": "Group by Vehicle Brand",
     "totals_only": 1,
+    # Throughput and open RO counts cost two queries per group and are not used
+    "skip_throughput_and_open_ros": 1,
 }
 
 SOURCE_REPORT = "turnover"
@@ -296,28 +298,6 @@ def index_branch_totals(source_data):
     return branch_totals
 
 
-def matches_filter(value, condition):
-    """Whether `value` passes one employee filter condition.
-
-    `condition` is either a plain value (equality) or an `[operator, value]`
-    pair, with `=`, `!=`, `in` and `not in` understood.
-    """
-    if not isinstance(condition, (list, tuple)):
-        return value == condition
-
-    operator, expected = condition
-    if operator == "=":
-        return value == expected
-    if operator == "!=":
-        return value != expected
-    if operator == "in":
-        return value in expected
-    if operator == "not in":
-        return value not in expected
-
-    frappe.throw(frappe._("Unsupported filter operator: {0}").format(operator))
-
-
 def filter_branch_totals(branch_row, employee_filter):
     """The `BRANCH_TOTAL_FIELDS` of `branch_row`, narrowed to `employee_filter`.
 
@@ -331,8 +311,9 @@ def filter_branch_totals(branch_row, employee_filter):
     filtered = frappe._dict({field: 0.0 for field in BRANCH_TOTAL_FIELDS})
 
     for division, division_row in (branch_row.get("workshop_divisions") or {}).items():
-        if division_condition is not None and not matches_filter(
-            division, division_condition
+        if division_condition is not None and not evaluate_filters(
+            {"vehicle_workshop_division": division},
+            {"vehicle_workshop_division": division_condition},
         ):
             continue
 
@@ -341,7 +322,10 @@ def filter_branch_totals(branch_row, employee_filter):
             continue
 
         for brand, brand_row in (division_row.get("vehicle_brands") or {}).items():
-            if matches_filter(brand, brand_condition):
+            if evaluate_filters(
+                {"applies_to_item_brand": brand},
+                {"applies_to_item_brand": brand_condition},
+            ):
                 add_totals(filtered, brand_row)
 
     return filtered
@@ -351,9 +335,6 @@ def process_rows(filters, source_data, qc_task_types, lookups):
     allowed_parts_advisors = lookups.get("allowed_parts_advisors") or []
     targets = lookups.get("targets") or {}
     branch_totals = index_branch_totals(source_data)
-    # print(allowed_parts_advisors)
-    # print(targets)
-    # print(branch_totals)
 
     for each_parts_advisor in allowed_parts_advisors:
         parts_advisor = each_parts_advisor.get("name")
