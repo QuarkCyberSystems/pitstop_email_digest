@@ -141,11 +141,52 @@ def fetch_parts_advisors(is_list=True):
     )
 
 
-def prepare_lookups(filters):
-    return {
-        "allowed_parts_advisors": fetch_parts_advisors(is_list=False),
-        "targets": fetch_targets(filters),
-    }
+def get_stock_recon_variance_by_branch(filters):
+    from_date = filters.get("from_date")
+    to_date = filters.get("to_date")
+    company = filters.get("company")
+
+    data = frappe.db.sql(
+        """
+		select
+			wh.branch,
+			sum(sri.current_qty) as expected_qty,
+			sum(abs(sri.quantity_difference)) as abs_diff_qty,
+			sum(case when sri.quantity_difference < 0 then abs(sri.quantity_difference) else 0 end) as shortage_qty,
+			sum(sri.current_amount) as expected_value,
+			sum(abs(sri.amount_difference)) as abs_diff_value
+		from `tabStock Reconciliation` sr
+		inner join `tabStock Reconciliation Item` sri on sri.parent = sr.name
+		inner join `tabWarehouse` wh on wh.name = sri.warehouse
+		where sr.docstatus = 1
+			and sr.purpose != 'Opening Stock'
+			and sr.posting_date between %(from_date)s and %(to_date)s
+			and ifnull(wh.branch, '') != ''
+			and (ifnull(%(company)s, '') = '' or sr.company = %(company)s)
+		group by wh.branch
+	""",
+        {
+            "from_date": from_date,
+            "to_date": to_date,
+            "company": company,
+        },
+        as_dict=1,
+    )
+
+    for d in data:
+        d.variance_qty_pct = (
+            (flt(d.abs_diff_qty) / flt(d.expected_qty) * 100) if d.expected_qty else 0
+        )
+        d.shortage_qty_pct = (
+            (flt(d.shortage_qty) / flt(d.expected_qty) * 100) if d.expected_qty else 0
+        )
+        d.variance_value_pct = (
+            (flt(d.abs_diff_value) / flt(d.expected_value) * 100)
+            if d.expected_value
+            else 0
+        )
+
+    return {d.branch: d for d in data}
 
 
 def compute_revenue_amount(filters, totals):
@@ -237,9 +278,9 @@ def index_branch_totals(source_data):
 
     Besides the branch figures, each branch carries:
       - `workshop_divisions`: the totals of each division, keyed by division,
-        each with its own `vehicle_brands` (the brand totals within it)
+            each with its own `vehicle_brands` (the brand totals within it)
       - `vehicle_brands`: the totals of each brand, keyed by brand, summed
-        across the branch's divisions
+            across the branch's divisions
     """
     branch_totals = {}
 
@@ -329,6 +370,16 @@ def filter_branch_totals(branch_row, employee_filter):
                 add_totals(filtered, brand_row)
 
     return filtered
+
+
+def prepare_lookups(filters):
+    return {
+        "allowed_parts_advisors": fetch_parts_advisors(is_list=False),
+        "targets": fetch_targets(filters),
+        "get_stock_recon_variance_by_branch": get_stock_recon_variance_by_branch(
+            filters
+        ),
+    }
 
 
 def process_rows(filters, source_data, qc_task_types, lookups):
