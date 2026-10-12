@@ -105,7 +105,7 @@ def fetch_group_by_payment_mode_data(pos_opening_entry_count):
     Only the number of entries shapes the query: it expands to that many bind
     placeholders, which the caller fills with the names as the values argument.
     """
-    placeholders = ", ".join(["%s"] * pos_opening_entry_count)
+    placeholders = ",".join(["%s"] * pos_opening_entry_count)
     return f"""
 		select
 			tpced.mode_of_payment,
