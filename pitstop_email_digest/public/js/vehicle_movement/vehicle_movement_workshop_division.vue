@@ -1,5 +1,5 @@
 <template>
-	<div class="w-full p-2">
+	<div class="w-full p-2 lg:w-3/4">
 		<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
 			<!-- Header + filters -->
 			<div class="space-y-3 p-3">
@@ -84,7 +84,7 @@
 
 			<!-- Table -->
 			<div class="overflow-x-auto">
-				<table ref="tableRef" class="m-0 w-full border-collapse whitespace-nowrap text-xs">
+				<table ref="tableRef" class="m-0 w-full border-collapse text-xs">
 					<thead class="bg-gray-50 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
 						<tr>
 							<th rowspan="3" :class="[th, 'text-left']">Status</th>
@@ -109,7 +109,9 @@
 										ts === 'MTD' ? 'border-l' : 'bg-gray-100',
 									]"
 								>
-									{{ ts }} <span class="font-normal">({{ timespanLabels[ts] }})</span>
+									{{ ts }}<br /><span class="whitespace-nowrap font-normal"
+										>({{ timespanLabels[ts] }})</span
+									>
 								</th>
 							</template>
 						</tr>
@@ -122,7 +124,7 @@
 										Cars
 									</th>
 									<th :class="[th, 'text-right', ts === 'YTD' && 'bg-gray-100']">
-										Avg Days
+										Avg<br />Days
 									</th>
 								</template>
 							</template>
@@ -182,11 +184,11 @@
 								</template>
 							</tr>
 							<tr class="bg-gray-100 font-semibold text-gray-900">
-								<td class="px-3 py-2">Total</td>
+								<td class="px-2 py-2">Total</td>
 								<template v-for="g in GROUPS" :key="g.key">
 									<template v-for="ts in TIMESPANS" :key="ts">
 										<td
-											class="px-3 py-2 text-right"
+											class="px-2 py-2 text-right"
 											:class="
 												ts === 'MTD' &&
 												'border-0 border-l border-solid border-gray-200'
@@ -194,7 +196,7 @@
 										>
 											{{ totals[g.key][ts].count }}
 										</td>
-										<td class="px-3 py-2 text-right">{{ totals[g.key][ts].avg }}</td>
+										<td class="px-2 py-2 text-right">{{ totals[g.key][ts].avg }}</td>
 									</template>
 								</template>
 							</tr>
@@ -254,8 +256,8 @@ const GROUPS = [
 const TIMESPANS = ["MTD", "YTD"];
 const colCount = 1 + GROUPS.length * TIMESPANS.length * 2;
 
-const th = "border-0 border-b border-solid border-gray-200 px-3 py-2";
-const td = "border-0 border-b border-solid border-gray-100 px-3 py-2";
+const th = "border-0 border-b border-solid border-gray-200 px-2 py-2";
+const td = "border-0 border-b border-solid border-gray-100 px-2 py-2";
 
 const fiscalYears = ref([]);
 const branches = ref([]);

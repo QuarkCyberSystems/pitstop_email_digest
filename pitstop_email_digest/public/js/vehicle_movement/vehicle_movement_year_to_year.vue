@@ -1,5 +1,5 @@
 <template>
-	<div class="w-full p-2 lg:w-1/2 lg:min-w-[340px]">
+	<div class="w-full p-2">
 		<div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
 			<!-- Header + filters -->
 			<div class="space-y-3 p-3">

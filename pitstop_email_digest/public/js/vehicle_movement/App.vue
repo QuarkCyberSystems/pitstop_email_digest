@@ -16,8 +16,11 @@
 		</div>
 
 		<div v-show="hasCustomerFilter" class="flex flex-wrap items-start">
-			<VehicleMovementYearToYear :customer-filters="customerFilters" />
-			<VehicleMovementADay :customer-filters="customerFilters" />
+			<!-- 1/4 column: Year to Year above a Day -->
+			<div class="w-full lg:w-1/4">
+				<VehicleMovementYearToYear :customer-filters="customerFilters" />
+				<VehicleMovementADay :customer-filters="customerFilters" />
+			</div>
 			<VehicleMovementWorkshopDivision :customer-filters="customerFilters" />
 		</div>
 	</div>
