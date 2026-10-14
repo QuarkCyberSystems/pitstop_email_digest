@@ -74,7 +74,7 @@ fixtures = [
                     # BRAC
                     "Vehicle Mobility BRAC",
                     # ALL
-                    "Vehicle Mobility ALL",
+                    "Workshop ALL",
                     "Invoice WIP MAP",
                 ],
             ]
@@ -138,7 +138,7 @@ fixtures = [
 # app_include_css = "/assets/pitstop_email_digest/css/pitstop_email_digest.css"
 boot_session = "pitstop_email_digest.boot.boot.boot_session"
 update_website_context = ["pitstop_email_digest.boot.boot.update_website_context"]
-app_include_css = "/assets/pitstop_email_digest/css/tailwind.css"
+app_include_css = "/assets/pitstop_email_digest/css/tailwind.output.css"
 app_include_js = "/assets/pitstop_email_digest/js/env_banner.js"
 # app_include_js = "/assets/pitstop_email_digest/js/pitstop_email_digest.js"
 
@@ -204,6 +204,7 @@ after_install = "pitstop_email_digest.pitstop_email_digest.setup.master_asset.cr
 
 after_migrate = [
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_ro_sold_hours_to_workshop",
+    "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_vehicle_movement_to_workshop",
     "pitstop_email_digest.pitstop_email_digest.setup.doctype_permissions.apply_doctype_read_permissions",
 ]
 

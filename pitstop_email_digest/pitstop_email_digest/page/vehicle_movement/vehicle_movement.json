@@ -1,0 +1,32 @@
+{
+ "content": null,
+ "creation": "2026-10-14 16:51:46.514262",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-10-14 20:30:14.455124",
+ "modified_by": "Administrator",
+ "module": "Pitstop Email Digest",
+ "name": "vehicle_movement",
+ "owner": "Administrator",
+ "page_name": "vehicle_movement",
+ "roles": [
+  {
+   "role": "Finance Manager Role"
+  },
+  {
+   "role": "Finance Manager Assistant"
+  },
+  {
+   "role": "Accounts User"
+  },
+  {
+   "role": "Management Role"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Vehicle Movement"
+}

@@ -1,8 +1,6 @@
 import frappe
 
 WORKSPACE = "Workshop"
-CARD = "Billing Reports"
-REPORT = "RO Sold Hours"
 
 LINK_FIELDS = (
     "type",
@@ -27,19 +25,38 @@ def add_ro_sold_hours_to_workshop():
     The Workshop workspace is owned by the `automotive` app, which re-imports it on every
     migrate and overwrites its links. Running this on `after_migrate` re-applies the link.
     """
-    if not frappe.db.exists("Workspace", WORKSPACE) or not frappe.db.exists(
-        "Report", REPORT
+    add_link_to_workspace_card(
+        WORKSPACE, "Billing Reports", "Report", "RO Sold Hours", is_query_report=1
+    )
+
+
+def add_vehicle_movement_to_workshop():
+    """Add the Vehicle Movement page to the Workshop card of the Workshop workspace.
+
+    Re-applied on `after_migrate` for the same reason as `add_ro_sold_hours_to_workshop`.
+    """
+    add_link_to_workspace_card(
+        WORKSPACE, "Workshop", "Page", "vehicle_movement", label="Vehicle Movement"
+    )
+
+
+def add_link_to_workspace_card(
+    workspace, card, link_type, link_to, label=None, is_query_report=0
+):
+    """Append a link to the end of a card in a workspace, if it is not there already."""
+    if not frappe.db.exists("Workspace", workspace) or not frappe.db.exists(
+        link_type, link_to
     ):
         return
 
-    doc = frappe.get_doc("Workspace", WORKSPACE)
+    doc = frappe.get_doc("Workspace", workspace)
     rows = [{field: link.get(field) for field in LINK_FIELDS} for link in doc.links]
 
     card_idx = next(
         (
             i
             for i, row in enumerate(rows)
-            if row["type"] == "Card Break" and row["label"] == CARD
+            if row["type"] == "Card Break" and row["label"] == card
         ),
         None,
     )
@@ -49,19 +66,19 @@ def add_ro_sold_hours_to_workshop():
     link_count = int(rows[card_idx].get("link_count") or 0)
     card_links = rows[card_idx + 1 : card_idx + 1 + link_count]
 
-    if any(row.get("link_to") == REPORT for row in card_links):
+    if any(row.get("link_to") == link_to for row in card_links):
         return
 
     rows.insert(
         card_idx + 1 + link_count,
         {
             "type": "Link",
-            "label": REPORT,
+            "label": label or link_to,
             "hidden": 0,
-            "link_type": "Report",
-            "link_to": REPORT,
+            "link_type": link_type,
+            "link_to": link_to,
             "onboard": 0,
-            "is_query_report": 1,
+            "is_query_report": is_query_report,
             "link_count": 0,
         },
     )
