@@ -44,7 +44,6 @@
 									<path d="M7 10l5 5 5-5" />
 									<path d="M12 15V3" />
 								</svg>
-								Excel
 							</button>
 							<button
 								@click="emit('close')"
