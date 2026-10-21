@@ -1,22 +1,24 @@
 <template>
-	<div class="p-2 space-y-4">
-		<CFFilters v-model:fromDate="fromDate" v-model:toDate="toDate" @refresh="loadItems" />
+	<div class="tw-scope">
+		<div class="p-2 space-y-4">
+			<CFFilters v-model:fromDate="fromDate" v-model:toDate="toDate" @refresh="loadItems" />
 
-		<div class="flex flex-col md:flex-row gap-4 py-4">
-			<div v-if="loading" class="w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-				<div class="animate-pulse space-y-3">
-					<div class="h-8 w-48 rounded bg-gray-200"></div>
+			<div class="flex flex-col md:flex-row gap-4 py-4">
+				<div v-if="loading" class="w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+					<div class="animate-pulse space-y-3">
+						<div class="h-8 w-48 rounded bg-gray-200"></div>
 
-					<div v-for="n in 8" :key="n" class="flex items-center justify-between">
-						<div class="h-4 w-56 rounded bg-gray-200"></div>
-						<div class="h-4 w-12 rounded bg-gray-200"></div>
+						<div v-for="n in 8" :key="n" class="flex items-center justify-between">
+							<div class="h-4 w-56 rounded bg-gray-200"></div>
+							<div class="h-4 w-12 rounded bg-gray-200"></div>
+						</div>
 					</div>
 				</div>
-			</div>
-			<div v-else>
-				<CFResponse :items="items" />
-				<div class="py-4">
-					<CFComplaints :items="items" />
+				<div v-else class="w-full">
+					<CFResponse :items="items" />
+					<div class="py-4">
+						<CFComplaints :items="items" />
+					</div>
 				</div>
 			</div>
 		</div>

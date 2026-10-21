@@ -3,7 +3,7 @@
 		<table class="min-w-full divide-y divide-gray-200">
 			<thead class="bg-gray-100">
 				<tr>
-					<th class="px-3 py-2 text-left text-3xl font-bold tracking-wider text-gray-900">
+					<th class="px-3 py-2 text-left text-1xl font-bold tracking-wider text-gray-900">
 						Branch
 					</th>
 					<th class="px-3 py-2 text-right text-xs font-bold tracking-wider text-gray-900">
