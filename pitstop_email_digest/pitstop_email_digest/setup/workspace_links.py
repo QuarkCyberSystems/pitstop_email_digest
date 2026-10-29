@@ -88,4 +88,7 @@ def add_link_to_workspace_card(
     for row in rows:
         doc.append("links", row)
 
+    # existing rows are owned by the `automotive` app (imported without link validation),
+    # so a stale link there must not block adding ours
+    doc.flags.ignore_links = True
     doc.save(ignore_permissions=True)
