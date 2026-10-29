@@ -1,0 +1,26 @@
+{
+ "content": null,
+ "creation": "2026-10-29 10:00:00",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-10-29 12:35:07.206977",
+ "modified_by": "Administrator",
+ "module": "Pitstop Email Digest",
+ "name": "download-pitstop-financial",
+ "owner": "Administrator",
+ "page_name": "download-pitstop-financial",
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Download Pitstop Financial"
+}
