@@ -362,7 +362,7 @@ set_sle_item_conditions = [
 
 # Request Events
 # ----------------
-# before_request = ["pitstop_email_digest.utils.before_request"]
+before_request = ["pitstop_email_digest.pitstop_email_digest.api.mdm.register_routes"]
 # after_request = ["pitstop_email_digest.utils.after_request"]
 
 # Job Events
