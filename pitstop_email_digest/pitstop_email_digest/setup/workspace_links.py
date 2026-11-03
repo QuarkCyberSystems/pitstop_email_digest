@@ -40,6 +40,20 @@ def add_vehicle_movement_to_workshop():
     )
 
 
+def add_smc_pricing_to_workshop():
+    """Add the SMC Pricing page to the Service Maintenance Contract card of the Workshop workspace.
+
+    Re-applied on `after_migrate` for the same reason as `add_ro_sold_hours_to_workshop`.
+    """
+    add_link_to_workspace_card(
+        WORKSPACE,
+        "Service Maintenance Contract",
+        "Page",
+        "smc-pricing",
+        label="SMC Pricing",
+    )
+
+
 def add_link_to_workspace_card(
     workspace, card, link_type, link_to, label=None, is_query_report=0
 ):

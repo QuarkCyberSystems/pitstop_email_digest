@@ -205,6 +205,7 @@ after_install = "pitstop_email_digest.pitstop_email_digest.setup.master_asset.cr
 after_migrate = [
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_ro_sold_hours_to_workshop",
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_vehicle_movement_to_workshop",
+    "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_smc_pricing_to_workshop",
     "pitstop_email_digest.pitstop_email_digest.setup.doctype_permissions.apply_doctype_read_permissions",
 ]
 
@@ -364,6 +365,12 @@ set_sle_item_conditions = [
 # ----------------
 before_request = ["pitstop_email_digest.pitstop_email_digest.api.mdm.register_routes"]
 # after_request = ["pitstop_email_digest.utils.after_request"]
+
+# Pricing Rule
+# SMC Pricing page: price packages for a fuel type other than the vehicle's (no-op otherwise)
+update_pricing_rule_parent_doc_conditions = [
+    "pitstop_email_digest.pitstop_email_digest.page.smc_pricing.smc_pricing.set_pricing_rule_fuel_type",
+]
 
 # Job Events
 # ----------
