@@ -15,12 +15,16 @@ Query params:
     cursor         nextCursor from the previous page (/count: only with groupBy)
     groupBy        /count only, optional. "customer" returns, per journey, how many
                    records each array holds instead of the total.
+
+Rate limit: each endpoint allows `mdm_rate_limit` requests (site config, default 120) per
+IP per minute, shared between its RSD URL and its /api/method URL. Over that: HTTP 429.
 """
 
 from collections import defaultdict
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 from frappe.utils import cint, get_datetime
 from werkzeug.routing import Rule
 from werkzeug.wrappers import Response
@@ -35,9 +39,16 @@ from pitstop_email_digest.pitstop_email_digest.api.mdm_schema import (
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
+DEFAULT_RATE_LIMIT = 120  # requests per IP per endpoint per RATE_LIMIT_WINDOW
+RATE_LIMIT_WINDOW = 60
+
+
+def get_rate_limit():
+    return cint(frappe.conf.get("mdm_rate_limit")) or DEFAULT_RATE_LIMIT
 
 
 @frappe.whitelist(methods=["GET"])
+@rate_limit(limit=get_rate_limit, seconds=RATE_LIMIT_WINDOW)
 def customer_journeys(modifiedSince=None, pageSize=None, cursor=None):
     check_permissions()
 
@@ -60,6 +71,7 @@ def customer_journeys(modifiedSince=None, pageSize=None, cursor=None):
 
 
 @frappe.whitelist(methods=["GET"])
+@rate_limit(limit=get_rate_limit, seconds=RATE_LIMIT_WINDOW)
 def customer_journeys_count(
     modifiedSince=None, groupBy=None, pageSize=None, cursor=None
 ):
@@ -126,6 +138,7 @@ def count_per_customer(spec, link_field, condition, customers):
 
 
 @frappe.whitelist(methods=["GET"])
+@rate_limit(limit=get_rate_limit, seconds=RATE_LIMIT_WINDOW)
 def deleted(modifiedSince=None, pageSize=None, cursor=None):
     check_permissions()
 
@@ -187,8 +200,10 @@ def register_routes():
 
 def make_route(method):
     def route():
-        frappe.form_dict.pop("cmd", None)
-        data = method(**frappe.form_dict)
+        kwargs = {k: v for k, v in frappe.form_dict.items() if k != "cmd"}
+        # rate_limit keys its counter on cmd; match /api/method so both URLs share it
+        frappe.form_dict.cmd = f"{method.__module__}.{method.__name__}"
+        data = method(**kwargs)
         return Response(frappe.as_json(data, indent=None), mimetype="application/json")
 
     return route
