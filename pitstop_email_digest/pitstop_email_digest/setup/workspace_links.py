@@ -54,6 +54,21 @@ def add_smc_pricing_to_workshop():
     )
 
 
+def add_pricing_rule_analyser_to_selling():
+    """Add the Pricing Rule Analyser page to the Special Prices card of the Selling workspace.
+
+    The Selling workspace is owned by `erpnext`, which re-imports it on migrate and overwrites
+    its links, so this is re-applied on `after_migrate`.
+    """
+    add_link_to_workspace_card(
+        "Selling",
+        "Special Prices",
+        "Page",
+        "pricing-rule-analyser",
+        label="Pricing Rule Analyser",
+    )
+
+
 def add_link_to_workspace_card(
     workspace, card, link_type, link_to, label=None, is_query_report=0
 ):
@@ -78,6 +93,14 @@ def add_link_to_workspace_card(
         return
 
     link_count = int(rows[card_idx].get("link_count") or 0)
+    if not link_count:
+        # cards imported from JSON (e.g. erpnext's Selling) often leave link_count at 0;
+        # desk then treats every link up to the next Card Break as part of the card
+        for row in rows[card_idx + 1 :]:
+            if row["type"] == "Card Break":
+                break
+            link_count += 1
+
     card_links = rows[card_idx + 1 : card_idx + 1 + link_count]
 
     if any(row.get("link_to") == link_to for row in card_links):

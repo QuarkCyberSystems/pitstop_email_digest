@@ -206,6 +206,7 @@ after_migrate = [
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_ro_sold_hours_to_workshop",
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_vehicle_movement_to_workshop",
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_smc_pricing_to_workshop",
+    "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_pricing_rule_analyser_to_selling",
     "pitstop_email_digest.pitstop_email_digest.setup.doctype_permissions.apply_doctype_read_permissions",
 ]
 
