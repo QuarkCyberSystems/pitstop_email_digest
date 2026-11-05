@@ -1,10 +1,10 @@
 {
  "content": null,
- "creation": "2026-11-05 10:00:00.000000",
+ "creation": "2026-11-05 10:00:00",
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-11-05 12:00:00.000000",
+ "modified": "2026-11-06 00:30:51.831067",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "pricing-rule-analyser",
@@ -13,9 +13,6 @@
  "roles": [
   {
    "role": "System Manager"
-  },
-  {
-   "role": "Sales Manager"
   },
   {
    "role": "Accounts Manager"
