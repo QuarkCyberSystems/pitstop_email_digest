@@ -4,7 +4,7 @@
   "description": "Email Digest for Pitstop",
   "main": "index.js",
   "scripts": {
-    "build": "tailwindcss build -i ./pitstop_email_digest/public/css/tailwind.css -o ./pitstop_email_digest/public/css/tailwind.output.css",
+    "build": "tailwindcss build -i ./pitstop_email_digest/public/css/tailwind.css -o ./pitstop_email_digest/public/css/tailwind.output.css && cp ./pitstop_email_digest/public/css/tailwind.output.css ./pitstop_email_digest/public/css/pricing_rule_analyser.bundle.css",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
