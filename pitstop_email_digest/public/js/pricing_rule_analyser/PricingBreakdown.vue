@@ -13,9 +13,9 @@
 				<span class="text-gray-500">{{ __("Base") }}: {{ pricing.base_label }}</span>
 				<span class="text-gray-800">{{ fmt(pricing.base_rate) }}</span>
 			</div>
-			<div v-if="pricing.margin" class="flex justify-between gap-4">
-				<span class="text-gray-500">+ {{ __("Margin") }}</span>
-				<span class="text-gray-800">{{ fmt(pricing.margin) }}</span>
+			<div v-if="pricing.markup" class="flex justify-between gap-4">
+				<span class="text-gray-500">+ {{ __("Markup") }}</span>
+				<span class="text-gray-800">{{ fmt(pricing.markup) }}</span>
 			</div>
 			<div v-if="pricing.discount" class="flex justify-between gap-4">
 				<span class="text-gray-500">− {{ __("Discount") }}</span>

@@ -242,10 +242,10 @@ def _get_pricing(rule, costs):
     rate = flt(base)
     if rule.margin_type and flt(rule.margin_rate_or_amount):
         if rule.margin_type == "Percentage":
-            pricing.margin = rate * flt(rule.margin_rate_or_amount) / 100
+            pricing.markup = rate * flt(rule.margin_rate_or_amount) / 100
         else:
-            pricing.margin = flt(rule.margin_rate_or_amount)
-        rate += pricing.margin
+            pricing.markup = flt(rule.margin_rate_or_amount)
+        rate += pricing.markup
 
     if basis == "Discount Percentage":
         pricing.discount = rate * min(100, flt(rule.discount_percentage)) / 100

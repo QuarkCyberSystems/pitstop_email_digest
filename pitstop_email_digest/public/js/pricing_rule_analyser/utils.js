@@ -41,7 +41,7 @@ export function benefitText(r) {
 	}
 }
 
-export function marginText(r) {
+export function markupText(r) {
 	if (!flt(r.margin_rate_or_amount)) return "";
 	return r.margin_type === "Percentage"
 		? `${flt(r.margin_rate_or_amount)}%`

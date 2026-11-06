@@ -17,8 +17,8 @@
 
 		<div class="text-lg font-semibold text-gray-900">
 			{{ benefitText(rule) }}
-			<span v-if="marginText(rule)" class="text-sm font-normal text-gray-500">
-				(+ {{ marginText(rule) }} {{ __("margin") }})
+			<span v-if="markupText(rule)" class="text-sm font-normal text-gray-500">
+				(+ {{ markupText(rule) }} {{ __("markup") }})
 			</span>
 		</div>
 
@@ -60,7 +60,7 @@ import ConditionBox from "./ConditionBox.vue";
 import {
 	STATUS_STYLES,
 	benefitText,
-	marginText,
+	markupText,
 	scopeText,
 	partyText,
 	rangeText,
