@@ -3,11 +3,11 @@ frappe.pages["download-pitstop-financial"].on_page_load = function (wrapper) {
 };
 
 const PITSTOP_FINANCIAL_SHEETS = [
-	{ fieldname: "balance_sheet", label: __("Summarized Balance Sheet") },
+	// { fieldname: "balance_sheet", label: __("Summarized Balance Sheet") },
 	{ fieldname: "profit_and_loss", label: __("Summarized Profit and Loss") },
-	{ fieldname: "cash_flow", label: __("Summarized Cash Flow") },
-	{ fieldname: "fixed_assets", label: __("Fixed Assets Statement") },
-	{ fieldname: "changes_in_equity", label: __("Statement of Changes in Equity") },
+	// { fieldname: "cash_flow", label: __("Summarized Cash Flow") },
+	// { fieldname: "fixed_assets", label: __("Fixed Assets Statement") },
+	// { fieldname: "changes_in_equity", label: __("Statement of Changes in Equity") },
 ];
 
 class DownloadPitstopFinancial {
@@ -19,12 +19,18 @@ class DownloadPitstopFinancial {
 		});
 		frappe.breadcrumbs.add("Accounts");
 
-		this.make_form();
-		this.page.set_primary_action(__("Generate Excel"), () => this.generate(), "es-line-download");
-		this.setup_realtime();
+		frappe
+			.xcall(
+				"pitstop_email_digest.pitstop_email_digest.page.download_pitstop_financial.download_pitstop_financial.get_dimension_options"
+			)
+			.then((dimension_options) => {
+				this.make_form(dimension_options);
+				this.page.set_primary_action(__("Generate Excel"), () => this.generate(), "es-line-download");
+				this.setup_realtime();
+			});
 	}
 
-	make_form() {
+	make_form(dimension_options) {
 		const sheet_fields = [];
 		PITSTOP_FINANCIAL_SHEETS.forEach((d, i) => {
 			if (i && i % 2 === 0) {
@@ -61,11 +67,19 @@ class DownloadPitstopFinancial {
 				},
 				{ fieldtype: "Column Break" },
 				{
-					fieldname: "cost_center",
-					label: __("Cost Center"),
-					fieldtype: "Link",
-					options: "Cost Center",
-					get_query: () => ({ filters: { company: this.form.get_value("company") } }),
+					fieldname: "dimension_fields",
+					label: __("Dimension Rows"),
+					fieldtype: "MultiSelectList",
+					options: dimension_options,
+					get_data: () => dimension_options,
+				},
+				{
+					fieldname: "department_dimension",
+					label: __("PLDept Department Column"),
+					fieldtype: "Select",
+					options: dimension_options,
+					default: "cost_center",
+					depends_on: "profit_and_loss",
 				},
 				{
 					fieldname: "tree_view",
@@ -74,13 +88,13 @@ class DownloadPitstopFinancial {
 					default: 1,
 				},
 				{ fieldtype: "Section Break", label: __("Reports") },
-				{
-					fieldname: "select_all",
-					label: __("Select All"),
-					fieldtype: "Check",
-					default: 1,
-					change: () => this.toggle_all(),
-				},
+				// {
+				// 	fieldname: "select_all",
+				// 	label: __("Select All"),
+				// 	fieldtype: "Check",
+				// 	default: 1,
+				// 	change: () => this.toggle_all(),
+				// },
 				{ fieldtype: "Section Break" },
 				...sheet_fields,
 				{ fieldtype: "Section Break" },
@@ -128,7 +142,8 @@ class DownloadPitstopFinancial {
 				filters: {
 					company: values.company,
 					report_date: values.report_date,
-					cost_center: values.cost_center,
+					dimension_fields: values.dimension_fields || [],
+					department_dimension: values.department_dimension,
 					tree_view: values.tree_view,
 					sheets: sheets,
 				},

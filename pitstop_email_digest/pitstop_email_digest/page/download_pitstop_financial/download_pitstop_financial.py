@@ -3,7 +3,13 @@ from io import BytesIO
 
 import frappe
 from erpnext.accounts.doctype.account_group.account_group import get_account_group_doc
-from erpnext.accounts.report.financial_statements import get_cost_centers_with_children
+from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import (
+    get_accounting_dimensions,
+    get_all_dimension_fields,
+)
+from erpnext.accounts.report.trial_balance.trial_balance import (
+    get_dimension_column_details,
+)
 from frappe import _
 from frappe.utils import add_months, cint, flt, format_date, get_year_start, getdate
 from openpyxl import Workbook
@@ -13,12 +19,49 @@ from openpyxl.utils import get_column_letter
 SHEETS = {
     "balance_sheet": "Summarized Balance Sheet",
     "profit_and_loss": "Summarized Profit and Loss",
+    "pl_dept": "PLDept",
+    "other_income": "Other Income",
+    "payroll": "Payroll",
+    "bank_charges": "BankCharges",
+    "doubtful_debts": "DfulDebts",
+    "promotional": "Promotional",
+    "operating_cost": "OperatingCost",
     "cash_flow": "Summarized Cash Flow",
     "fixed_assets": "Fixed Assets Statement",
     "changes_in_equity": "Statement of Changes in Equity",
     "mom_trial_balance": "MoM Trial Balance",
     "account_group_trial_balance": "Account Group MoM",
 }
+
+# Profit and Loss schedules, the Summarized Profit and Loss filtered by an Account Group: sheet -> (Account Group, title)
+PL_SCHEDULES = {
+    "other_income": ("Other Income", "OTHER INCOME FOR THE PERIOD ENDED {0}"),
+    "payroll": ("Payroll", "PAYROLL FOR THE PERIOD ENDED {0}"),
+    "bank_charges": (
+        "Bank Charges and Commission",
+        "BANK CHARGES & COMMISSION FOR THE PERIOD ENDED {0}",
+    ),
+    "doubtful_debts": (
+        "Provision for Doubtful Debts",
+        "PROVISION FOR BAD AND DOUBTFUL DEBTS FOR THE PERIOD ENDED {0}",
+    ),
+    "promotional": (
+        "Promotional Expenditure",
+        "PROMOTIONAL EXPENDITURE FOR THE PERIOD ENDED {0}",
+    ),
+    "operating_cost": (
+        "Other Operating Costs",
+        "OTHER OPERATING COSTS FOR THE PERIOD ENDED {0}",
+    ),
+}
+
+PL_SCHEDULE_SHEETS = ["pl_dept"] + list(PL_SCHEDULES)
+
+# Department Profit and Loss sections: (Account Group, section label, total label)
+PL_DEPT_SECTIONS = [
+    ("Sales", "Revenue", "Total Revenue"),
+    ("Cost of Sales", "Cost of Sales", "Total Cost of Sales"),
+]
 
 # Always included in the workbook, whichever reports are selected
 MANDATORY_SHEETS = ["mom_trial_balance", "account_group_trial_balance"]
@@ -89,6 +132,30 @@ def validate_filters(filters):
         s for s in (filters.get("sheets") or []) if s in REPORT_ROOTS
     ] + MANDATORY_SHEETS
 
+    # The Profit and Loss schedules always come with the Summarized Profit and Loss
+    if "profit_and_loss" in filters.sheets:
+        filters.sheets += PL_SCHEDULE_SHEETS
+
+    dimension_fields = frappe.parse_json(filters.get("dimension_fields")) or []
+    if isinstance(dimension_fields, str):
+        dimension_fields = [dimension_fields]
+
+    all_dimension_fields = get_all_dimension_fields()
+    for f in dimension_fields + [filters.get("department_dimension")]:
+        if f and f not in all_dimension_fields:
+            frappe.throw(_("Invalid Dimension {0}").format(f))
+
+    filters.dimension_fields = dimension_fields
+    filters.department_dimension = filters.get("department_dimension") or "cost_center"
+
+
+@frappe.whitelist()
+def get_dimension_options():
+    return [{"label": _("Cost Center"), "value": "cost_center"}] + [
+        {"label": _(d.label), "value": d.fieldname}
+        for d in get_accounting_dimensions(as_list=False)
+    ]
+
 
 def generate_pitstop_financial(filters, user):
     filters = frappe._dict(filters)
@@ -158,7 +225,7 @@ def build_workbook(filters):
         {
             "company": filters.company,
             "report_date": filters.report_date,
-            "cost_center": filters.get("cost_center"),
+            "dimension_fields": filters.dimension_fields,
             "tree_view": cint(filters.get("tree_view")),
         }
     )
@@ -203,6 +270,15 @@ def build_workbook(filters):
             mom_links=MOM_LINKS["profit_and_loss"],
         )
 
+    if "pl_dept" in filters.sheets:
+        write_department_sheet(wb, report_filters, filters, mom)
+
+    for sheet, (account_group, title) in PL_SCHEDULES.items():
+        if sheet in filters.sheets:
+            write_schedule_sheet(
+                wb, sheet, account_group, title, report_filters, filters, mom
+            )
+
     if "cash_flow" in filters.sheets:
         from erpnext.accounts.report.summarized_cash_flow.summarized_cash_flow import (
             execute,
@@ -225,7 +301,10 @@ def build_workbook(filters):
             execute,
         )
 
-        columns, data = execute(report_filters.copy())
+        # Fixed asset categories are columns, so there are no dimension rows
+        columns, data = execute(
+            frappe._dict({**report_filters, "dimension_fields": []})
+        )
         write_statement_sheet(
             wb,
             SHEETS["fixed_assets"],
@@ -243,9 +322,11 @@ def build_workbook(filters):
             execute,
         )
 
-        # The report is always for the whole company, it has no Cost Center filter
-        company_filters = frappe._dict({**filters, "cost_center": None})
-        columns, data = execute(frappe._dict({**report_filters, "cost_center": None}))
+        # The report is always for the whole company, it has no dimension rows
+        company_filters = frappe._dict({**filters, "dimension_fields": []})
+        columns, data = execute(
+            frappe._dict({**report_filters, "dimension_fields": []})
+        )
         write_statement_sheet(
             wb,
             SHEETS["changes_in_equity"],
@@ -270,9 +351,16 @@ def write_title(ws, title, filters, width):
     ws.cell(
         row=2, column=1, value=title.format(format_date(filters.report_date))
     ).font = Font(bold=True, size=12)
-    if filters.get("cost_center"):
+    if filters.get("dimension_fields"):
         ws.cell(
-            row=3, column=1, value=_("Cost Center: {0}").format(filters.cost_center)
+            row=3,
+            column=1,
+            value=_("Dimension Rows: {0}").format(
+                ", ".join(
+                    get_dimension_column_details(f).label
+                    for f in filters.dimension_fields
+                )
+            ),
         ).font = Font(italic=True)
 
     for row in (1, 2):
@@ -307,11 +395,44 @@ def write_statement_sheet(
     total_field=None,
 ):
     ws = wb.create_sheet(sheet_name)
-    value_columns = [c for c in columns if c.get("fieldname") != label_field]
+    write_title(ws, title, filters, len(columns))
+
+    header_row = STATEMENT_HEADER_ROW
+    write_statement_table(
+        ws,
+        header_row,
+        columns,
+        data,
+        filters,
+        label_field=label_field,
+        mom=mom,
+        mom_links=mom_links,
+        is_fixed_asset=is_fixed_asset,
+        total_field=total_field,
+    )
+
+    ws.freeze_panes = ws.cell(row=header_row + 1, column=2)
+    ws.sheet_view.showGridLines = False
+
+
+def write_statement_table(
+    ws,
+    header_row,
+    columns,
+    data,
+    filters,
+    label_field="account_display",
+    mom=None,
+    mom_links=None,
+    is_fixed_asset=False,
+    total_field=None,
+):
+    """Header at header_row followed by the report rows, returns the row number of each data row."""
+    # Dimension values are already shown as the dimension row's label
+    excluded = [label_field] + (filters.get("dimension_fields") or [])
+    value_columns = [c for c in columns if c.get("fieldname") not in excluded]
     data = [frappe._dict(d) for d in data]
 
-    write_title(ws, title, filters, len(columns))
-    header_row = STATEMENT_HEADER_ROW
     write_header(
         ws, header_row, [_("Particulars")] + [c.get("label") for c in value_columns]
     )
@@ -323,15 +444,30 @@ def write_statement_sheet(
             data, value_columns, header_row, mom, mom_links, total_field
         )
 
+    # Child and dimension rows are grouped under their row, so they can be collapsed
+    ws.sheet_properties.outlinePr.summaryBelow = False
+
     row_idx = header_row
-    for d in data:
+    for i, d in enumerate(data):
         row_idx += 1
 
         is_bold = cint(d.is_bold)
+        has_dimension_rows = (
+            i + 1 < len(data)
+            and data[i + 1].is_dimension_row
+            and cint(data[i + 1].indent) > cint(d.indent)
+        )
+
+        # Excel only indents left aligned cells
         label_cell = ws.cell(row=row_idx, column=1, value=d.get(label_field) or "")
-        label_cell.alignment = Alignment(indent=cint(d.indent) * 2)
-        if is_bold:
+        label_cell.alignment = Alignment(horizontal="left", indent=cint(d.indent) * 2)
+        if is_bold or has_dimension_rows:
             label_cell.font = Font(bold=True)
+        elif d.is_dimension_row:
+            label_cell.font = Font(italic=True, color="595959")
+
+        if cint(d.indent):
+            ws.row_dimensions[row_idx].outline_level = min(cint(d.indent), 7)
 
         value_type = d.value_type or "Currency"
         for col_idx, column in enumerate(value_columns, 2):
@@ -353,7 +489,7 @@ def write_statement_sheet(
             if is_bold:
                 cell.font = Font(bold=True)
 
-        if d.row_type == "Section Total":
+        if d.row_type in ("Section Total", "Total"):
             for col_idx in range(1, len(value_columns) + 2):
                 ws.cell(row=row_idx, column=col_idx).border = Border(
                     top=THIN, bottom=THIN
@@ -363,8 +499,215 @@ def write_statement_sheet(
     for col_idx in range(2, len(value_columns) + 2):
         ws.column_dimensions[get_column_letter(col_idx)].width = 20
 
-    ws.freeze_panes = ws.cell(row=header_row + 1, column=2)
+    return [header_row + 1 + i for i in range(len(data))]
+
+
+def get_schedule_data(report_filters, account_group, **extra_filters):
+    """Summarized Profit and Loss of one Account Group, None if the Account Group is not set up for the company."""
+    from erpnext.accounts.report.summarized_profit_and_loss.summarized_profit_and_loss import (
+        execute,
+    )
+
+    if not frappe.db.exists(
+        "Account Group", {"name": account_group, "company": report_filters.company}
+    ):
+        return None, None
+
+    columns, data = execute(
+        frappe._dict(
+            {**report_filters, "account_group": account_group, **extra_filters}
+        )
+    )
+    data = [frappe._dict(d) for d in data]
+
+    # The report's Total row adds up the raw (credit - debit) values, show it the same way as the rows above it
+    display_fields = [
+        c["fieldname"]
+        for c in columns
+        if c["fieldname"].endswith("_display") and c["fieldname"] != "account_display"
+    ]
+    totalled = [
+        d for d in data if d.row_type in ("Account", "Account Group") and not d.is_child
+    ]
+    for d in data:
+        if d.row_type == "Total":
+            for f in display_fields:
+                d[f] = sum(flt(r.get(f)) for r in totalled)
+
+    return columns, data
+
+
+def write_schedule_sheet(wb, sheet, account_group, title, report_filters, filters, mom):
+    columns, data = get_schedule_data(report_filters, account_group)
+    if columns is None:
+        return
+
+    write_statement_sheet(
+        wb,
+        SHEETS[sheet],
+        _(title),
+        columns,
+        data,
+        filters,
+        mom=mom,
+        mom_links=MOM_LINKS["profit_and_loss"],
+    )
+
+
+def write_department_sheet(wb, report_filters, filters, mom):
+    """Revenue, Cost of Sales and Gross Profit with a column per department, Month to Date and then Year to Date."""
+    ws = wb.create_sheet(SHEETS["pl_dept"])
+
+    # The department dimension is shown as columns, so it is not repeated as dimension rows
+    dimension = filters.department_dimension
+    dimension_fields = [f for f in filters.dimension_fields if f != dimension]
+    filters = frappe._dict({**filters, "dimension_fields": dimension_fields})
+    report_filters = frappe._dict(
+        {**report_filters, "dimension_fields": dimension_fields}
+    )
+
+    write_title(
+        ws, _("DEPARTMENTAL PROFIT & LOSS FOR THE PERIOD ENDED {0}"), filters, 8
+    )
+
+    header_row = STATEMENT_HEADER_ROW
+    for period, label in (("MTD", _("MONTH TO DATE")), ("YTD", _("YEAR TO DATE"))):
+        block = get_department_block(report_filters, dimension, period)
+        if not block:
+            continue
+
+        columns, data = block
+        ws.cell(
+            row=header_row - 1,
+            column=1,
+            value=_("{0} BY {1}").format(
+                label, get_dimension_column_details(dimension).label.upper()
+            ),
+        ).font = Font(bold=True)
+        row_numbers = write_statement_table(
+            ws,
+            header_row,
+            columns,
+            data,
+            filters,
+            mom=mom,
+            mom_links={"ytd_actual_display": "month" if period == "MTD" else "ytd"},
+        )
+
+        # Gross Profit = Total Revenue - Total Cost of Sales, GP % = Gross Profit / Total Revenue
+        rows = {
+            d.get("row_key"): n for d, n in zip(data, row_numbers) if d.get("row_key")
+        }
+        value_count = len([c for c in columns if c["fieldname"] != "account_display"])
+        for col_idx in range(2, value_count + 2):
+            col = get_column_letter(col_idx)
+            revenue, cost = f"{col}{rows['Sales']}", f"{col}{rows['Cost of Sales']}"
+            ws[f"{col}{rows['gross_profit']}"] = f"={revenue}-{cost}"
+            ws[
+                f"{col}{rows['gross_profit_percent']}"
+            ] = f"=IFERROR({col}{rows['gross_profit']}/{revenue},0)"
+            ws[f"{col}{rows['gross_profit_percent']}"].number_format = "0.00%"
+
+        header_row = row_numbers[-1] + 4
+
+    ws.freeze_panes = "B1"
     ws.sheet_view.showGridLines = False
+
+
+def get_department_block(report_filters, dimension, period):
+    """Columns: a column per department (dimension value), Total, Budget, Previous Year Total."""
+    sections = []
+    for account_group, section_label, total_label in PL_DEPT_SECTIONS:
+        columns, data = get_schedule_data(
+            report_filters,
+            account_group,
+            format=f"Dimension {period}",
+            dimension_field=dimension,
+        )
+        if columns is None:
+            return None
+        sections.append((account_group, section_label, total_label, columns, data))
+
+    # Departments may differ between Revenue and Cost of Sales, previous year is shown in total only
+    department_columns = {}
+    for *_labels, columns, _data in sections:
+        for c in columns:
+            if c.get("dimension_field") and not c["fieldname"].startswith(
+                "ytd_prev_year"
+            ):
+                department_columns.setdefault(c["fieldname"], c)
+
+    column_map = {
+        c["fieldname"]: c for *_labels, columns, _data in sections for c in columns
+    }
+    columns = (
+        [column_map["account_display"]]
+        + sorted(department_columns.values(), key=lambda c: c["dimension_value"])
+        + [
+            column_map[f]
+            for f in (
+                "ytd_actual_display",
+                "ytd_budget_display",
+                "ytd_prev_year_display",
+            )
+            if f in column_map
+        ]
+    )
+    value_fields = [c["fieldname"] for c in columns[1:]]
+
+    data = []
+    totals = {}
+    for account_group, section_label, total_label, _columns, section_data in sections:
+        data.append(
+            frappe._dict(
+                {
+                    "row_type": "Section Break",
+                    "account_display": _(section_label),
+                    "is_bold": 1,
+                }
+            )
+        )
+        for d in section_data:
+            # A department without entries in this section
+            if d.row_type in ("Account", "Account Group", "Total"):
+                for f in value_fields:
+                    d.setdefault(f, 0)
+            if d.row_type == "Total":
+                d.update({"account_display": _(total_label), "row_key": account_group})
+                totals[account_group] = d
+            data.append(d)
+
+    revenue, cost = totals["Sales"], totals["Cost of Sales"]
+    gross_profit = {f: flt(revenue.get(f)) - flt(cost.get(f)) for f in value_fields}
+    data.append(
+        frappe._dict(
+            {
+                "row_type": "Gross Profit",
+                "row_key": "gross_profit",
+                "account_display": _("Gross Profit"),
+                "is_bold": 1,
+                **gross_profit,
+            }
+        )
+    )
+    data.append(
+        frappe._dict(
+            {
+                "row_type": "Gross Profit Percent",
+                "row_key": "gross_profit_percent",
+                "account_display": _("GP %"),
+                "value_type": "Percent",
+                **{
+                    f: (gross_profit[f] / flt(revenue.get(f)) * 100)
+                    if flt(revenue.get(f))
+                    else 0
+                    for f in value_fields
+                },
+            }
+        )
+    )
+
+    return columns, data
 
 
 def get_number_format(value_type, precision=None):
@@ -412,6 +755,10 @@ def get_statement_formulas(
     row_numbers = [header_row + 1 + i for i in range(len(data))]
 
     for d, row_no in zip(data, row_numbers):
+        # The MoM sheets are not split by dimension
+        if d.is_dimension_row:
+            continue
+
         for fieldname, period in (mom_links or {}).items():
             if fieldname not in letters:
                 continue
@@ -434,7 +781,7 @@ def get_statement_formulas(
     multipliers = [get_display_multiplier(d, fieldnames) for d in data]
     section_start = 0
     for i, d in enumerate(data):
-        if d.row_type != "Section Total":
+        if d.row_type not in ("Section Total", "Total"):
             continue
 
         # Section Total rows either total their own section or everything above (Running Total)
@@ -443,7 +790,11 @@ def get_statement_formulas(
             if not included:
                 continue
 
-            terms = [(multipliers[i] * multipliers[j], j) for j in included]
+            # A row without values takes the sign of the total
+            terms = [
+                ((multipliers[i] or 1) * (multipliers[j] or multipliers[i] or 1), j)
+                for j in included
+            ]
             if all(
                 d.get(f) is None
                 or is_equal(d.get(f), sum(s * flt(data[j].get(f)) for s, j in terms))
@@ -484,13 +835,13 @@ def is_totalled_row(d):
 
 
 def get_display_multiplier(d, fieldnames):
-    """The sign the report applied to show this row (display = raw * multiplier)."""
+    """The sign the report applied to show this row (display = raw * multiplier), None if the row has no values."""
     for f in fieldnames:
         raw = flt(d.get(f[: -len("_display")])) if f.endswith("_display") else 0
         if raw and d.get(f) is not None:
             return 1 if flt(d.get(f)) * raw > 0 else -1
 
-    return 1
+    return None
 
 
 def get_fixed_asset_formulas(data, value_columns, header_row, mom):
@@ -697,18 +1048,10 @@ class MoMTrialBalance:
         self.account_map = {d.name: d for d in self.accounts}
 
     def load_balances(self):
-        # The cost center condition is always in the query and is switched off by filter_cost_center = 0
-        cost_centers = (
-            get_cost_centers_with_children(self.filters.cost_center)
-            if self.filters.get("cost_center")
-            else []
-        )
         args = {
             "company": self.filters.company,
             "year_start": self.year_start,
             "report_date": self.report_date,
-            "filter_cost_center": 1 if cost_centers else 0,
-            "cost_center": cost_centers or [""],
         }
 
         self.opening = {}
@@ -720,7 +1063,6 @@ class MoMTrialBalance:
 			where gle.company = %(company)s
 				and gle.posting_date < %(year_start)s
 				and acc.report_type = 'Balance Sheet'
-				and (%(filter_cost_center)s = 0 or gle.cost_center in %(cost_center)s)
 			group by gle.account
 		""",
             args,
@@ -737,7 +1079,6 @@ class MoMTrialBalance:
 			where company = %(company)s
 				and posting_date between %(year_start)s and %(report_date)s
 				and voucher_type != 'Period Closing Voucher'
-				and (%(filter_cost_center)s = 0 or cost_center in %(cost_center)s)
 			group by account, year(posting_date), month(posting_date)
 		""",
             args,
