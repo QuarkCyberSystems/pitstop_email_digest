@@ -21,3 +21,6 @@ build-backend = "flit_core.buildapi"
 [tool.ruff]
 # Ignore lambda assignment
 lint.ignore = ["E731", "F541"]
+
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<16.0.0"
