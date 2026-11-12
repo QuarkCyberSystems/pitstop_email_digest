@@ -18,6 +18,10 @@ from openpyxl.utils import get_column_letter
 
 SHEETS = {
     "balance_sheet": "Summarized Balance Sheet",
+    "inventory": "Inventory",
+    "receivable": "Receivable",
+    "payable": "Payable",
+    "cash_bank": "CashBank",
     "profit_and_loss": "Summarized Profit and Loss",
     "pl_dept": "PLDept",
     "other_income": "Other Income",
@@ -57,6 +61,307 @@ PL_SCHEDULES = {
 
 PL_SCHEDULE_SHEETS = ["pl_dept"] + list(PL_SCHEDULES)
 
+
+# Balance Sheet and its schedules follow the rows of the Pitstop Financial workbook, the amounts come from the
+# Summarized Balance Sheet. Rows:
+#   line:    Account Group / Account balances (Debit - Credit) times sign, or another sheet's rows (link) when they agree
+#   total:   adds up the given rows, or the lines since the last heading / total ("section")
+#   heading: label only
+def layout_line(
+    label, groups=(), accounts=(), key=None, sign=None, schedule=None, link=()
+):
+    return {
+        "type": "line",
+        "label": label,
+        "groups": list(groups),
+        "accounts": list(accounts),
+        "key": key,
+        "sign": sign,
+        "schedule": schedule,
+        "link": list(link),
+    }
+
+
+def layout_total(label, keys="section", key=None):
+    return {"type": "total", "label": label, "keys": keys, "key": key}
+
+
+def layout_heading(label):
+    return {"type": "heading", "label": label}
+
+
+LAYOUT_BLANK = {"type": "blank"}
+
+# Value columns of the Balance Sheet layouts: (Summarized Balance Sheet field, MoM period)
+BS_VALUE_FIELDS = [
+    ("actual", "closing"),
+    ("prev_year", None),
+    ("prev_closing", "opening"),
+]
+
+# Schedules, written in this order after the Fixed Assets Statement: sheet -> layout
+BS_SCHEDULES = {
+    "inventory": {
+        "title": "INVENTORY AS AT {0}",
+        "schedule": "A4",
+        "sign": 1,
+        "rows": [
+            layout_line("Spare parts", ["Spare Parts"], key="spare_parts"),
+            LAYOUT_BLANK,
+            layout_total("Total", key="stock"),
+            LAYOUT_BLANK,
+            layout_line(
+                "Goods in transit", ["Goods in Transit"], key="goods_in_transit"
+            ),
+            LAYOUT_BLANK,
+            layout_line(
+                "Work in Progress", ["Work in Progress"], key="work_in_progress"
+            ),
+            LAYOUT_BLANK,
+            layout_heading("Less:"),
+            layout_heading("Provn for slow moving"),
+            layout_line("-Parts", ["Provision for Slow Moving Parts"], key="provision"),
+            LAYOUT_BLANK,
+            layout_total(
+                "Grand Total",
+                ["stock", "goods_in_transit", "work_in_progress", "provision"],
+                key="total",
+            ),
+        ],
+    },
+    "receivable": {
+        "title": "RECEIVABLES, ADVANCES & PREPAYMENTS AS AT {0}",
+        "schedule": "A6",
+        "sign": 1,
+        "rows": [
+            layout_heading("ACCOUNTS RECEIVABLES"),
+            layout_line("Trade Receivables", ["Trade Receivables"], key="trade"),
+            layout_line(
+                "Due from Related Parties", ["Due from Related Parties"], key="related"
+            ),
+            layout_line("P.D.Cheques"),
+            layout_line(
+                "Provision for Bad Debts", ["Provision for Bad Debts"], key="bad_debts"
+            ),
+            layout_total("", key="receivables"),
+            LAYOUT_BLANK,
+            layout_line("Factory Claims", key="factory_claims"),
+            layout_total(
+                "", ["receivables", "factory_claims"], key="receivables_total"
+            ),
+            layout_heading("SUNDRY RECEIVABLES"),
+            layout_line("Staff Receivables", ["Staff Receivables"]),
+            layout_line("Other Receivables", ["Other Receivables"]),
+            layout_total("", key="sundry"),
+            LAYOUT_BLANK,
+            layout_total("SUB TOTAL", ["receivables_total", "sundry"], key="sub_total"),
+            LAYOUT_BLANK,
+            layout_heading("ADVANCES & DEPOSITS"),
+            layout_line(
+                "Electricity & Water Deposits", ["Electricity & Water Deposit"]
+            ),
+            layout_line("Municipality", ["Municipality Advances"]),
+            layout_line("Rent Deposits", ["Rent Advances"]),
+            layout_line("Other Advance Payments", ["Other Advance Payments"]),
+            layout_line("Misc. Deposits", ["Misc. Deposits"]),
+            layout_line("Deferred Tax", ["Deferred Tax"]),
+            layout_total("", key="advances"),
+            layout_heading("PRE-PAYMENTS"),
+            layout_line("Prepaid Medical Insurance", ["Prepaid Medical Insurance"]),
+            layout_line("Prepaid Insurance", ["Prepaid Insurance"]),
+            layout_line("Prepaid Trade License Fee", ["Prepaid Trade License Fee"]),
+            layout_line("Prepaid Rent", ["Prepaid Rent"]),
+            layout_line("Prepaid Visa", ["Prepaid Visa"]),
+            layout_line("Misc. Prepayments", ["Misc. Prepayments"]),
+            layout_total("", key="prepayments"),
+            LAYOUT_BLANK,
+            layout_total(
+                "SUB TOTAL - Advance & prepayments",
+                ["advances", "prepayments"],
+                key="advances_prepayments",
+            ),
+            LAYOUT_BLANK,
+            layout_total("TOTAL", ["sub_total", "advances_prepayments"], key="total"),
+        ],
+    },
+    "payable": {
+        "title": "ACCOUNTS PAYABLE & ACCRUALS AS AT {0}",
+        "schedule": "A9",
+        "sign": -1,
+        "rows": [
+            layout_heading("Accounts Payable"),
+            layout_line(
+                "Trade & non Trade Payable", ["Trade & Non Trade Payable"], key="trade"
+            ),
+            layout_line("Group payable", ["Due to Related Parties"], key="related"),
+            LAYOUT_BLANK,
+            layout_heading("Accruals & Other Payables"),
+            layout_line("AP Accrual - Expenses", ["AP Accrual - Expenses"]),
+            layout_line("PDC Payable", ["PDC Payable"]),
+            layout_line("Customer Deposit", ["Customer Deposit"]),
+            layout_line("Other Liabilities", ["Other Liabilities"]),
+            layout_line("Other Payables", ["Other Payables"]),
+            layout_line(
+                "Provision for Bonus & Incentive", ["Provision for Bonus & Incentive"]
+            ),
+            layout_line("Salary Control A/c", ["Salary Control A/c"]),
+            layout_line("Employee Loans Advances", ["Employee Loans Advances"]),
+            layout_line("VAT Net Payable", ["VAT Net Payable"]),
+            layout_line("Corporate Tax Payable", ["Corporate Tax Payable"]),
+            layout_line(
+                "Service Maintenance Contract",
+                accounts=["21030019 - Service Contract Provision - PASLLC"],
+            ),
+            layout_line(
+                "Extended Warranty Provision",
+                accounts=["21030022 - Extended Warranty Provision - PASLLC"],
+            ),
+            layout_total("", key="accruals"),
+            layout_heading("Employee Terminal Benefits"),
+            layout_line("Gratuity", ["Gratuity Provision"]),
+            layout_line("Leave Salary", ["Leave Salary Provision"]),
+            layout_line("Air fare", ["Accrued Air Fare"]),
+            layout_total("", key="terminal_benefits"),
+            LAYOUT_BLANK,
+            # Part of Accounts Payable and Accruals in the Summarized Balance Sheet
+            layout_line("VAT Receivable", ["VAT Receivable"], key="vat"),
+            LAYOUT_BLANK,
+            layout_total(
+                "TOTAL",
+                ["trade", "related", "accruals", "terminal_benefits", "vat"],
+                key="total",
+            ),
+        ],
+    },
+    "cash_bank": {
+        "title": "CASH IN HAND & AT BANK AS AT {0}",
+        "schedule": "A8",
+        "sign": 1,
+        "rows": [
+            layout_line("E-NBD - PITSTOP", ["E-NBD"]),
+            layout_line("SIB", ["SIB"]),
+            layout_line("PAN Arabia", ["PAN Arabia"]),
+            layout_line("DIB - PITSTOP", ["ADIB"]),
+            LAYOUT_BLANK,
+            layout_total("TOTAL", key="bank"),
+            layout_heading("CASH IN HAND"),
+            layout_line("Cash Control A/c", ["Cash Control A/c"]),
+            layout_line("Petty Cash", ["Petty Cash"]),
+            layout_line("Qashio Cash Management", ["Qashio"]),
+            LAYOUT_BLANK,
+            layout_total("TOTAL", key="cash"),
+            LAYOUT_BLANK,
+            layout_total("GRAND TOTAL", ["bank", "cash"], key="total"),
+        ],
+    },
+}
+
+BALANCE_SHEET_LAYOUT = {
+    "title": "BALANCE SHEET AS AT {0}",
+    "sign": 1,
+    "rows": [
+        layout_line("GOODWILL", ["Goodwill"], key="goodwill"),
+        LAYOUT_BLANK,
+        layout_line(
+            "FIXED ASSETS",
+            ["Fixed Assets"],
+            key="fixed_assets",
+            schedule="A1",
+            link=[("fixed_assets", "nbv")],
+        ),
+        layout_line("INVESTMENTS", ["Investments"], key="investments"),
+        layout_line("RIGHT OF USE ASSETS", ["Right of Use Assets"], key="right_of_use"),
+        LAYOUT_BLANK,
+        layout_heading("CURRENT ASSETS"),
+        layout_line(
+            "Inventories", ["Inventories"], schedule="A4", link=[("inventory", "total")]
+        ),
+        layout_line(
+            "Accounts Receivables",
+            ["Accounts Receivables"],
+            schedule="A6",
+            link=[("receivable", "trade"), ("receivable", "bad_debts")],
+        ),
+        layout_line(
+            "Advances & Prepayments",
+            ["Advances & Prepayments"],
+            schedule="A6",
+            link=[
+                ("receivable", "sundry"),
+                ("receivable", "advances"),
+                ("receivable", "prepayments"),
+            ],
+        ),
+        layout_line(
+            "Due from Related Parties",
+            ["Due from Related Parties"],
+            schedule="A7",
+            link=[("receivable", "related")],
+        ),
+        layout_line(
+            "Cash in Hand and at Bank",
+            ["Cash in Hand and at Bank"],
+            schedule="A8",
+            link=[("cash_bank", "total")],
+        ),
+        LAYOUT_BLANK,
+        layout_total("", key="current_assets"),
+        layout_heading("CURRENT LIABILITIES"),
+        layout_line(
+            "Accounts Payable and Accruals",
+            ["Accounts Payable and Accruals"],
+            sign=-1,
+            schedule="A9",
+            link=[
+                ("payable", "trade"),
+                ("payable", "accruals"),
+                ("payable", "terminal_benefits"),
+                ("payable", "vat"),
+            ],
+        ),
+        layout_line(
+            "Due to Related Parties",
+            ["Due to Related Parties"],
+            sign=-1,
+            schedule="A10",
+            link=[("payable", "related")],
+        ),
+        layout_line("Lease Liabilities", ["Lease Liabilities"], sign=-1),
+        layout_line("Short Term Loans", ["Group Company Loan"], sign=-1),
+        LAYOUT_BLANK,
+        layout_total("", key="current_liabilities"),
+        LAYOUT_BLANK,
+        layout_total(
+            "Net Current Assets",
+            [(1, "current_assets"), (-1, "current_liabilities")],
+            key="net_current_assets",
+        ),
+        LAYOUT_BLANK,
+        layout_total(
+            "",
+            [
+                "fixed_assets",
+                "net_current_assets",
+                "goodwill",
+                "investments",
+                "right_of_use",
+            ],
+            key="net_assets",
+        ),
+        LAYOUT_BLANK,
+        layout_line("Capital", ["Capital"], sign=-1),
+        layout_line(
+            "Shareholder's Capital Contribution", ["Loan from Shareholder"], sign=-1
+        ),
+        layout_line("Capital Reserve", ["Capital Reserve"], sign=-1),
+        layout_line("Legal Reserve", ["Legal Reserve"], sign=-1),
+        layout_line("Zakat Account", ["Zakat Account"], sign=-1),
+        layout_line("Profit & Loss Account", ["Profit & Loss Account"], sign=-1),
+        LAYOUT_BLANK,
+        layout_total("", key="equity"),
+    ],
+}
+
 # Department Profit and Loss sections: (Account Group, section label, total label)
 PL_DEPT_SECTIONS = [
     ("Sales", "Revenue", "Total Revenue"),
@@ -77,7 +382,6 @@ REPORT_ROOTS = {
 
 # Statement columns that are linked to the MoM sheets: fieldname -> MoM period
 MOM_LINKS = {
-    "balance_sheet": {"actual_display": "closing"},
     "profit_and_loss": {"mtd_actual_display": "month", "ytd_actual_display": "ytd"},
     "cash_flow": {"ytd_actual_display": "ytd"},
 }
@@ -135,6 +439,12 @@ def validate_filters(filters):
     # The Profit and Loss schedules always come with the Summarized Profit and Loss
     if "profit_and_loss" in filters.sheets:
         filters.sheets += PL_SCHEDULE_SHEETS
+
+    # The Fixed Assets Statement and the other Balance Sheet schedules always come with the Summarized Balance Sheet
+    if "balance_sheet" in filters.sheets:
+        filters.sheets.append("fixed_assets")
+
+    filters.sheets = list(dict.fromkeys(filters.sheets))
 
     dimension_fields = frappe.parse_json(filters.get("dimension_fields")) or []
     if isinstance(dimension_fields, str):
@@ -237,21 +547,9 @@ def build_workbook(filters):
     mom = MoMTrialBalance(filters)
 
     if "balance_sheet" in filters.sheets:
-        from erpnext.accounts.report.summarized_balance_sheet.summarized_balance_sheet import (
-            execute,
-        )
-
-        columns, data = execute(report_filters.copy())
-        write_statement_sheet(
-            wb,
-            SHEETS["balance_sheet"],
-            _("BALANCE SHEET AS AT {0}"),
-            columns,
-            data,
-            filters,
-            mom=mom,
-            mom_links=MOM_LINKS["balance_sheet"],
-        )
+        BalanceSheetWriter(report_filters, filters, mom).write(wb)
+    elif "fixed_assets" in filters.sheets:
+        write_fixed_assets_sheet(wb, report_filters, filters, mom)
 
     if "profit_and_loss" in filters.sheets:
         from erpnext.accounts.report.summarized_profit_and_loss.summarized_profit_and_loss import (
@@ -296,27 +594,6 @@ def build_workbook(filters):
             mom_links=MOM_LINKS["cash_flow"],
         )
 
-    if "fixed_assets" in filters.sheets:
-        from erpnext.accounts.report.fixed_assets_statement.fixed_assets_statement import (
-            execute,
-        )
-
-        # Fixed asset categories are columns, so there are no dimension rows
-        columns, data = execute(
-            frappe._dict({**report_filters, "dimension_fields": []})
-        )
-        write_statement_sheet(
-            wb,
-            SHEETS["fixed_assets"],
-            _("FIXED ASSETS STATEMENT AS AT {0}"),
-            columns,
-            data,
-            filters,
-            label_field="description",
-            mom=mom,
-            is_fixed_asset=True,
-        )
-
     if "changes_in_equity" in filters.sheets:
         from erpnext.accounts.report.statement_of_changes_in_equity.statement_of_changes_in_equity import (
             execute,
@@ -346,8 +623,12 @@ def build_workbook(filters):
     return out.getvalue()
 
 
-def write_title(ws, title, filters, width):
+def write_title(ws, title, filters, width, schedule=None):
     ws.cell(row=1, column=1, value=filters.company).font = Font(bold=True, size=14)
+    if schedule:
+        ws.cell(
+            row=3, column=max(width, 1), value=_("SCHEDULE {0}").format(schedule)
+        ).font = Font(bold=True)
     ws.cell(
         row=2, column=1, value=title.format(format_date(filters.report_date))
     ).font = Font(bold=True, size=12)
@@ -393,9 +674,10 @@ def write_statement_sheet(
     mom_links=None,
     is_fixed_asset=False,
     total_field=None,
+    schedule=None,
 ):
     ws = wb.create_sheet(sheet_name)
-    write_title(ws, title, filters, len(columns))
+    write_title(ws, title, filters, len(columns), schedule=schedule)
 
     header_row = STATEMENT_HEADER_ROW
     write_statement_table(
@@ -552,6 +834,231 @@ def write_schedule_sheet(wb, sheet, account_group, title, report_filters, filter
         mom=mom,
         mom_links=MOM_LINKS["profit_and_loss"],
     )
+
+
+def write_fixed_assets_sheet(wb, report_filters, filters, mom, schedule=None):
+    """Fixed Assets Statement, returns the report's columns and data."""
+    from erpnext.accounts.report.fixed_assets_statement.fixed_assets_statement import (
+        execute,
+    )
+
+    # Fixed asset categories are columns, so there are no dimension rows
+    columns, data = execute(frappe._dict({**report_filters, "dimension_fields": []}))
+    write_statement_sheet(
+        wb,
+        SHEETS["fixed_assets"],
+        _("FIXED ASSETS STATEMENT AS AT {0}"),
+        columns,
+        data,
+        filters,
+        label_field="description",
+        mom=mom,
+        is_fixed_asset=True,
+        schedule=schedule,
+    )
+
+    return columns, data
+
+
+def normalize_name(name):
+    """Account Group names may have non-breaking or repeated spaces."""
+    return " ".join(str(name or "").replace("\xa0", " ").split()).lower()
+
+
+class BalanceSheetWriter:
+    """Summarized Balance Sheet and its schedules (Fixed Assets, Inventory, Receivable, Payable, CashBank) laid out as
+    the Pitstop Financial workbook, with the amounts of the Summarized Balance Sheet report.
+
+    A line links to the schedule rows it is made of, or else to the MoM sheets, only when they add up to the report's
+    amount, otherwise it keeps the amount.
+    """
+
+    def __init__(self, report_filters, filters, mom):
+        from erpnext.accounts.report.summarized_balance_sheet.summarized_balance_sheet import (
+            SummarizedBalanceSheet,
+        )
+
+        # The layouts are for the whole company, there are no dimension rows or sub groups
+        self.filters = frappe._dict({**filters, "dimension_fields": []})
+        self.report_filters = frappe._dict(
+            {**report_filters, "dimension_fields": [], "tree_view": 0}
+        )
+        self.mom = mom
+
+        self.report = SummarizedBalanceSheet(self.report_filters.copy())
+        self.report.validate_filters()
+        self.report.get_data()
+
+        self.group_names = {
+            normalize_name(g): g for g in self.report.child_group_totals
+        }
+        self.refs = {}  # sheet -> row key -> {field: (cell reference, value)}
+
+    def write(self, wb):
+        # The Balance Sheet comes first but is filled in last, once the schedule rows it links to are known
+        ws = wb.create_sheet(SHEETS["balance_sheet"])
+
+        self.write_fixed_assets(wb)
+        for sheet, layout in BS_SCHEDULES.items():
+            self.write_layout(wb.create_sheet(SHEETS[sheet]), sheet, layout)
+
+        self.write_layout(ws, "balance_sheet", BALANCE_SHEET_LAYOUT, show_schedule=True)
+
+    def write_fixed_assets(self, wb):
+        """Fixed Assets Statement, its Net Book Value total is the Balance Sheet's Fixed Assets."""
+        columns, data = write_fixed_assets_sheet(
+            wb, self.report_filters, self.filters, self.mom, schedule="A1"
+        )
+
+        fieldnames = [
+            c["fieldname"] for c in columns if c["fieldname"] != "description"
+        ]
+        if "total" not in fieldnames:
+            return
+
+        col = get_column_letter(2 + fieldnames.index("total"))
+        refs = {}
+        for i, d in enumerate(data):
+            field = {"nbv_closing": "actual", "nbv_opening": "prev_closing"}.get(
+                d.get("fieldname")
+            )
+            if field:
+                refs[field] = (
+                    f"'{SHEETS['fixed_assets']}'!{col}{STATEMENT_HEADER_ROW + 1 + i}",
+                    flt(d.get("total")),
+                )
+
+        self.refs["fixed_assets"] = {"nbv": refs}
+
+    def get_value_labels(self):
+        dates = (
+            self.report.filters.report_date,
+            self.report.filters.prev_year_date,
+            self.report.filters.prev_year_end,
+        )
+        return [_("Actual") + "\n" + getdate(d).strftime("%d.%m.%Y") for d in dates]
+
+    def write_layout(self, ws, sheet, layout, show_schedule=False):
+        label_count = 2 if show_schedule else 1
+        width = label_count + len(BS_VALUE_FIELDS)
+        write_title(
+            ws, _(layout["title"]), self.filters, width, schedule=layout.get("schedule")
+        )
+
+        header_row = STATEMENT_HEADER_ROW
+        write_header(
+            ws,
+            header_row,
+            [_("Particulars")]
+            + ([_("Schedule")] if show_schedule else [])
+            + self.get_value_labels(),
+        )
+
+        letters = {
+            f: get_column_letter(label_count + 1 + i)
+            for i, (f, _period) in enumerate(BS_VALUE_FIELDS)
+        }
+
+        rows = {}  # key -> (row number, values)
+        section = []
+        for i, d in enumerate(layout["rows"]):
+            row_no = header_row + 1 + i
+            key = d.get("key") or i
+            if d["type"] == "blank":
+                continue
+
+            label_cell = ws.cell(row=row_no, column=1, value=_(d["label"]) or None)
+            if d["type"] == "heading":
+                label_cell.font = Font(bold=True)
+                section = []
+                continue
+
+            if d["type"] == "line":
+                values, formulas = self.get_line(d, d.get("sign") or layout["sign"])
+                section.append(key)
+                if d.get("schedule"):
+                    ws.cell(
+                        row=row_no, column=2, value=d["schedule"]
+                    ).alignment = Alignment(horizontal="center")
+            else:
+                keys = section if d["keys"] == "section" else d["keys"]
+                terms = [k if isinstance(k, tuple) else (1, k) for k in keys]
+                values = {f: sum(s * rows[k][1][f] for s, k in terms) for f in letters}
+                formulas = {
+                    f: signed_sum_formula(
+                        [(s, f"{letters[f]}{rows[k][0]}") for s, k in terms]
+                    )
+                    for f in letters
+                }
+                section = []
+
+                for col_idx in range(1, width + 1):
+                    cell = ws.cell(row=row_no, column=col_idx)
+                    cell.font = Font(bold=True)
+                    cell.border = Border(top=THIN, bottom=THIN)
+
+            rows[key] = (row_no, values)
+            self.refs.setdefault(sheet, {})[key] = {
+                f: (f"'{ws.title}'!{letters[f]}{row_no}", values[f]) for f in letters
+            }
+
+            for f, letter in letters.items():
+                cell = ws[f"{letter}{row_no}"]
+                cell.value = formulas.get(f) or flt(values[f], 2)
+                cell.number_format = NUMBER_FORMAT
+
+        ws.column_dimensions["A"].width = 45
+        if show_schedule:
+            ws.column_dimensions["B"].width = 12
+        for letter in letters.values():
+            ws.column_dimensions[letter].width = 20
+
+        ws.freeze_panes = ws.cell(row=header_row + 1, column=label_count + 1)
+        ws.sheet_view.showGridLines = False
+
+    def get_line(self, d, sign):
+        """Values (sign x Debit - Credit) of a line's Account Groups and Accounts, and the formulas that reproduce them."""
+        terms = [
+            (self.group_names.get(normalize_name(g)), "group") for g in d["groups"]
+        ] + [(a, "account") for a in d["accounts"]]
+
+        values = {}
+        formulas = {}
+        for f, period in BS_VALUE_FIELDS:
+            values[f] = sign * sum(
+                flt(self.get_balances(name, kind).get(f)) for name, kind in terms
+            )
+            formulas[f] = self.get_link_formula(d["link"], f, values[f]) or (
+                period and self.get_mom_formula(terms, sign, period, values[f])
+            )
+
+        return values, formulas
+
+    def get_balances(self, name, kind):
+        if kind == "group":
+            return self.report.child_group_totals.get(name) or {}
+        return self.report.account_totals.get(name) or {}
+
+    def get_link_formula(self, link, field, value):
+        parts = [
+            self.refs.get(sheet, {}).get(key, {}).get(field) for sheet, key in link
+        ]
+        if parts and all(parts) and is_equal(sum(v for _r, v in parts), value):
+            return signed_sum_formula([(1, ref) for ref, _v in parts])
+
+    def get_mom_formula(self, terms, sign, period, value):
+        parts = []
+        for name, kind in terms:
+            get_ref = (
+                self.mom.get_group_ref if kind == "group" else self.mom.get_account_ref
+            )
+            ref, mom_value = get_ref(name, period) if name else (None, 0)
+            if ref is None:
+                return None
+            parts.append((ref, mom_value))
+
+        if parts and is_equal(sign * sum(v for _r, v in parts), value):
+            return signed_sum_formula([(sign, ref) for ref, _v in parts])
 
 
 def write_department_sheet(wb, report_filters, filters, mom):

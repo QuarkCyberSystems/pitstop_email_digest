@@ -3,11 +3,11 @@ frappe.pages["download-pitstop-financial"].on_page_load = function (wrapper) {
 };
 
 const PITSTOP_FINANCIAL_SHEETS = [
-	// { fieldname: "balance_sheet", label: __("Summarized Balance Sheet") },
+	{ fieldname: "balance_sheet", label: __("Summarized Balance Sheet") },
 	{ fieldname: "profit_and_loss", label: __("Summarized Profit and Loss") },
-	// { fieldname: "cash_flow", label: __("Summarized Cash Flow") },
+	{ fieldname: "cash_flow", label: __("Cash Flow Statement") },
 	// { fieldname: "fixed_assets", label: __("Fixed Assets Statement") },
-	// { fieldname: "changes_in_equity", label: __("Statement of Changes in Equity") },
+	{ fieldname: "changes_in_equity", label: __("Statement Of Changes In Equity (SOCIE)") },
 ];
 
 class DownloadPitstopFinancial {
