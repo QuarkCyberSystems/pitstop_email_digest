@@ -64,9 +64,13 @@ PL_SCHEDULE_SHEETS = ["pl_dept"] + list(PL_SCHEDULES)
 
 # Balance Sheet and its schedules follow the rows of the Pitstop Financial workbook, the amounts come from the
 # Summarized Balance Sheet. Rows:
-#   line:    Account Group / Account balances (Debit - Credit) times sign, or another sheet's rows (link) when they agree
+#   line:    Account Group / Account balances (Debit - Credit) times sign, or another sheet's rows (link) when they agree;
+#            an Account Group replaced by a Formula row of the same name in the Balance Sheet's Account Group takes
+#            the Formula row's amount, as shown in the Summarized Balance Sheet
 #   total:   adds up the given rows, or the lines since the last heading / total ("section")
 #   heading: label only
+# Every Account Group and Account must exist, and every row shown in the Summarized Balance Sheet must be a line of
+# BALANCE_SHEET_LAYOUT, see validate_balance_sheet_layout
 def layout_line(
     label, groups=(), accounts=(), key=None, sign=None, schedule=None, link=()
 ):
@@ -351,7 +355,9 @@ BALANCE_SHEET_LAYOUT = {
         LAYOUT_BLANK,
         layout_line("Capital", ["Capital"], sign=-1),
         layout_line(
-            "Shareholder's Capital Contribution", ["Loan from Shareholder"], sign=-1
+            "Shareholder's Capital Contribution",
+            ["Shareholder's Capital Contribution"],
+            sign=-1,
         ),
         layout_line("Capital Reserve", ["Capital Reserve"], sign=-1),
         layout_line("Legal Reserve", ["Legal Reserve"], sign=-1),
@@ -443,6 +449,7 @@ def validate_filters(filters):
     # The Fixed Assets Statement and the other Balance Sheet schedules always come with the Summarized Balance Sheet
     if "balance_sheet" in filters.sheets:
         filters.sheets.append("fixed_assets")
+        validate_balance_sheet_layout(filters.company)
 
     filters.sheets = list(dict.fromkeys(filters.sheets))
 
@@ -865,6 +872,96 @@ def normalize_name(name):
     return " ".join(str(name or "").replace("\xa0", " ").split()).lower()
 
 
+def validate_balance_sheet_layout(company):
+    """The Balance Sheet layouts must match the Account Groups, so that the workbook matches the Summarized Balance
+    Sheet: every Account Group and Account they use must exist, and every row shown in the Summarized Balance Sheet
+    (Account Group, Account or Formula row of the Report Root Account Group) must be a line of BALANCE_SHEET_LAYOUT."""
+    lines = [
+        d
+        for layout in [BALANCE_SHEET_LAYOUT] + list(BS_SCHEDULES.values())
+        for d in layout["rows"]
+        if d["type"] == "line"
+    ]
+
+    group_names = {
+        normalize_name(g)
+        for g in frappe.get_all(
+            "Account Group", filters={"company": company}, pluck="name"
+        )
+    }
+    missing = [
+        _("Account Group {0}").format(frappe.bold(g))
+        for d in lines
+        for g in d["groups"]
+        if normalize_name(g) not in group_names
+    ] + [
+        _("Account {0}").format(frappe.bold(a))
+        for d in lines
+        for a in d["accounts"]
+        if not frappe.db.exists("Account", {"name": a, "company": company})
+    ]
+    if missing:
+        frappe.throw(
+            _(
+                "The Pitstop Financial Balance Sheet uses these, which do not exist for {0}. Please update "
+                "BALANCE_SHEET_LAYOUT / BS_SCHEDULES to the current names:"
+            ).format(company)
+            + "<br><br>"
+            + "<br>".join(dict.fromkeys(missing)),
+            title=_("Balance Sheet Layout Mismatch"),
+        )
+
+    root = frappe.db.get_value(
+        "Account Group",
+        {
+            "company": company,
+            "group_level": "Report Root",
+            "report_type": "Balance Sheet",
+        },
+        "name",
+    )
+    if not root:
+        return
+
+    layout_groups = {
+        normalize_name(g)
+        for d in BALANCE_SHEET_LAYOUT["rows"]
+        if d["type"] == "line"
+        for g in d["groups"]
+    }
+    layout_accounts = {
+        a
+        for d in BALANCE_SHEET_LAYOUT["rows"]
+        if d["type"] == "line"
+        for a in d["accounts"]
+    }
+
+    not_in_layout = []
+    for row in get_account_group_doc(root).rows:
+        if row.hidden:
+            continue
+        if row.row_type == "Account Group" and row.account_group:
+            if normalize_name(row.account_group) not in layout_groups:
+                not_in_layout.append(row.account_group)
+        elif row.row_type == "Account" and row.account:
+            if row.account not in layout_accounts:
+                not_in_layout.append(row.account)
+        elif row.row_type == "Formula" and (row.value_type or "Currency") == "Currency":
+            if normalize_name(row.section_name) not in layout_groups:
+                not_in_layout.append(row.section_name)
+
+    if not_in_layout:
+        frappe.throw(
+            _(
+                "These rows of Account Group {0} are not in the Pitstop Financial Balance Sheet, so its totals would "
+                "not match the Summarized Balance Sheet. Please add them to BALANCE_SHEET_LAYOUT:"
+            ).format(frappe.bold(root))
+            + "<br><br>"
+            + "<br>".join(frappe.bold(r) for r in not_in_layout),
+            title=_("Balance Sheet Layout Mismatch"),
+        )
+
+
 class BalanceSheetWriter:
     """Summarized Balance Sheet and its schedules (Fixed Assets, Inventory, Receivable, Payable, CashBank) laid out as
     the Pitstop Financial workbook, with the amounts of the Summarized Balance Sheet report.
@@ -887,10 +984,16 @@ class BalanceSheetWriter:
 
         self.report = SummarizedBalanceSheet(self.report_filters.copy())
         self.report.validate_filters()
-        self.report.get_data()
+        report_data = self.report.get_data()
 
         self.group_names = {
             normalize_name(g): g for g in self.report.child_group_totals
+        }
+        # Formula rows of the Balance Sheet's Account Group, by name
+        self.formula_rows = {
+            normalize_name(d.account_display): d
+            for d in report_data
+            if d.row_type == "Formula" and not d.is_child
         }
         self.refs = {}  # sheet -> row key -> {field: (cell reference, value)}
 
@@ -1025,9 +1128,17 @@ class BalanceSheetWriter:
         values = {}
         formulas = {}
         for f, period in BS_VALUE_FIELDS:
-            values[f] = sign * sum(
-                flt(self.get_balances(name, kind).get(f)) for name, kind in terms
-            )
+            values[f] = 0
+            for name, kind in terms:
+                formula_row = kind == "group" and self.formula_rows.get(
+                    normalize_name(name)
+                )
+                if formula_row:
+                    # The Formula row is already signed the way the Summarized Balance Sheet shows it
+                    values[f] += flt(formula_row.get(f"{f}_display"))
+                else:
+                    values[f] += sign * flt(self.get_balances(name, kind).get(f))
+
             formulas[f] = self.get_link_formula(d["link"], f, values[f]) or (
                 period and self.get_mom_formula(terms, sign, period, values[f])
             )

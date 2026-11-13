@@ -85,7 +85,7 @@ class DownloadPitstopFinancial {
 					fieldname: "tree_view",
 					label: __("Show Sub Groups (Tree View)"),
 					fieldtype: "Check",
-					default: 1,
+					default: 0,
 				},
 				{ fieldtype: "Section Break", label: __("Reports") },
 				// {
