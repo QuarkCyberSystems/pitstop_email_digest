@@ -50,6 +50,8 @@ REPORT_FILTERS = {
 
 SOURCE_REPORT = "productivity"
 
+TEAM_LEADER_DESIGNATION = "Team Leader"
+
 
 def get_leading_columns():
     """Columns shown before the source report's own columns."""
@@ -125,10 +127,8 @@ def fetch_feedback(filters):
         "to_dt": filters.get("to_date"),
     }
 
-    condition = "and %(from_dt)s <= ttd.to_time and %(to_dt)s >= ttd.from_time"
-
     return frappe.db.sql(
-        f"""
+        """
 		select
 			cbf_task_employee.reports_to,
 			cbf_task_employee.reports_to_name,
@@ -158,7 +158,9 @@ def fetch_feedback(filters):
 				tcf.status = 'Completed'
 				and tt3.reports_to != ""
 				and tt.docstatus < 2
-				and tt3.reports_to is not null {condition}
+				and tt3.reports_to is not null
+				and %(from_dt)s <= ttd.to_time
+				and %(to_dt)s >= ttd.from_time
 		) cbf_task_employee
 		group by
 			cbf_task_employee.reports_to;
@@ -170,18 +172,27 @@ def fetch_feedback(filters):
 
 def prepare_lookups(filters):
     feedback = fetch_feedback(filters) or []
-    return {"feedback_map": {d.get("reports_to"): d for d in feedback}}
+    team_leaders = set(
+        frappe.get_all(
+            "Employee", filters={"designation": TEAM_LEADER_DESIGNATION}, pluck="name"
+        )
+    )
+    return {
+        "feedback_map": {d.get("reports_to"): d for d in feedback},
+        "team_leaders": team_leaders,
+    }
 
 
 def process_rows(filters, source_data, qc_task_types, lookups):
     feedback_map = lookups.get("feedback_map") or {}
+    team_leaders = lookups.get("team_leaders") or set()
 
     for totals_dict in iter_productivity_groups(filters, source_data, qc_task_types):
         reports_to = totals_dict.get("reports_to")
-        apply_customer_feedback(filters, totals_dict, feedback_map.get(reports_to))
-
-        if not reports_to:
+        if not reports_to or reports_to not in team_leaders:
             continue
+
+        apply_customer_feedback(filters, totals_dict, feedback_map.get(reports_to))
 
         totals_dict["calculated_incentive"] = compute_incentive(
             totals_dict, filters.get("based_on")
