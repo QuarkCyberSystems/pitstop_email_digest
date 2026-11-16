@@ -52,14 +52,14 @@ def get_leading_columns():
     """Columns shown before the source report's own columns."""
     return [
         {
-            "label": frappe._("Insurance BD ID"),
+            "label": frappe._("Employee ID"),
             "fieldname": "insurance_bd_id",
             "fieldtype": "Link",
             "options": "Employee",
             "width": 150,
         },
         {
-            "label": frappe._("Insurance BD Name"),
+            "label": frappe._("Employee Name"),
             "fieldname": "insurance_bd_name",
             "fieldtype": "Data",
             "width": 150,
@@ -74,6 +74,12 @@ def get_leading_columns():
             "label": "Sales Target Amount",
             "fieldname": "ibd_target_revenue",
             "fieldtype": "Currency",
+            "width": 100,
+        },
+        {
+            "label": "Invoiced RO %",
+            "fieldname": "revenue_percentage",
+            "fieldtype": "Percent",
             "width": 100,
         },
         {
@@ -136,6 +142,7 @@ def compute_revenue_amount(filters, totals):
         if flt(totals.get("ibd_target_revenue"))
         else 0.0
     )
+    totals["revenue_percentage"] = revenue_percentage
 
     result = get_ladder_result(
         based_on=filters.get("based_on"),

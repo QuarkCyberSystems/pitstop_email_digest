@@ -50,14 +50,14 @@ def get_leading_columns():
     """Columns shown before the source report's own columns."""
     return [
         {
-            "label": frappe._("Bodyshop Estimator ID"),
+            "label": frappe._("Employee ID"),
             "fieldname": "bodyshop_estimator_id",
             "fieldtype": "Link",
             "options": "Employee",
             "width": 150,
         },
         {
-            "label": frappe._("Bodyshop Estimator Name"),
+            "label": frappe._("Employee Name"),
             "fieldname": "bodyshop_estimator_name",
             "fieldtype": "Data",
             "width": 150,

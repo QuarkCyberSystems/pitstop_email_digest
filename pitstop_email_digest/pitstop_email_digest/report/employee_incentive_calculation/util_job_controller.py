@@ -69,14 +69,14 @@ def get_leading_columns():
     """Columns shown before the source report's own columns."""
     return [
         {
-            "label": frappe._("Controller"),
+            "label": frappe._("Employee ID"),
             "fieldname": "job_controller",
             "fieldtype": "Link",
             "options": "Employee",
             "width": 150,
         },
         {
-            "label": frappe._("Controller Name"),
+            "label": frappe._("Employee Name"),
             "fieldname": "job_controller_name",
             "fieldtype": "Data",
             "width": 150,
@@ -213,7 +213,8 @@ def compute_key_to_key_amount(filters, totals):
         ladder_field="key_to_key_bodyshop_ladder",
         top_cap=10.0,
     )
-    if bodyshop_result:
+
+    if bodyshop_result and totals.get("key_to_key_duration_bodyshop"):
         totals["key_to_key_amt"] = flt(
             weightage_amount(filters, "key_to_key") * (bodyshop_result / 100.0), 3
         )
@@ -225,7 +226,7 @@ def compute_key_to_key_amount(filters, totals):
         ladder_field="key_to_key_mechanical_ladder",
         top_cap=10.0,
     )
-    if mechanical_result:
+    if mechanical_result and totals.get("key_to_key_duration_mechanical"):
         totals["key_to_key_amt"] = flt(
             weightage_amount(filters, "key_to_key") * (mechanical_result / 100.0),
             3,

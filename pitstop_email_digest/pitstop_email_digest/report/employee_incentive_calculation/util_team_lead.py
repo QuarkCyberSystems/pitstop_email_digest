@@ -62,14 +62,14 @@ def get_leading_columns():
     """Columns shown before the source report's own columns."""
     return [
         {
-            "label": "Reporting Manger",
+            "label": "Employee ID",
             "fieldname": "reports_to",
             "fieldtype": "Link",
             "options": "Employee",
             "width": 150,
         },
         {
-            "label": "Reporting Manger Name",
+            "label": "Employee Name",
             "fieldname": "reports_to_name",
             "fieldtype": "Data",
             "width": 150,
