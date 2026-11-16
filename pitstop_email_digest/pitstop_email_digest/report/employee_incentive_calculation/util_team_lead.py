@@ -50,7 +50,12 @@ REPORT_FILTERS = {
 
 SOURCE_REPORT = "productivity"
 
-TEAM_LEADER_DESIGNATION = "Team Leader"
+
+def get_team_leader_designations():
+    settings = frappe.get_cached_doc("Incentive Calculation Setttings")
+    return [
+        d.designation for d in (settings.team_lead_designation or []) if d.designation
+    ]
 
 
 def get_leading_columns():
@@ -172,11 +177,21 @@ def fetch_feedback(filters):
 
 def prepare_lookups(filters):
     feedback = fetch_feedback(filters) or []
-    team_leaders = set(
-        frappe.get_all(
-            "Employee", filters={"designation": TEAM_LEADER_DESIGNATION}, pluck="name"
-        )
-    )
+    designations = get_team_leader_designations()
+    team_leaders = {}
+    if designations:
+        employee_filters = {"designation": ["in", designations], "status": "Active"}
+        if filters.get("company"):
+            employee_filters["company"] = filters.get("company")
+        team_leaders = {
+            d.name: d.employee_name
+            for d in frappe.get_all(
+                "Employee",
+                filters=employee_filters,
+                fields=["name", "employee_name"],
+                order_by="employee_name",
+            )
+        }
     return {
         "feedback_map": {d.get("reports_to"): d for d in feedback},
         "team_leaders": team_leaders,
@@ -185,7 +200,9 @@ def prepare_lookups(filters):
 
 def process_rows(filters, source_data, qc_task_types, lookups):
     feedback_map = lookups.get("feedback_map") or {}
-    team_leaders = lookups.get("team_leaders") or set()
+    team_leaders = lookups.get("team_leaders") or {}
+    seen = set()
+    numeric_fields = set()
 
     for totals_dict in iter_productivity_groups(filters, source_data, qc_task_types):
         reports_to = totals_dict.get("reports_to")
@@ -197,4 +214,36 @@ def process_rows(filters, source_data, qc_task_types, lookups):
         totals_dict["calculated_incentive"] = compute_incentive(
             totals_dict, filters.get("based_on")
         )
+        seen.add(reports_to)
+        numeric_fields.update(
+            key
+            for key, value in totals_dict.items()
+            if isinstance(value, (int, float)) and not key.startswith("_")
+        )
         yield totals_dict
+
+    # Team leaders with no tasks in the period still get a row, with zeros.
+    for reports_to, reports_to_name in team_leaders.items():
+        if reports_to in seen:
+            continue
+        yield get_empty_row(reports_to, reports_to_name, numeric_fields)
+
+
+def get_empty_row(reports_to, reports_to_name, numeric_fields):
+    row = frappe._dict.fromkeys(numeric_fields, 0)
+    row.update(
+        {
+            "reports_to": reports_to,
+            "reports_to_name": reports_to_name,
+            "customer_overall_rating": 0,
+            "customer_overall_rating_value": 0,
+            "ro_count_cfb": 0,
+            "total_qc_ro_count": 0,
+            "total_ro_count_non_qc": 0,
+            "sold_hrs_percentage": 0,
+            "total_qc_ro_percentage": 0,
+        }
+    )
+    row.update({field + "_amt": 0 for field in TEMPLATE_DATA["weightages"]})
+    row["calculated_incentive"] = 0
+    return row

@@ -10,7 +10,8 @@
   "bodyshop_estimator_designation",
   "insurance_bd_designation",
   "column_break_hdqg",
-  "parts_advisor_designation"
+  "parts_advisor_designation",
+  "team_lead_designation"
  ],
  "fields": [
   {
@@ -46,13 +47,19 @@
    "fieldtype": "Table MultiSelect",
    "label": "Parts Advisor Designation",
    "options": "Designation Details"
+  },
+  {
+   "fieldname": "team_lead_designation",
+   "fieldtype": "Table MultiSelect",
+   "label": "Team Lead Designation",
+   "options": "Designation Details"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-09-25 18:35:21.049135",
+ "modified": "2026-11-16 11:19:07.381024",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Incentive Calculation Setttings",
