@@ -135,28 +135,37 @@ def fetch_feedback(filters):
     )
 
 
-def fetch_service_advisors_by_designation():
+def get_service_advisor_designations():
     settings = frappe.get_cached_doc("Incentive Calculation Setttings")
-    designations = [
+    return [
         d.designation
         for d in (settings.service_advisor_designation or [])
         if d.designation
     ]
-    if not designations:
-        return None
 
-    rows = frappe.db.sql(
-        """
-		select sp.name
-		from `tabSales Person` sp
-		inner join `tabEmployee` emp on emp.user_id = sp.user_id
-		where sp.is_service_advisor = 1
-		  and sp.enabled = 1
-		  and emp.designation in %(designations)s
-		""",
-        {"designations": tuple(designations)},
-        as_dict=True,
+
+def fetch_service_advisors_by_designation(filters):
+    designations = get_service_advisor_designations()
+    if not designations:
+        return set()
+
+    sp = frappe.qb.DocType("Sales Person")
+    emp = frappe.qb.DocType("Employee")
+
+    query = (
+        frappe.qb.from_(sp)
+        .inner_join(emp)
+        .on(emp.name == sp.employee)
+        .select(sp.name)
+        .where(sp.is_service_advisor == 1)
+        .where(sp.enabled == 1)
+        .where(emp.status == "Active")
+        .where(emp.designation.isin(designations))
     )
+    if filters.get("company"):
+        query = query.where(emp.company == filters.get("company"))
+
+    rows = query.run(as_dict=True)
     return {row.name for row in rows}
 
 
@@ -165,24 +174,20 @@ def fetch_targets(filters):
     year = to_date.year
     month_field = to_date.strftime("%B").lower()
 
-    rows = frappe.db.sql(
-        f"""
-		select
-			tr.sales_person,
-			trd.{month_field} as target_amount
-		from
-			`tabTarget Role Details` trd
-		inner join
-			`tabTarget Role` tr on tr.name = trd.parent
-		where
-			trd.parenttype = 'Target Role'
-			and trd.parentfield = 'targets'
-			and trd.year = %(year)s
-			and tr.sales_person is not null
-			and tr.sales_person != ''
-		""",
-        {"year": year},
-        as_dict=True,
+    trd = frappe.qb.DocType("Target Role Details")
+    tr = frappe.qb.DocType("Target Role")
+
+    rows = (
+        frappe.qb.from_(trd)
+        .inner_join(tr)
+        .on(tr.name == trd.parent)
+        .select(tr.sales_person, trd[month_field].as_("target_amount"))
+        .where(trd.parenttype == "Target Role")
+        .where(trd.parentfield == "targets")
+        .where(trd.year == year)
+        .where(tr.sales_person.isnotnull())
+        .where(tr.sales_person != "")
+        .run(as_dict=True)
     )
 
     return {row.get("sales_person"): flt(row.get("target_amount")) for row in rows}
@@ -219,7 +224,7 @@ def prepare_lookups(filters):
         "feedback_map": {d.get("service_advisor"): d for d in feedback},
         "wip_average_age": fetch_wip_age(filters) or [],
         "targets": fetch_targets(filters),
-        "allowed_service_advisors": fetch_service_advisors_by_designation(),
+        "allowed_service_advisors": fetch_service_advisors_by_designation(filters),
     }
 
 
@@ -256,19 +261,15 @@ def process_rows(filters, source_data, qc_task_types, lookups):
     feedback_map = lookups.get("feedback_map") or {}
     wip_average_age = lookups.get("wip_average_age") or []
     targets = lookups.get("targets") or {}
-    allowed_service_advisors = lookups.get("allowed_service_advisors")
+    allowed_service_advisors = lookups.get("allowed_service_advisors") or set()
+    seen = set()
 
     for each_turnover_data in source_data:
         for each_group_data in each_turnover_data.rows:
             totals_dict = each_group_data.totals
             service_advisor = totals_dict.get("service_advisor")
 
-            if not service_advisor:
-                continue
-            if (
-                allowed_service_advisors is not None
-                and service_advisor not in allowed_service_advisors
-            ):
+            if not service_advisor or service_advisor not in allowed_service_advisors:
                 continue
 
             apply_customer_feedback(
@@ -287,4 +288,10 @@ def process_rows(filters, source_data, qc_task_types, lookups):
             if totals_dict.get("_bold"):
                 totals_dict["_bold"] = 0
 
+            seen.add(service_advisor)
             yield totals_dict
+
+    # Service advisors with no sales in the period still get a row, left blank
+    # with no incentive calculated.
+    for service_advisor in sorted(allowed_service_advisors - seen):
+        yield frappe._dict({"service_advisor": service_advisor})
