@@ -89,7 +89,10 @@ def get_trailing_columns():
     return []
 
 
-def fetch_feedback(filters):
+def fetch_feedback(filters, qc_technicians):
+    if not qc_technicians:
+        return []
+
     return frappe.db.sql(
         """
 		SELECT
@@ -117,10 +120,6 @@ def fetch_feedback(filters):
 			on
 				tt3.name = ttd.task
 			join
-				tabEmployee te
-			on
-				te.name = tt3.assigned_to
-			join
 				tabProject tp
 			on
 				tp.name = tt3.project
@@ -128,8 +127,7 @@ def fetch_feedback(filters):
 				`tabCustomer Feedback` tcf
 			on
 				tt3.project = tcf.project
-			WHERE te.status = 'Active'
-				AND te.designation = 'Quality Controller'
+			WHERE tt3.assigned_to in %(qc_technicians)s
 				AND tp.project_date BETWEEN %(from_date)s AND %(to_date)s
 		) AS cbf_task_employee
 		GROUP BY
@@ -139,30 +137,39 @@ def fetch_feedback(filters):
         {
             "from_date": filters.get("from_date"),
             "to_date": filters.get("to_date"),
+            "qc_technicians": tuple(qc_technicians),
         },
         as_dict=True,
     )
 
 
-def fetch_qc_technician():
+def get_quality_controller_designations():
     settings = frappe.get_cached_doc("Incentive Calculation Setttings")
-    designations = [
+    return [
         d.designation
         for d in (settings.quality_controller_designation or [])
         if d.designation
     ]
-    if not designations:
-        return None
 
-    return frappe.get_all(
-        "Employee",
-        filters={
-            "status": "Active",
-            "is_technician": 1,
-            "designation": ["in", designations],
-        },
-        pluck="name",
-    )
+
+def fetch_qc_technician(filters):
+    designations = get_quality_controller_designations()
+    if not designations:
+        return {}
+
+    employee_filters = {"designation": ["in", designations], "status": "Active"}
+    if filters.get("company"):
+        employee_filters["company"] = filters.get("company")
+
+    return {
+        d.name: d.employee_name
+        for d in frappe.get_all(
+            "Employee",
+            filters=employee_filters,
+            fields=["name", "employee_name"],
+            order_by="employee_name",
+        )
+    }
 
 
 def fetch_ro_task_qc(filters, qc_technicians):
@@ -220,8 +227,8 @@ def fetch_ro_task_qc(filters, qc_technicians):
 
 
 def prepare_lookups(filters):
-    qc_technicians = fetch_qc_technician()
-    feedback = fetch_feedback(filters) or []
+    qc_technicians = fetch_qc_technician(filters)
+    feedback = fetch_feedback(filters, qc_technicians) or []
 
     return {
         "qc_technicians": qc_technicians,
@@ -271,9 +278,10 @@ def compute_comeback_ro_amount(filters, totals, total_comeback_ro, total_ro):
 
 
 def process_rows(filters, source_data, qc_task_types, lookups):
-    qc_technicians = lookups.get("qc_technicians")
+    qc_technicians = lookups.get("qc_technicians") or {}
     feedback_map = lookups.get("feedback_map") or {}
     data = lookups.get("ro_task_qc") or []
+    seen = set()
 
     for each_data in data:
         if not each_data.get("rows"):
@@ -282,15 +290,10 @@ def process_rows(filters, source_data, qc_task_types, lookups):
         for each_group_rows in each_data.rows:
             totals_dict = each_group_rows.totals or {}
 
-            if qc_technicians:
-                assignee = each_group_rows.get("employee") or totals_dict.get(
-                    "employee"
-                )
-                if assignee not in qc_technicians:
-                    continue
-                apply_customer_feedback(
-                    filters, totals_dict, feedback_map.get(assignee)
-                )
+            assignee = each_group_rows.get("employee") or totals_dict.get("employee")
+            if assignee not in qc_technicians:
+                continue
+            apply_customer_feedback(filters, totals_dict, feedback_map.get(assignee))
 
             all_ro = set()
             ro_with_qc = set()
@@ -343,4 +346,12 @@ def process_rows(filters, source_data, qc_task_types, lookups):
                 totals_dict, filters.get("based_on")
             )
 
+            seen.add(assignee)
             yield totals_dict
+
+    # Quality controllers with no tasks in the period still get a row, left
+    # blank with no incentive calculated.
+    for employee, employee_name in qc_technicians.items():
+        if employee in seen:
+            continue
+        yield frappe._dict({"employee": employee, "employee_name": employee_name})
