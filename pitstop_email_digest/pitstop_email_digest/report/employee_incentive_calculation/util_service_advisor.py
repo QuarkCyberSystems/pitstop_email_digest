@@ -43,10 +43,16 @@ def get_leading_columns():
     """Columns shown before the source report's own columns."""
     return [
         {
-            "label": frappe._("Service Advisor"),
-            "fieldname": "service_advisor",
+            "label": "Employee ID",
+            "fieldname": "employee",
             "fieldtype": "Link",
-            "options": "Sales Person",
+            "options": "Employee",
+            "width": 150,
+        },
+        {
+            "label": "Employee Name",
+            "fieldname": "employee_name",
+            "fieldtype": "Data",
             "width": 150,
         },
         {
@@ -65,6 +71,12 @@ def get_leading_columns():
             "label": "Target Revenue",
             "fieldname": "sa_target_revenue",
             "fieldtype": "Currency",
+            "width": 100,
+        },
+        {
+            "label": "Revenue %",
+            "fieldname": "revenue_percentage",
+            "fieldtype": "Percent",
             "width": 100,
         },
         {
@@ -145,9 +157,10 @@ def get_service_advisor_designations():
 
 
 def fetch_service_advisors_by_designation(filters):
+    """Map of eligible Service Advisor (Sales Person) -> their Employee details."""
     designations = get_service_advisor_designations()
     if not designations:
-        return set()
+        return {}
 
     sp = frappe.qb.DocType("Sales Person")
     emp = frappe.qb.DocType("Employee")
@@ -156,7 +169,7 @@ def fetch_service_advisors_by_designation(filters):
         frappe.qb.from_(sp)
         .inner_join(emp)
         .on(emp.name == sp.employee)
-        .select(sp.name)
+        .select(sp.name, emp.name.as_("employee"), emp.employee_name)
         .where(sp.is_service_advisor == 1)
         .where(sp.enabled == 1)
         .where(emp.status == "Active")
@@ -166,7 +179,10 @@ def fetch_service_advisors_by_designation(filters):
         query = query.where(emp.company == filters.get("company"))
 
     rows = query.run(as_dict=True)
-    return {row.name for row in rows}
+    return {
+        row.name: {"employee": row.employee, "employee_name": row.employee_name}
+        for row in rows
+    }
 
 
 def fetch_targets(filters):
@@ -243,6 +259,7 @@ def compute_revenue_amount(filters, totals):
         if flt(totals.get("sa_target_revenue"))
         else 0.0
     )
+    totals["revenue_percentage"] = revenue_percentage
 
     result = get_ladder_result(
         based_on=filters.get("based_on"),
@@ -261,7 +278,7 @@ def process_rows(filters, source_data, qc_task_types, lookups):
     feedback_map = lookups.get("feedback_map") or {}
     wip_average_age = lookups.get("wip_average_age") or []
     targets = lookups.get("targets") or {}
-    allowed_service_advisors = lookups.get("allowed_service_advisors") or set()
+    allowed_service_advisors = lookups.get("allowed_service_advisors") or {}
     seen = set()
 
     for each_turnover_data in source_data:
@@ -271,6 +288,9 @@ def process_rows(filters, source_data, qc_task_types, lookups):
 
             if not service_advisor or service_advisor not in allowed_service_advisors:
                 continue
+
+            totals_dict.update(allowed_service_advisors[service_advisor])
+            totals_dict["disable_party_name_formatter"] = 1
 
             apply_customer_feedback(
                 filters, totals_dict, feedback_map.get(service_advisor)
@@ -293,5 +313,9 @@ def process_rows(filters, source_data, qc_task_types, lookups):
 
     # Service advisors with no sales in the period still get a row, left blank
     # with no incentive calculated.
-    for service_advisor in sorted(allowed_service_advisors - seen):
-        yield frappe._dict({"service_advisor": service_advisor})
+    for service_advisor in sorted(set(allowed_service_advisors) - seen):
+        yield frappe._dict(
+            allowed_service_advisors[service_advisor],
+            service_advisor=service_advisor,
+            disable_party_name_formatter=1,
+        )
