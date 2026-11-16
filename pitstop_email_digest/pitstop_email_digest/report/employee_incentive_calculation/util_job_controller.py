@@ -151,11 +151,41 @@ def fetch_key_to_key(filters, workshop_division):
     return key_to_key_report[1]
 
 
+def get_job_controller_designations():
+    settings = frappe.get_cached_doc("Incentive Calculation Setttings")
+    return [
+        d.designation
+        for d in (settings.job_controller_designation or [])
+        if d.designation
+    ]
+
+
+def fetch_job_controllers(filters):
+    designations = get_job_controller_designations()
+    if not designations:
+        return {}
+
+    employee_filters = {"designation": ["in", designations], "status": "Active"}
+    if filters.get("company"):
+        employee_filters["company"] = filters.get("company")
+
+    return {
+        d.name: d.employee_name
+        for d in frappe.get_all(
+            "Employee",
+            filters=employee_filters,
+            fields=["name", "employee_name"],
+            order_by="employee_name",
+        )
+    }
+
+
 def prepare_lookups(filters):
     return {
         "wip_average_age": fetch_wip_age(filters) or [],
         "key_to_key_mechanical": fetch_key_to_key(filters, "Mechanical"),
         "key_to_key_bodyshop": fetch_key_to_key(filters, "Body Shop"),
+        "job_controllers": fetch_job_controllers(filters),
     }
 
 
@@ -235,10 +265,12 @@ def process_rows(filters, source_data, qc_task_types, lookups):
     wip_average_age = lookups.get("wip_average_age") or []
     key_to_key_bodyshop = lookups.get("key_to_key_bodyshop") or []
     key_to_key_mechanical = lookups.get("key_to_key_mechanical") or []
+    job_controllers = lookups.get("job_controllers") or {}
+    seen = set()
 
     for totals_dict in iter_productivity_groups(filters, source_data, qc_task_types):
         job_controller = totals_dict.get("job_controller")
-        if not job_controller:
+        if not job_controller or job_controller not in job_controllers:
             continue
 
         compute_idle_percentage(totals_dict)
@@ -258,4 +290,17 @@ def process_rows(filters, source_data, qc_task_types, lookups):
         totals_dict["calculated_incentive"] = compute_incentive(
             totals_dict, filters.get("based_on")
         )
+        seen.add(job_controller)
         yield totals_dict
+
+    # Job controllers with no data in the period still get a row, left blank
+    # with no incentive calculated.
+    for job_controller, job_controller_name in job_controllers.items():
+        if job_controller in seen:
+            continue
+        yield frappe._dict(
+            {
+                "job_controller": job_controller,
+                "job_controller_name": job_controller_name,
+            }
+        )

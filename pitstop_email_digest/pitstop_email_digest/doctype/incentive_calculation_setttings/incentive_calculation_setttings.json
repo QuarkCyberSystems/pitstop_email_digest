@@ -11,7 +11,8 @@
   "insurance_bd_designation",
   "column_break_hdqg",
   "parts_advisor_designation",
-  "team_lead_designation"
+  "team_lead_designation",
+  "job_controller_designation"
  ],
  "fields": [
   {
@@ -53,13 +54,19 @@
    "fieldtype": "Table MultiSelect",
    "label": "Team Lead Designation",
    "options": "Designation Details"
+  },
+  {
+   "fieldname": "job_controller_designation",
+   "fieldtype": "Table MultiSelect",
+   "label": "Job Controller Designation",
+   "options": "Designation Details"
   }
  ],
  "grid_page_length": 500,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-16 11:19:07.381024",
+ "modified": "2026-11-16 12:21:20.376316",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Incentive Calculation Setttings",
