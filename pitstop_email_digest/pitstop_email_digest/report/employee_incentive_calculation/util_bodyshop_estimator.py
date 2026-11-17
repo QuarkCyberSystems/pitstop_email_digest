@@ -75,6 +75,12 @@ def get_leading_columns():
             "width": 100,
         },
         {
+            "label": "Invoice RO %",
+            "fieldname": "revenue_percentage",
+            "fieldtype": "Percent",
+            "width": 120,
+        },
+        {
             "label": "Gross Margin Percentage",
             "fieldname": "gp_gross_profit_margin_percentage",
             "fieldtype": "Percentage",
@@ -498,6 +504,7 @@ def compute_revenue_amount(filters, totals):
         if flt(totals.get("bse_target_revenue"))
         else 0.0
     )
+    totals["revenue_percentage"] = revenue_percentage
 
     result = get_ladder_result(
         based_on=filters.get("based_on"),

@@ -64,6 +64,12 @@ def get_leading_columns():
             "width": 150,
         },
         {
+            "label": "QC RO %",
+            "fieldname": "percentage_of_invoiced_qc_ro",
+            "fieldtype": "Percent",
+            "width": 120,
+        },
+        {
             "label": "Invoiced QC RO Count",
             "fieldname": "total_qc_invoice_ro_count",
             "fieldtype": "Int",
@@ -243,6 +249,7 @@ def compute_qc_invoiced_ro_amount(filters, totals, invoiced_qc_ro_count, total_q
     percentage_of_invoiced_qc_ro = (
         flt((invoiced_qc_ro_count / total_qc_ro) * 100, 3) if total_qc_ro else 0.0
     )
+    totals["percentage_of_invoiced_qc_ro"] = percentage_of_invoiced_qc_ro
 
     result = get_rate_ladder_result(
         based_on=filters.get("based_on"),
@@ -339,6 +346,8 @@ def process_rows(filters, source_data, qc_task_types, lookups):
                 flt((total_qc_ro / total_ro) * 100.0, 3) if total_ro else 0.0
             )
 
+            totals_dict["disable_party_name_formatter"] = 1
+
             if totals_dict.get("_bold"):
                 totals_dict["_bold"] = 0
 
@@ -354,4 +363,10 @@ def process_rows(filters, source_data, qc_task_types, lookups):
     for employee, employee_name in qc_technicians.items():
         if employee in seen:
             continue
-        yield frappe._dict({"employee": employee, "employee_name": employee_name})
+        yield frappe._dict(
+            {
+                "employee": employee,
+                "employee_name": employee_name,
+                "disable_party_name_formatter": 1,
+            }
+        )
