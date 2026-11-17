@@ -154,6 +154,11 @@
   margin: 0px
 }
 
+.tw-scope .-mx-2 {
+  margin-left: -0.5rem;
+  margin-right: -0.5rem
+}
+
 .tw-scope .mb-0 {
   margin-bottom: 0px
 }
@@ -200,6 +205,10 @@
 
 .tw-scope .mt-3 {
   margin-top: 0.75rem
+}
+
+.tw-scope .mt-auto {
+  margin-top: auto
 }
 
 .tw-scope .block {
@@ -268,6 +277,10 @@
 
 .tw-scope .h-8 {
   height: 2rem
+}
+
+.tw-scope .h-full {
+  height: 100%
 }
 
 .tw-scope .max-h-\[90vh\] {
@@ -578,6 +591,10 @@
   border-radius: 0.25rem
 }
 
+.tw-scope .rounded-2xl {
+  border-radius: 1rem
+}
+
 .tw-scope .rounded-\[10px\] {
   border-radius: 10px
 }
@@ -631,6 +648,10 @@
   border-style: dashed
 }
 
+.tw-scope .border-black\/5 {
+  border-color: rgb(0 0 0 / 0.05)
+}
+
 .tw-scope .border-blue-500 {
   --tw-border-opacity: 1;
   border-color: rgb(59 130 246 / var(--tw-border-opacity, 1))
@@ -654,6 +675,31 @@
 .tw-scope .border-orange-200 {
   --tw-border-opacity: 1;
   border-color: rgb(254 215 170 / var(--tw-border-opacity, 1))
+}
+
+.tw-scope .bg-\[\#e8f4f2\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(232 244 242 / var(--tw-bg-opacity, 1))
+}
+
+.tw-scope .bg-\[\#eaeef9\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(234 238 249 / var(--tw-bg-opacity, 1))
+}
+
+.tw-scope .bg-\[\#edf3ec\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(237 243 236 / var(--tw-bg-opacity, 1))
+}
+
+.tw-scope .bg-\[\#f1edf9\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(241 237 249 / var(--tw-bg-opacity, 1))
+}
+
+.tw-scope .bg-\[\#fbf3e6\] {
+  --tw-bg-opacity: 1;
+  background-color: rgb(251 243 230 / var(--tw-bg-opacity, 1))
 }
 
 .tw-scope .bg-amber-50 {
@@ -818,9 +864,19 @@
   padding-right: 1.25rem
 }
 
+.tw-scope .px-6 {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem
+}
+
 .tw-scope .py-0\.5 {
   padding-top: 0.125rem;
   padding-bottom: 0.125rem
+}
+
+.tw-scope .py-1 {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem
 }
 
 .tw-scope .py-1\.5 {
@@ -848,6 +904,11 @@
   padding-bottom: 1rem
 }
 
+.tw-scope .py-5 {
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem
+}
+
 .tw-scope .py-6 {
   padding-top: 1.5rem;
   padding-bottom: 1.5rem
@@ -860,6 +921,10 @@
 
 .tw-scope .pb-2 {
   padding-bottom: 0.5rem
+}
+
+.tw-scope .pb-4 {
+  padding-bottom: 1rem
 }
 
 .tw-scope .pl-2 {
@@ -882,8 +947,16 @@
   padding-top: 0.5rem
 }
 
+.tw-scope .pt-3 {
+  padding-top: 0.75rem
+}
+
 .tw-scope .pt-4 {
   padding-top: 1rem
+}
+
+.tw-scope .pt-5 {
+  padding-top: 1.25rem
 }
 
 .tw-scope .text-left {
@@ -896,6 +969,11 @@
 
 .tw-scope .text-right {
   text-align: right
+}
+
+.tw-scope .text-3xl {
+  font-size: 1.875rem;
+  line-height: 2.25rem
 }
 
 .tw-scope .text-\[1\.75rem\] {
@@ -963,6 +1041,10 @@
   text-transform: none
 }
 
+.tw-scope .leading-none {
+  line-height: 1
+}
+
 .tw-scope .leading-snug {
   line-height: 1.375
 }
@@ -977,6 +1059,41 @@
 
 .tw-scope .tracking-wider {
   letter-spacing: 0.05em
+}
+
+.tw-scope .text-\[\#1d7368\] {
+  --tw-text-opacity: 1;
+  color: rgb(29 115 104 / var(--tw-text-opacity, 1))
+}
+
+.tw-scope .text-\[\#2a63c6\] {
+  --tw-text-opacity: 1;
+  color: rgb(42 99 198 / var(--tw-text-opacity, 1))
+}
+
+.tw-scope .text-\[\#2e6b34\] {
+  --tw-text-opacity: 1;
+  color: rgb(46 107 52 / var(--tw-text-opacity, 1))
+}
+
+.tw-scope .text-\[\#3c4043\] {
+  --tw-text-opacity: 1;
+  color: rgb(60 64 67 / var(--tw-text-opacity, 1))
+}
+
+.tw-scope .text-\[\#5f6368\] {
+  --tw-text-opacity: 1;
+  color: rgb(95 99 104 / var(--tw-text-opacity, 1))
+}
+
+.tw-scope .text-\[\#6a43b8\] {
+  --tw-text-opacity: 1;
+  color: rgb(106 67 184 / var(--tw-text-opacity, 1))
+}
+
+.tw-scope .text-\[\#a2620a\] {
+  --tw-text-opacity: 1;
+  color: rgb(162 98 10 / var(--tw-text-opacity, 1))
 }
 
 .tw-scope .text-amber-700 {
@@ -1178,6 +1295,10 @@
 .tw-scope .hover\:bg-gray-900:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(17 24 39 / var(--tw-bg-opacity, 1))
+}
+
+.tw-scope .hover\:bg-white\/60:hover {
+  background-color: rgb(255 255 255 / 0.6)
 }
 
 .tw-scope .hover\:text-gray-900:hover {

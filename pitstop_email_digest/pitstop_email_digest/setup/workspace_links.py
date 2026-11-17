@@ -69,6 +69,20 @@ def add_pricing_rule_analyser_to_selling():
     )
 
 
+def add_discount_rule_cards_to_accounting():
+    """Add the Discount Rule Cards page to the More Reports card of the Accounting workspace.
+
+    Re-applied on `after_migrate` for the same reason as `add_pricing_rule_analyser_to_selling`.
+    """
+    add_link_to_workspace_card(
+        "Accounting",
+        "More Reports",
+        "Page",
+        "discount-rule-matrix",
+        label="Discount Rule Cards",
+    )
+
+
 def add_link_to_workspace_card(
     workspace, card, link_type, link_to, label=None, is_query_report=0
 ):
