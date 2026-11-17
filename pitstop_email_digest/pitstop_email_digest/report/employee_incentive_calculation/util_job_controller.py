@@ -90,7 +90,7 @@ def get_trailing_columns():
         {
             "label": "Idle %",
             "fieldname": "total_idle_percentage",
-            "fieldtype": "Percentage",
+            "fieldtype": "Percent",
             "width": 100,
         },
         {

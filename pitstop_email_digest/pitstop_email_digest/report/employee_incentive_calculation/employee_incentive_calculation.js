@@ -71,6 +71,7 @@ frappe.query_reports["Employee Incentive Calculation"] = {
 			hooks: {
 				columnTotal: function (values, column, type) {
 					if (
+						column.column.fieldtype === "Percent" ||
 						in_list(
 							[
 								"sold_hrs_percentage",

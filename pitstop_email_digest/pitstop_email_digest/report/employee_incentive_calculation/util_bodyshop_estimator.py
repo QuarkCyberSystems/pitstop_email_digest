@@ -83,13 +83,13 @@ def get_leading_columns():
         {
             "label": "Gross Margin Percentage",
             "fieldname": "gp_gross_profit_margin_percentage",
-            "fieldtype": "Percentage",
+            "fieldtype": "Percent",
             "width": 140,
         },
         {
             "label": "Estimate To Appoval Ration Percentage",
             "fieldname": "estimate_to_approval_ratio",
-            "fieldtype": "Percentage",
+            "fieldtype": "Percent",
             "width": 140,
         },
     ]
