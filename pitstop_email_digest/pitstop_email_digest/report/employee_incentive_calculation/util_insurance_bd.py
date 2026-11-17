@@ -159,18 +159,21 @@ def compute_revenue_amount(filters, totals):
 
 def fetch_gross_profit_margin(filters):
     """Gross margin over sales amount across the completed ROs behind the
-    insurance_bd's quotations."""
+    insurance_bd's quotations that were invoiced in the period."""
     insurance_bds = fetch_insurance_bd_employee()
     if not insurance_bds:
         return []
 
     Quotation = qb.DocType("Quotation")
     Project = qb.DocType("Project")
+    Invoice = qb.DocType("Sales Invoice")
 
     query = (
         qb.from_(Quotation)
         .inner_join(Project)
         .on(Project.name == Quotation.project)
+        .inner_join(Invoice)
+        .on(Invoice.project == Project.name)
         .select(
             Quotation.estimator_id.as_("insurance_bd_id"),
             Quotation.estimator_name.as_("insurance_bd_id_name"),
@@ -184,9 +187,10 @@ def fetch_gross_profit_margin(filters):
             Max(Project.per_gross_margin).as_("per_gross_margin"),
         )
         .where(Quotation.docstatus == 1)
+        .where(Invoice.docstatus == 1)
         .where(Project.status.isin(list(COMPLETED_PROJECT_STATUSES)))
         .where(
-            Project.project_date.between(
+            Invoice.posting_date.between(
                 filters.get("from_date"), filters.get("to_date")
             )
         )
@@ -195,7 +199,7 @@ def fetch_gross_profit_margin(filters):
     )
 
     if filters.get("company"):
-        query = query.where(Project.company == filters.get("company"))
+        query = query.where(Invoice.company == filters.get("company"))
 
     rows = query.run(as_dict=True)
 
