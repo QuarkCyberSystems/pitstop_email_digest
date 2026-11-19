@@ -1,8 +1,8 @@
 """Insurance BD incentive calculation.
 
-Built from the Insurance BD's own quotations and what became of them: the ROs they
-were invoiced on, the estimates that turned into sales orders, and the gross
-margin of the ROs that completed.
+Built from the ROs (Projects) whose Sales Person is linked to the Insurance BD's
+Employee record: the invoices raised on them, their labour/parts mix, and the
+gross margin of the ROs that completed.
 """
 
 import frappe
@@ -158,25 +158,28 @@ def compute_revenue_amount(filters, totals):
 
 
 def fetch_gross_profit_margin(filters):
-    """Gross margin over sales amount across the completed ROs behind the
-    insurance_bd's quotations that were invoiced in the period."""
+    """Gross margin over sales amount across the insurance_bd's completed ROs
+    that were invoiced in the period."""
     insurance_bds = fetch_insurance_bd_employee()
     if not insurance_bds:
         return []
 
-    Quotation = qb.DocType("Quotation")
     Project = qb.DocType("Project")
+    SalesPerson = qb.DocType("Sales Person")
+    Employee = qb.DocType("Employee")
     Invoice = qb.DocType("Sales Invoice")
 
     query = (
-        qb.from_(Quotation)
-        .inner_join(Project)
-        .on(Project.name == Quotation.project)
+        qb.from_(Project)
+        .inner_join(SalesPerson)
+        .on(SalesPerson.name == Project.sales_person)
+        .inner_join(Employee)
+        .on(Employee.name == SalesPerson.employee)
         .inner_join(Invoice)
         .on(Invoice.project == Project.name)
         .select(
-            Quotation.estimator_id.as_("insurance_bd_id"),
-            Quotation.estimator_name.as_("insurance_bd_id_name"),
+            Employee.name.as_("insurance_bd_id"),
+            Max(Employee.employee_name).as_("insurance_bd_id_name"),
             Project.name.as_("project"),
             Max(Project.project_date).as_("project_date"),
             Max(Project.status).as_("status"),
@@ -186,7 +189,6 @@ def fetch_gross_profit_margin(filters):
             Max(Project.gross_margin).as_("gross_margin"),
             Max(Project.per_gross_margin).as_("per_gross_margin"),
         )
-        .where(Quotation.docstatus == 1)
         .where(Invoice.docstatus == 1)
         .where(Project.status.isin(list(COMPLETED_PROJECT_STATUSES)))
         .where(
@@ -194,8 +196,8 @@ def fetch_gross_profit_margin(filters):
                 filters.get("from_date"), filters.get("to_date")
             )
         )
-        .where(Quotation.estimator_id.isin(insurance_bds))
-        .groupby(Quotation.estimator_id, Project.name)
+        .where(Employee.name.isin(insurance_bds))
+        .groupby(Employee.name, Project.name)
     )
 
     if filters.get("company"):
@@ -311,29 +313,28 @@ def fetch_targets(filters):
 
 
 def fetch_invoiced_ro(filters):
-    """Submitted sales invoices raised in the period against the ROs behind the
-    insurance_bd's quotations."""
+    """Submitted sales invoices raised in the period against the insurance_bd's
+    ROs."""
     insurance_bd = fetch_insurance_bd_employee()
     if not insurance_bd:
         return []
 
-    Quotation = qb.DocType("Quotation")
     Project = qb.DocType("Project")
+    SalesPerson = qb.DocType("Sales Person")
+    Employee = qb.DocType("Employee")
     Invoice = qb.DocType("Sales Invoice")
 
     query = (
-        qb.from_(Quotation)
-        .inner_join(Project)
-        .on(Project.name == Quotation.project)
+        qb.from_(Project)
+        .inner_join(SalesPerson)
+        .on(SalesPerson.name == Project.sales_person)
+        .inner_join(Employee)
+        .on(Employee.name == SalesPerson.employee)
         .inner_join(Invoice)
         .on(Invoice.project == Project.name)
         .select(
-            Quotation.estimator_id.as_("insurance_bd_id"),
-            Quotation.estimator_name.as_("insurance_bd_id_name"),
-            Quotation.name.as_("quotation"),
-            Quotation.transaction_date.as_("quotation_date"),
-            Quotation.status.as_("quotation_status"),
-            Quotation.net_total.as_("quotation_net_total"),
+            Employee.name.as_("insurance_bd_id"),
+            Employee.employee_name.as_("insurance_bd_id_name"),
             Project.name.as_("project"),
             Project.project_date,
             Project.project_type.as_("service_type"),
@@ -344,13 +345,12 @@ def fetch_invoiced_ro(filters):
             Invoice.base_grand_total.as_("invoiced_grand_amount"),
         )
         .where(Invoice.docstatus == 1)
-        .where(Quotation.docstatus == 1)
         .where(
             Invoice.posting_date.between(
                 filters.get("from_date"), filters.get("to_date")
             )
         )
-        .where(Quotation.estimator_id.isin(insurance_bd))
+        .where(Employee.name.isin(insurance_bd))
     )
 
     if filters.get("company"):
@@ -373,19 +373,16 @@ def fetch_invoiced_ro(filters):
                             "insurance_bd_id_name": insurance_bd_id_name,
                             "total_sales_amount": 0.0,
                             "total_ro_count": 0,
-                            "total_quotation_count": 0,
                             "total_sales_invoice_count": 0,
                         }
                     ),
                     "rows": [],
                     "_projects": set(),
-                    "_quotations": set(),
                 }
             ),
         )
         group["rows"].append(row)
         group["_projects"].add(row.get("project"))
-        group["_quotations"].add(row.get("quotation"))
 
         totals = group["totals"]
         totals["total_sales_amount"] += flt(row.get("invoiced_net_amount"))
@@ -394,7 +391,6 @@ def fetch_invoiced_ro(filters):
     for group in groups.values():
         totals = group["totals"]
         totals["total_ro_count"] = len(group.pop("_projects"))
-        totals["total_quotation_count"] = len(group.pop("_quotations"))
 
     return [frappe._dict({"rows": list(groups.values())})]
 
@@ -417,29 +413,31 @@ def get_labour_and_parts_item_groups():
 
 
 def fetch_labour_parts_revenue(filters):
-    """Submitted sales invoice lines raised in the period against the ROs behind
-    the insurance_bd's quotations, split into labour, parts and other sales."""
+    """Submitted sales invoice lines raised in the period against the
+    insurance_bd's ROs, split into labour, parts and other sales."""
     insurance_bd = fetch_insurance_bd_employee()
     if not insurance_bd:
         return []
 
-    Quotation = qb.DocType("Quotation")
     Project = qb.DocType("Project")
+    SalesPerson = qb.DocType("Sales Person")
+    Employee = qb.DocType("Employee")
     Invoice = qb.DocType("Sales Invoice")
     InvoiceItem = qb.DocType("Sales Invoice Item")
 
     query = (
-        qb.from_(Quotation)
-        .inner_join(Project)
-        .on(Project.name == Quotation.project)
+        qb.from_(Project)
+        .inner_join(SalesPerson)
+        .on(SalesPerson.name == Project.sales_person)
+        .inner_join(Employee)
+        .on(Employee.name == SalesPerson.employee)
         .inner_join(Invoice)
         .on(Invoice.project == Project.name)
         .inner_join(InvoiceItem)
         .on(InvoiceItem.parent == Invoice.name)
         .select(
-            Quotation.estimator_id.as_("insurance_bd_id"),
-            Quotation.estimator_name.as_("insurance_bd_id_name"),
-            Quotation.name.as_("quotation"),
+            Employee.name.as_("insurance_bd_id"),
+            Employee.employee_name.as_("insurance_bd_id_name"),
             Project.name.as_("project"),
             Project.project_type.as_("service_type"),
             Invoice.name.as_("sales_invoice"),
@@ -451,13 +449,12 @@ def fetch_labour_parts_revenue(filters):
             InvoiceItem.base_net_amount.as_("net_amount"),
         )
         .where(Invoice.docstatus == 1)
-        .where(Quotation.docstatus == 1)
         .where(
             Invoice.posting_date.between(
                 filters.get("from_date"), filters.get("to_date")
             )
         )
-        .where(Quotation.estimator_id.isin(insurance_bd))
+        .where(Employee.name.isin(insurance_bd))
     )
 
     if filters.get("company"):
