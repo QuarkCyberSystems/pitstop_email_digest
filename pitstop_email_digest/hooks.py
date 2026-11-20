@@ -160,6 +160,7 @@ app_include_js = "/assets/pitstop_email_digest/js/env_banner.js"
 doctype_js = {
     "Asset": "public/js/asset.js",
     "Employee": "public/js/employee.js",
+    "Stock Reconciliation": "public/js/stock_reconciliation.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -211,6 +212,7 @@ after_migrate = [
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_smc_pricing_to_workshop",
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_pricing_rule_analyser_to_selling",
     "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_discount_rule_cards_to_accounting",
+    "pitstop_email_digest.pitstop_email_digest.setup.workspace_links.add_stock_reconciliation_details_to_stock",
     "pitstop_email_digest.pitstop_email_digest.setup.doctype_permissions.apply_doctype_read_permissions",
 ]
 

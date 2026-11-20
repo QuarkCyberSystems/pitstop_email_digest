@@ -83,6 +83,20 @@ def add_discount_rule_cards_to_accounting():
     )
 
 
+def add_stock_reconciliation_details_to_stock():
+    """Add the Stock Reconciliation Details page to the Stock Transactions card of the Stock workspace.
+
+    Re-applied on `after_migrate` for the same reason as `add_pricing_rule_analyser_to_selling`.
+    """
+    add_link_to_workspace_card(
+        "Stock",
+        "Stock Transactions",
+        "Page",
+        "stock-reconciliation-details",
+        label="Stock Reconciliation Details",
+    )
+
+
 def add_link_to_workspace_card(
     workspace, card, link_type, link_to, label=None, is_query_report=0
 ):
