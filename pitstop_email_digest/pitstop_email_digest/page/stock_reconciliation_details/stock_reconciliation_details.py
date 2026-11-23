@@ -96,14 +96,28 @@ def download_excel(
     columns = frappe.parse_json(columns)  # [{field, label, type}] in table order
     items = sort_items(details["items"], columns, sort_field, sort_order)
 
+    # Numbers rounded and shown to the precision of the Stock Reconciliation Item field;
+    # every qty column uses Physical Qty's precision (System Qty / Qty Difference have 6 on the field)
+    qty_precision = frappe.get_precision("Stock Reconciliation Item", "qty")
+    precisions = {
+        col["field"]: qty_precision
+        if col["type"] == "qty"
+        else frappe.get_precision("Stock Reconciliation Item", col["field"])
+        for col in columns
+        if col["type"] in ("qty", "currency")
+    }
+
     data = [[col["label"] for col in columns]]
     for row in items:
-        data.append([get_cell_value(row, col) for col in columns])
+        data.append([get_cell_value(row, col, precisions) for col in columns])
 
     xlsx = make_xlsx(
         data,
         "Stock Reconciliation",
         column_widths=[40 if col["field"] == "item_name" else 16 for col in columns],
+        column_formats=[
+            get_number_format(precisions.get(col["field"])) for col in columns
+        ],
         freeze="A2",
     )
 
@@ -135,13 +149,17 @@ def sort_items(items, columns, sort_field, sort_order):
     return sorted(items, key=key, reverse=sort_order == "desc")
 
 
-def get_cell_value(row, col):
+def get_cell_value(row, col, precisions):
     value = row.get(col["field"])
-    if col["field"] == "warehouse":
-        return (value or "").replace(" - PASLLC", "")
-    if col["type"] in ("qty", "currency"):
-        return flt(value)
+    if col["field"] in precisions:
+        return flt(value, precisions[col["field"]])
     return value if value is not None else ""
+
+
+def get_number_format(precision):
+    if precision is None:
+        return None
+    return "#,##0." + "0" * precision if precision else "#,##0"
 
 
 def set_missing_item_groups(doc):

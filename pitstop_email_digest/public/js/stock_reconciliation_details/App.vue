@@ -29,7 +29,7 @@
 				</div>
 				<div class="srd-header-item">
 					<span class="srd-label">{{ __("Location") }}</span>
-					<span class="srd-value">{{ strip_abbr(data.header.default_warehouse) || "-" }}</span>
+					<span class="srd-value">{{ data.header.default_warehouse || "-" }}</span>
 				</div>
 				<div class="srd-header-item">
 					<span class="srd-label">{{ __("Posting Date/Time") }}</span>
@@ -101,7 +101,6 @@ import { ref, reactive, computed, watch } from "vue";
 import StockReconciliationDetailsFilters from "./stock_reconciliation_details_filters.vue";
 import StockReconciliationDetailsCards from "./stock_reconciliation_details_cards.vue";
 import StockReconciliationDetailsTable from "./stock_reconciliation_details_table.vue";
-import { strip_abbr } from "./utils.js";
 
 defineProps({
 	page: { type: Object, required: true },

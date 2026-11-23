@@ -6,10 +6,6 @@ export function format_value(value, type, currency) {
 	return value ?? "";
 }
 
-export function strip_abbr(warehouse) {
-	return (warehouse || "").replace(" - PASLLC", "");
-}
-
 // Differences: green when added, red when minus
 export function sign_class(value) {
 	value = flt(value);

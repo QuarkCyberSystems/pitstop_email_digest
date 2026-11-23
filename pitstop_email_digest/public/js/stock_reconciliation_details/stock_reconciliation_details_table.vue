@@ -37,7 +37,7 @@
 
 <script setup>
 import { computed } from "vue";
-import { format_value, strip_abbr, sign_class } from "./utils.js";
+import { format_value, sign_class } from "./utils.js";
 
 const props = defineProps({
 	items: { type: Array, required: true },
@@ -84,7 +84,6 @@ function sort_icon(field) {
 }
 
 function format_cell(row, col) {
-	if (col.field === "warehouse") return strip_abbr(row.warehouse);
 	return format_value(row[col.field], col.type, props.currency);
 }
 </script>
