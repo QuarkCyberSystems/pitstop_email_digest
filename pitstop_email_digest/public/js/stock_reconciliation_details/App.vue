@@ -1,5 +1,6 @@
 <template>
-	<div class="srd">
+	<!-- tw-scope: the Tailwind utilities (button styles) are scoped to it -->
+	<div class="srd tw-scope">
 		<StockReconciliationDetailsFilters
 			:page="page"
 			v-model:stock-reconciliation="stockReconciliation"
@@ -37,6 +38,49 @@
 				<div class="srd-header-item">
 					<span class="srd-label">{{ __("Purpose") }}</span>
 					<span class="srd-value">{{ data.header.purpose }}</span>
+				</div>
+				<!-- Same Download / Refresh buttons as the Vehicle Movement page -->
+				<div class="srd-header-actions">
+					<button
+						@click="download_excel"
+						:disabled="loading || !data"
+						:title="__('Download as Excel')"
+						class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-solid border-gray-300 bg-white text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						<svg
+							class="h-3.5 w-3.5"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+							<path d="M7 10l5 5 5-5" />
+							<path d="M12 15V3" />
+						</svg>
+					</button>
+					<button
+						@click="load(stockReconciliation)"
+						:disabled="loading"
+						:title="__('Refresh')"
+						class="inline-flex h-7 w-7 items-center justify-center rounded-md border-0 bg-gray-900 text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						<svg
+							class="h-3.5 w-3.5"
+							:class="{ 'animate-spin': loading }"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+						>
+							<path d="M21 12a9 9 0 11-3-6.7L21 8" />
+							<path d="M21 3v5h-5" />
+						</svg>
+					</button>
 				</div>
 			</div>
 
@@ -159,11 +203,33 @@ const posting_datetime = computed(() => {
 		.filter(Boolean)
 		.join(" ");
 });
+
+// Excel of the rows on screen: same filters, visible columns and sort (built on the server)
+function download_excel() {
+	open_url_post(
+		"/api/method/pitstop_email_digest.pitstop_email_digest.page.stock_reconciliation_details.stock_reconciliation_details.download_excel",
+		{
+			stock_reconciliation: stockReconciliation.value,
+			...filters,
+			columns: columns.value.map(({ field, label, type }) => ({ field, label, type })),
+			sort_field: sort.value.field || "",
+			sort_order: sort.value.order || "",
+		}
+	);
+}
 </script>
 
 <style scoped>
 .srd {
 	padding: var(--padding-md) 0;
+}
+
+/* Right end of the document details card */
+.srd-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: auto;
 }
 
 .srd-empty {
