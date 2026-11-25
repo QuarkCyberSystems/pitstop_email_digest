@@ -102,7 +102,7 @@ class DownloadPitstopFinancial {
 					fieldname: "mandatory_sheets_note",
 					fieldtype: "HTML",
 					options: `<p class="text-muted small">${__(
-						"MoM Trial Balance and Account Group MoM are always included."
+						"Title Page, MoM Trial Balance and Account Group MoM are always included."
 					)}</p>`,
 				},
 				{ fieldname: "status", fieldtype: "HTML" },

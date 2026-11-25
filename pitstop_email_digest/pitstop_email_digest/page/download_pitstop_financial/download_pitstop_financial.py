@@ -17,6 +17,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 SHEETS = {
+    "title_page": "Title Page",
     "balance_sheet": "Summarized Balance Sheet",
     "inventory": "Inventory",
     "receivable": "Receivable",
@@ -375,7 +376,7 @@ PL_DEPT_SECTIONS = [
 ]
 
 # Always included in the workbook, whichever reports are selected
-MANDATORY_SHEETS = ["mom_trial_balance", "account_group_trial_balance"]
+MANDATORY_SHEETS = ["title_page", "mom_trial_balance", "account_group_trial_balance"]
 
 # Account Group root used by each report sheet: (group_level, report_type)
 REPORT_ROOTS = {
@@ -550,6 +551,9 @@ def build_workbook(filters):
     wb = Workbook()
     wb.remove(wb.active)
 
+    if "title_page" in filters.sheets:
+        write_title_page(wb, filters)
+
     # The MoM sheets are laid out first so that the statements can reference their cells
     mom = MoMTrialBalance(filters)
 
@@ -628,6 +632,30 @@ def build_workbook(filters):
     out = BytesIO()
     wb.save(out)
     return out.getvalue()
+
+
+def write_title_page(wb, filters):
+    """Cover sheet, laid out like the Title Page of the Pitstop Financial workbook"""
+    ws = wb.create_sheet(SHEETS["title_page"])
+
+    for col, width in (("A", 32.43), ("B", 30.86), ("C", 34.14)):
+        ws.column_dimensions[col].width = width
+    for row in (12, 21):
+        ws.row_dimensions[row].height = 22.5
+
+    center = Alignment(horizontal="center")
+    for row, value in ((12, filters.company.upper()), (21, _("MANAGEMENT ACCOUNTS"))):
+        cell = ws.cell(row=row, column=2, value=value)
+        cell.font = Font(name="CG Times", size=18, bold=True)
+        cell.alignment = center
+
+    cell = ws.cell(row=24, column=2, value=getdate(filters.report_date))
+    cell.font = Font(name="CG Times", size=15, bold=True)
+    cell.alignment = center
+    cell.number_format = "mmmm yyyy"
+
+    ws.page_setup.orientation = "portrait"
+    ws.print_area = "A1:C38"
 
 
 def write_title(ws, title, filters, width, schedule=None):
