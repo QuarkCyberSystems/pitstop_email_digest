@@ -377,12 +377,6 @@ set_sle_item_conditions = [
 before_request = ["pitstop_email_digest.pitstop_email_digest.api.mdm.register_routes"]
 # after_request = ["pitstop_email_digest.utils.after_request"]
 
-# Pricing Rule
-# SMC Pricing page: price packages for a fuel type other than the vehicle's (no-op otherwise)
-update_pricing_rule_parent_doc_conditions = [
-    "pitstop_email_digest.pitstop_email_digest.page.smc_pricing.smc_pricing.set_pricing_rule_fuel_type",
-]
-
 # Job Events
 # ----------
 # before_job = ["pitstop_email_digest.utils.before_job"]

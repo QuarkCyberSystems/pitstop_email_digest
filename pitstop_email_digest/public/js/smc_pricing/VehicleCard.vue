@@ -40,16 +40,12 @@ const props = defineProps({
 const vehicle = computed(() => props.data.vehicle);
 
 const details = computed(() => {
-	const fuel = props.data.fuel_type;
 	return [
 		{ label: __("Model"), value: vehicle.value.variant_of },
 		{ label: __("License Plate"), value: vehicle.value.license_plate },
 		{ label: __("Chassis No"), value: vehicle.value.chassis_no },
-		{
-			label: __("Fuel Type"),
-			value: fuel && fuel !== vehicle.value.fuel_type ? __("{0} (filter)", [fuel]) : fuel,
-		},
-		{ label: __("Customer"), value: props.data.customer_name || props.data.customer || __("None") },
+		{ label: __("Fuel Type"), value: vehicle.value.fuel_type },
+		{ label: __("Customer"), value: props.data.customer_name || props.data.customer },
 		{ label: __("Customer Group"), value: props.data.customer_group },
 		{ label: __("Price List"), value: props.data.selling_price_list },
 	];

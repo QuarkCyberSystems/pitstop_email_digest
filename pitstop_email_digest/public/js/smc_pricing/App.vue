@@ -86,7 +86,15 @@ const props = defineProps({
 	page: { type: Object, required: true },
 });
 
-const filters = reactive({ vehicle: "", customer: "", fuel_type: "" });
+// without a customer, packages are priced for the Customer Group filter
+const DEFAULT_CUSTOMER_GROUP = "B2C";
+
+const filters = reactive({
+	vehicle: "",
+	customer_group: DEFAULT_CUSTOMER_GROUP,
+	customer: "",
+	restrict_on_fuel_type: 0,
+});
 const data = ref(null);
 const packages = ref([]);
 const loading = ref(false);
@@ -94,6 +102,8 @@ const search = ref("");
 const sortBy = ref("name");
 const showNotApplicable = ref(false);
 const fields = {};
+// the Customer Group filter and its sub-groups, for the Customer filter
+let customerGroups = [DEFAULT_CUSTOMER_GROUP];
 
 // bumped on every load, so pricing calls from an older filter set are dropped
 let generation = 0;
@@ -138,29 +148,68 @@ function makeFilters() {
 		change: () => onFilterChange("vehicle"),
 	});
 
+	fields.customer_group = props.page.add_field({
+		fieldname: "customer_group",
+		label: __("Customer Group"),
+		fieldtype: "Link",
+		options: "Customer Group",
+		default: DEFAULT_CUSTOMER_GROUP,
+		change: () => onCustomerGroupChange(),
+	});
+
+	// only customers of the Customer Group filter; a selected customer's own group is used.
+	// erpnext customer_query does not take tree operators, so filter on the group list
 	fields.customer = props.page.add_field({
 		fieldname: "customer",
 		label: __("Customer"),
 		fieldtype: "Link",
 		options: "Customer",
+		get_query: () =>
+			filters.customer_group ? { filters: { customer_group: ["in", customerGroups] } } : {},
 		change: () => onFilterChange("customer"),
 	});
 
-	// empty means the vehicle's own fuel type
-	fields.fuel_type = props.page.add_field({
-		fieldname: "fuel_type",
-		label: __("Fuel Type"),
-		fieldtype: "Link",
-		options: "Vehicle Fuel Type",
-		change: () => onFilterChange("fuel_type"),
+	// only packages with items for the vehicle's fuel type, e.g. EV packages for an Electric vehicle
+	fields.restrict_on_fuel_type = props.page.add_field({
+		fieldname: "restrict_on_fuel_type",
+		label: __("Restrict On Fuel Type"),
+		fieldtype: "Check",
+		change: () => onFilterChange("restrict_on_fuel_type"),
 	});
 }
 
 function onFilterChange(fieldname) {
-	const value = fields[fieldname].get_value() || "";
+	// a Check gives 0 or 1, a Link "" or the value
+	const value = fields[fieldname].get_value() ?? "";
 	if (filters[fieldname] === value) return;
 	filters[fieldname] = value;
 	load();
+}
+
+async function onCustomerGroupChange() {
+	const value = fields.customer_group.get_value() || "";
+	if (filters.customer_group === value) return;
+	filters.customer_group = value;
+	customerGroups = await getCustomerGroups(value);
+
+	// a customer outside the new group would no longer match the filter; its change reloads
+	if (filters.customer && value) {
+		const group = await frappe.db.get_value("Customer", filters.customer, "customer_group");
+		if (!customerGroups.includes(group.message.customer_group)) {
+			fields.customer.set_value("");
+			return;
+		}
+	}
+	load();
+}
+
+async function getCustomerGroups(customerGroup) {
+	if (!customerGroup) return [];
+	const rows = await frappe.db.get_list("Customer Group", {
+		filters: { name: ["descendants of (inclusive)", customerGroup] },
+		limit: 0,
+	});
+	return (rows || []).map((d) => d.name);
 }
 
 async function load() {
@@ -183,7 +232,6 @@ async function load() {
 			status: p.applicable ? "pending" : "",
 			pricing: null,
 		}));
-		setFuelTypePlaceholder(message.vehicle.fuel_type);
 	} finally {
 		if (gen === generation) loading.value = false;
 	}
@@ -202,7 +250,12 @@ async function priceAll(gen) {
 			try {
 				const { message } = await frappe.call({
 					method: `${API}.get_smc_package_price`,
-					args: { ...filters, package: pkg.package },
+					args: {
+						vehicle: filters.vehicle,
+						customer: filters.customer,
+						customer_group: filters.customer_group,
+						package: pkg.package,
+					},
 				});
 				if (gen !== generation) return;
 				pkg.pricing = message;
@@ -216,13 +269,12 @@ async function priceAll(gen) {
 	await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 }
 
-function setFuelTypePlaceholder(vehicleFuelType) {
-	const placeholder = vehicleFuelType ? __("{0} (vehicle)", [vehicleFuelType]) : __("Fuel Type");
-	fields.fuel_type.$input && fields.fuel_type.$input.attr("placeholder", placeholder);
-}
-
 onMounted(() => {
 	makeFilters();
+	getCustomerGroups(DEFAULT_CUSTOMER_GROUP).then((groups) => {
+		// unless the Customer Group filter changed meanwhile
+		if (filters.customer_group === DEFAULT_CUSTOMER_GROUP) customerGroups = groups;
+	});
 	props.page.set_primary_action(__("Refresh"), () => load(), "refresh");
 
 	// /app/smc-pricing?vehicle=V-00001
