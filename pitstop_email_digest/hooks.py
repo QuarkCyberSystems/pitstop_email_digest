@@ -36,9 +36,13 @@ scheduler_events = {
         "05 00 * * 0": "pitstop_email_digest.pitstop_email_digest.doctype."
         "pitstop_email_digest.pitstop_email_digest.cron_auto_send_weekly",
         # every day at 00:00
-        "0 0 * * *": "pitstop_email_digest.overrides.customer_feedback."
-        "customer_feedback_tasks.create_pending_customer_feedback",
-    }
+        "0 0 * * *": [
+            "pitstop_email_digest.overrides.customer_feedback."
+            "customer_feedback_tasks.create_pending_customer_feedback",
+            "pitstop_email_digest.pitstop_email_digest.doctype."
+            "schedule_job.schedule_job.process_scheduled_jobs",
+        ],
+    },
 }
 
 fixtures = [
