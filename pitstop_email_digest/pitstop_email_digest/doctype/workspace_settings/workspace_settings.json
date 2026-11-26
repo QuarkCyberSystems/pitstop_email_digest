@@ -15,12 +15,10 @@
   "whole_vehicle_group_list_invoice_wip_map",
   "vehicle_mobility_section",
   "customer_group_vehicle_mobility",
-  "task_type_job_status_all_vehicle_mobility",
   "report_link_access_roles_all_vehicle_mobility",
   "job_status_workshop_division_all_vehicle_mobility",
   "job_status_per_day_all_vehicle_mobility",
   "column_break_mdga",
-  "task_type_job_status_brac_vehicle_mobility",
   "report_link_access_roles_brac_vehicle_mobility",
   "job_status_workshop_division_brac_vehicle_mobility",
   "job_status_per_day_brac_vehicle_mobility"
@@ -83,12 +81,6 @@
    "options": "Workspace Customer Group Details"
   },
   {
-   "fieldname": "task_type_job_status_brac_vehicle_mobility",
-   "fieldtype": "Table MultiSelect",
-   "label": "Task Type Job Status BRAC",
-   "options": "Job Status Details"
-  },
-  {
    "fieldname": "report_link_access_roles_brac_vehicle_mobility",
    "fieldtype": "Table MultiSelect",
    "label": "Report Link Access Roles BRAC",
@@ -109,12 +101,6 @@
   {
    "fieldname": "column_break_mdga",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "task_type_job_status_all_vehicle_mobility",
-   "fieldtype": "Table MultiSelect",
-   "label": "Task Type Job Status ALL",
-   "options": "Job Status Details"
   },
   {
    "fieldname": "report_link_access_roles_all_vehicle_mobility",
@@ -139,7 +125,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-01-05 18:51:40.295545",
+ "modified": "2026-11-26 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Pitstop Email Digest",
  "name": "Workspace Settings",

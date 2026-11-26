@@ -423,7 +423,6 @@ function drillDown(status, group, timespan) {
 		current_task_type: taskType?.current_task_type,
 		billing_type: group.billing_type,
 		branch: selectedBranch,
-		task_type_job_status_field: "task_type_job_status_brac_vehicle_mobility",
 		link_access_roles_field: "report_link_access_roles_brac_vehicle_mobility",
 	};
 	details.title = status;

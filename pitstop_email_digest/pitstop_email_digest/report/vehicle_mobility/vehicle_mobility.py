@@ -6,10 +6,7 @@ from frappe import _, qb, query_builder
 from frappe.query_builder.functions import IfNull, Max
 from frappe.utils import ceil, today
 
-from ....utils.vehicle_movement.vehicle_movement import (
-    fetch_custom_order_data,
-    get_customers_list,
-)
+from ...page.vehicle_movement.vehicle_movement import get_customers_list
 
 
 def execute(filters=None):
@@ -146,12 +143,6 @@ def get_data(filters=None):
     VSR = qb.DocType("Vehicle Service Receipt")
     VGP = qb.DocType("Vehicle Gate Pass")
 
-    task_type_job_status = []
-    if filters.get("task_type_job_status_vehicle_mobility_field"):
-        task_type_job_status = fetch_custom_order_data(
-            filters.get("task_type_job_status_vehicle_mobility_field")
-        )
-
     datediff = query_builder.CustomFunction("DATEDIFF", ["cur_date", "due_date"])
 
     # Step 1: Subquery to get max(posting_date) for each project in VSR
@@ -221,7 +212,13 @@ def get_data(filters=None):
         query = query.where(
             Project.current_task_type == filters.get("current_task_type")
         )
-    elif filters and (filters.get("project_status") in task_type_job_status):
+    elif (
+        filters
+        and filters.get("project_status")
+        and frappe.get_cached_value(
+            "Project Status", filters.get("project_status"), "show_task_type"
+        )
+    ):
         query = query.where(
             (Project.current_task_type.isnull()) | (Project.current_task_type == "")
         )
@@ -256,12 +253,15 @@ def get_data(filters=None):
         else:
             query = query.where((Project.branch.isnull()) | (Project.branch == ""))
 
-    customer_list = []
-    if filters.get("workspace"):
-        customer_list = get_customers_list(filters.get("workspace"))
+    if filters.get("customer_group"):
+        customer_list = get_customers_list(customer_group=filters.get("customer_group"))
 
-    if customer_list:
-        query = query.where(Project.customer.isin(customer_list))
+        # no customers matched the filters
+        if customer_list == []:
+            return []
+
+        if customer_list is not None:
+            query = query.where(Project.customer.isin(customer_list))
 
     workshop_division_project_status_data_mechanical = query.run(as_dict=True)
 

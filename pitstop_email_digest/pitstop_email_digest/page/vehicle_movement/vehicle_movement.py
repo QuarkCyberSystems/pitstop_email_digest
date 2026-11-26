@@ -539,7 +539,6 @@ def get_vehicle_movement_details(
     current_task_type=None,
     branch=None,
     billing_type=None,
-    task_type_job_status_field=None,
     link_access_roles_field=None,
 ):
     """
@@ -625,14 +624,11 @@ def get_vehicle_movement_details(
     if project_status:
         query = query.where(Project.project_status == project_status)
 
-    task_type_job_status = (
-        fetch_custom_order_data(task_type_job_status_field) or []
-        if task_type_job_status_field
-        else []
-    )
     if current_task_type:
         query = query.where(Project.current_task_type == current_task_type)
-    elif project_status in task_type_job_status:
+    elif project_status and frappe.get_cached_value(
+        "Project Status", project_status, "show_task_type"
+    ):
         query = query.where(
             (Project.current_task_type.isnull()) | (Project.current_task_type == "")
         )

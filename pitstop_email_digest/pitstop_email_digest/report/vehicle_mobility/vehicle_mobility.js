@@ -53,6 +53,13 @@ frappe.query_reports["Vehicle Mobility"] = {
 			reqd: 0,
 		},
 		{
+			fieldname: "customer_group",
+			label: __("Customer Group"),
+			fieldtype: "Link",
+			options: "Customer Group",
+			reqd: 0,
+		},
+		{
 			fieldname: "workspace",
 			label: __("Workspace"),
 			fieldtype: "Link",
@@ -64,14 +71,6 @@ frappe.query_reports["Vehicle Mobility"] = {
 		{
 			fieldname: "report_link_access_roles_vehicle_mobility_field",
 			label: __("Link Access Role"),
-			fieldtype: "Data",
-			reqd: 0,
-			hidden: 1,
-			read_only: 1,
-		},
-		{
-			fieldname: "task_type_job_status_vehicle_mobility_field",
-			label: __("Task Type Job Status"),
 			fieldtype: "Data",
 			reqd: 0,
 			hidden: 1,
