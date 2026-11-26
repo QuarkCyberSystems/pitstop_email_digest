@@ -165,6 +165,7 @@ doctype_js = {
     "Asset": "public/js/asset.js",
     "Employee": "public/js/employee.js",
     "Stock Reconciliation": "public/js/stock_reconciliation.js",
+    "Project": "public/js/project.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
